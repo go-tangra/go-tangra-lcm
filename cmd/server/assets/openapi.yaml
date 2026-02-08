@@ -745,6 +745,71 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/HealthCheckResponse'
+    /v1/issued-certificates:
+        get:
+            tags:
+                - LcmIssuedCertificateService
+            description: List issued certificates with optional filters
+            operationId: LcmIssuedCertificateService_ListIssuedCertificates
+            parameters:
+                - name: status
+                  in: query
+                  schema:
+                    enum:
+                        - ISSUED_CERTIFICATE_STATUS_UNSPECIFIED
+                        - ISSUED_CERTIFICATE_STATUS_PENDING
+                        - ISSUED_CERTIFICATE_STATUS_PROCESSING
+                        - ISSUED_CERTIFICATE_STATUS_ISSUED
+                        - ISSUED_CERTIFICATE_STATUS_EXPIRED
+                        - ISSUED_CERTIFICATE_STATUS_REVOKED
+                        - ISSUED_CERTIFICATE_STATUS_FAILED
+                        - ISSUED_CERTIFICATE_STATUS_RENEWED
+                    type: string
+                    format: enum
+                - name: issuerName
+                  in: query
+                  schema:
+                    type: string
+                - name: autoRenewEnabled
+                  in: query
+                  schema:
+                    type: boolean
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListIssuedCertificatesResponse'
+    /v1/issued-certificates/{id}:
+        get:
+            tags:
+                - LcmIssuedCertificateService
+            description: Get a single issued certificate by ID
+            operationId: LcmIssuedCertificateService_GetIssuedCertificate
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetIssuedCertificateResponse'
     /v1/issuers:
         get:
             tags:
@@ -1699,6 +1764,12 @@ components:
                     additionalProperties:
                         type: string
                     description: Operations breakdown by operation type
+        GetIssuedCertificateResponse:
+            type: object
+            properties:
+                certificate:
+                    $ref: '#/components/schemas/IssuedCertificateInfo'
+            description: Response for getting a single issued certificate
         GetIssuerInfoResponse:
             type: object
             properties:
@@ -1931,6 +2002,55 @@ components:
                     $ref: '#/components/schemas/MtlsCertificate'
                 caCertificatePem:
                     type: string
+        IssuedCertificateInfo:
+            type: object
+            properties:
+                id:
+                    type: string
+                commonName:
+                    type: string
+                domains:
+                    type: array
+                    items:
+                        type: string
+                issuerName:
+                    type: string
+                issuerType:
+                    type: string
+                status:
+                    enum:
+                        - ISSUED_CERTIFICATE_STATUS_UNSPECIFIED
+                        - ISSUED_CERTIFICATE_STATUS_PENDING
+                        - ISSUED_CERTIFICATE_STATUS_PROCESSING
+                        - ISSUED_CERTIFICATE_STATUS_ISSUED
+                        - ISSUED_CERTIFICATE_STATUS_EXPIRED
+                        - ISSUED_CERTIFICATE_STATUS_REVOKED
+                        - ISSUED_CERTIFICATE_STATUS_FAILED
+                        - ISSUED_CERTIFICATE_STATUS_RENEWED
+                    type: string
+                    format: enum
+                expiresAt:
+                    type: string
+                    format: date-time
+                autoRenewEnabled:
+                    type: boolean
+                autoRenewDaysBeforeExpiry:
+                    type: integer
+                    format: int32
+                keyType:
+                    type: string
+                keySize:
+                    type: integer
+                    format: int32
+                errorMessage:
+                    type: string
+                createdAt:
+                    type: string
+                    format: date-time
+                updatedAt:
+                    type: string
+                    format: date-time
+            description: Issued certificate info
         IssuedCertificateStatistics:
             type: object
             properties:
@@ -2132,6 +2252,17 @@ components:
                     items:
                         $ref: '#/components/schemas/DnsProviderInfo'
             description: DNS Provider messages for DNS challenge support
+        ListIssuedCertificatesResponse:
+            type: object
+            properties:
+                certificates:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/IssuedCertificateInfo'
+                total:
+                    type: integer
+                    format: uint32
+            description: Response for listing issued certificates
         ListIssuersResponse:
             type: object
             properties:
@@ -2816,6 +2947,8 @@ tags:
       description: Certificate Permission Service - manages certificate access grants between clients
     - name: LcmCertificateJobService
       description: Certificate Job Service - handles async certificate issuance
+    - name: LcmIssuedCertificateService
+      description: Issued Certificate Service - view and manage issued certificates
     - name: LcmIssuerService
     - name: LcmMtlsCertificateRequestService
       description: mTLS Certificate Request Admin Service

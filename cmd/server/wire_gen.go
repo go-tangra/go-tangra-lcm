@@ -61,6 +61,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	issuedCertificateRepo := data.NewIssuedCertificateRepo(context, entClient)
 	publisher := event.NewPublisher(context, client)
 	certificateJobService := service.NewCertificateJobService(context, issuerRepo, lcmClientRepo, mtlsCertificateRepo, issuedCertificateRepo, publisher)
+	issuedCertificateService := service.NewIssuedCertificateService(context, issuedCertificateRepo, lcmClientRepo, mtlsCertificateRepo)
 	tenantSecretService := service.NewTenantSecretService(context, tenantSecretRepo, lcmClientRepo)
 	auditLogService := service.NewAuditLogService(context, auditLogRepo, lcmClientRepo)
 	mtlsCertService, err := service.NewMtlsCertService(context, mtlsCertificateRepo, lcmClientRepo)
@@ -79,7 +80,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	}
 	statisticsRepo := data.NewStatisticsRepo(context, entClient)
 	statisticsService := service.NewStatisticsService(context, statisticsRepo)
-	grpcServer := server.NewGRPCServer(context, certManager, auditLogRepo, systemService, lcmClientService, issuerService, certificateJobService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService)
+	grpcServer := server.NewGRPCServer(context, certManager, auditLogRepo, systemService, lcmClientService, issuerService, certificateJobService, issuedCertificateService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService)
 	bootstrapService, err := bootstrap2.NewBootstrapService(context, mtlsCertificateRepo, lcmClientRepo, issuedCertificateRepo, issuerRepo)
 	if err != nil {
 		cleanup2()

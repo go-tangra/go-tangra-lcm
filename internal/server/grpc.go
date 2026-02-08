@@ -87,6 +87,7 @@ func NewGRPCServer(
 	lcmClientSvc *service.LcmClientService,
 	issuerSvc *service.IssuerService,
 	certJobSvc *service.CertificateJobService,
+	issuedCertSvc *service.IssuedCertificateService,
 	tenantSecretSvc *service.TenantSecretService,
 	auditLogSvc *service.AuditLogService,
 	mtlsCertSvc *service.MtlsCertService,
@@ -127,6 +128,7 @@ func NewGRPCServer(
 	lcmV1.RegisterLcmClientServiceServer(srv, lcmClientSvc)
 	lcmV1.RegisterLcmIssuerServiceServer(srv, issuerSvc)
 	lcmV1.RegisterLcmCertificateJobServiceServer(srv, certJobSvc)
+	lcmV1.RegisterLcmIssuedCertificateServiceServer(srv, issuedCertSvc)
 	lcmV1.RegisterTenantSecretServiceServer(srv, tenantSecretSvc)
 	lcmV1.RegisterAuditLogServiceServer(srv, auditLogSvc)
 	lcmV1.RegisterLcmMtlsCertificateServiceServer(srv, mtlsCertSvc)

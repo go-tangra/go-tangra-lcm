@@ -314,11 +314,12 @@ func (r *IssuedCertificateRepo) ListByIssuerName(ctx context.Context, issuerName
 
 // ListFilter represents filters for listing issued certificates
 type ListFilter struct {
-	TenantID   *uint32
-	Status     *issuedcertificate.Status
-	IssuerName string
-	Page       uint32
-	PageSize   uint32
+	TenantID         *uint32
+	Status           *issuedcertificate.Status
+	IssuerName       string
+	AutoRenewEnabled *bool
+	Page             uint32
+	PageSize         uint32
 }
 
 // CreateJobRequest contains all data needed to create a new certificate job
@@ -424,6 +425,9 @@ func (r *IssuedCertificateRepo) List(ctx context.Context, filter *ListFilter) ([
 		}
 		if filter.IssuerName != "" {
 			query = query.Where(issuedcertificate.IssuerNameEQ(filter.IssuerName))
+		}
+		if filter.AutoRenewEnabled != nil {
+			query = query.Where(issuedcertificate.AutoRenewEnabledEQ(*filter.AutoRenewEnabled))
 		}
 	}
 

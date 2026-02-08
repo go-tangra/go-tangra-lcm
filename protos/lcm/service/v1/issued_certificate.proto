@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package lcm.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// Issued Certificate Service - view and manage issued certificates
+service LcmIssuedCertificateService {
+  // List issued certificates with optional filters
+  rpc ListIssuedCertificates(ListIssuedCertificatesRequest) returns (ListIssuedCertificatesResponse) {
+    option (google.api.http) = {
+      get: "/v1/issued-certificates"
+    };
+  }
+
+  // Get a single issued certificate by ID
+  rpc GetIssuedCertificate(GetIssuedCertificateRequest) returns (GetIssuedCertificateResponse) {
+    option (google.api.http) = {
+      get: "/v1/issued-certificates/{id}"
+    };
+  }
+}
+
+// Issued certificate status enumeration
+enum IssuedCertificateStatus {
+  ISSUED_CERTIFICATE_STATUS_UNSPECIFIED = 0;
+  ISSUED_CERTIFICATE_STATUS_PENDING = 1;
+  ISSUED_CERTIFICATE_STATUS_PROCESSING = 2;
+  ISSUED_CERTIFICATE_STATUS_ISSUED = 3;
+  ISSUED_CERTIFICATE_STATUS_EXPIRED = 4;
+  ISSUED_CERTIFICATE_STATUS_REVOKED = 5;
+  ISSUED_CERTIFICATE_STATUS_FAILED = 6;
+  ISSUED_CERTIFICATE_STATUS_RENEWED = 7;
+}
+
+// Request to list issued certificates
+message ListIssuedCertificatesRequest {
+  optional IssuedCertificateStatus status = 1 [json_name = "status"];
+  optional string issuer_name = 2 [json_name = "issuerName"];
+  optional bool auto_renew_enabled = 3 [json_name = "autoRenewEnabled"];
+  optional uint32 page = 4 [json_name = "page"];
+  optional uint32 page_size = 5 [json_name = "pageSize"];
+}
+
+// Response for listing issued certificates
+message ListIssuedCertificatesResponse {
+  repeated IssuedCertificateInfo certificates = 1 [json_name = "certificates"];
+  uint32 total = 2 [json_name = "total"];
+}
+
+// Request to get a single issued certificate
+message GetIssuedCertificateRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+}
+
+// Response for getting a single issued certificate
+message GetIssuedCertificateResponse {
+  IssuedCertificateInfo certificate = 1 [json_name = "certificate"];
+}
+
+// Issued certificate info
+message IssuedCertificateInfo {
+  string id = 1 [json_name = "id"];
+  string common_name = 2 [json_name = "commonName"];
+  repeated string domains = 3 [json_name = "domains"];
+  string issuer_name = 4 [json_name = "issuerName"];
+  string issuer_type = 5 [json_name = "issuerType"];
+  IssuedCertificateStatus status = 6 [json_name = "status"];
+  optional google.protobuf.Timestamp expires_at = 7 [json_name = "expiresAt"];
+  bool auto_renew_enabled = 8 [json_name = "autoRenewEnabled"];
+  int32 auto_renew_days_before_expiry = 9 [json_name = "autoRenewDaysBeforeExpiry"];
+  string key_type = 10 [json_name = "keyType"];
+  int32 key_size = 11 [json_name = "keySize"];
+  optional string error_message = 12 [json_name = "errorMessage"];
+  google.protobuf.Timestamp created_at = 13 [json_name = "createdAt"];
+  google.protobuf.Timestamp updated_at = 14 [json_name = "updatedAt"];
+}

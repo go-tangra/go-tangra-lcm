@@ -24,6 +24,7 @@ var ProviderSet = wire.NewSet(
 	service.NewLcmClientService,
 	service.NewIssuerService,
 	service.NewCertificateJobService,
+	service.NewIssuedCertificateService,
 	service.NewTenantSecretService,
 	service.NewAuditLogService,
 	service.NewMtlsCertService,
