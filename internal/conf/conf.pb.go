@@ -668,6 +668,7 @@ type FrontendCertificate struct {
 	KeySize           int32                  `protobuf:"varint,9,opt,name=key_size,json=keySize,proto3" json:"key_size,omitempty"`                                                                                                          // Key size: 256 for EC, 2048/4096 for RSA
 	OutputDir         string                 `protobuf:"bytes,10,opt,name=output_dir,json=outputDir,proto3" json:"output_dir,omitempty"`                                                                                                    // Output directory (relative to data_dir)
 	RenewBeforeDays   int32                  `protobuf:"varint,11,opt,name=renew_before_days,json=renewBeforeDays,proto3" json:"renew_before_days,omitempty"`                                                                               // Days before expiry to renew (default: 30)
+	DnsResolvers      []string               `protobuf:"bytes,12,rep,name=dns_resolvers,json=dnsResolvers,proto3" json:"dns_resolvers,omitempty"`                                                                                           // Recursive DNS resolvers for propagation check (e.g. "1.1.1.1:53", "8.8.8.8:53")
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -779,6 +780,13 @@ func (x *FrontendCertificate) GetRenewBeforeDays() int32 {
 	return 0
 }
 
+func (x *FrontendCertificate) GetDnsResolvers() []string {
+	if x != nil {
+		return x.DnsResolvers
+	}
+	return nil
+}
+
 var File_internal_conf_conf_proto protoreflect.FileDescriptor
 
 const file_internal_conf_conf_proto_rawDesc = "" +
@@ -849,7 +857,7 @@ const file_internal_conf_conf_proto_rawDesc = "" +
 	"\x10initial_delay_ms\x18\x02 \x01(\x05R\x0einitialDelayMs\x12 \n" +
 	"\fmax_delay_ms\x18\x03 \x01(\x05R\n" +
 	"maxDelayMs\x12-\n" +
-	"\x12backoff_multiplier\x18\x04 \x01(\x02R\x11backoffMultiplier\"\x88\x04\n" +
+	"\x12backoff_multiplier\x18\x04 \x01(\x02R\x11backoffMultiplier\"\xad\x04\n" +
 	"\x13FrontendCertificate\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12)\n" +
@@ -864,7 +872,8 @@ const file_internal_conf_conf_proto_rawDesc = "" +
 	"\n" +
 	"output_dir\x18\n" +
 	" \x01(\tR\toutputDir\x12*\n" +
-	"\x11renew_before_days\x18\v \x01(\x05R\x0frenewBeforeDays\x1aD\n" +
+	"\x11renew_before_days\x18\v \x01(\x05R\x0frenewBeforeDays\x12#\n" +
+	"\rdns_resolvers\x18\f \x03(\tR\fdnsResolvers\x1aD\n" +
 	"\x16DnsProviderConfigEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B+Z)github.com/menta2k/lcm/internal/conf;confb\x06proto3"

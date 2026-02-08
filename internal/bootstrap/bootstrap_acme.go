@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
+	"github.com/go-acme/lego/v4/challenge/dns01"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 
@@ -126,6 +127,7 @@ func (bs *BootstrapService) requestACMECertificate(_ context.Context, cfg interf
 	GetDnsProviderConfig() map[string]string
 	GetKeyType() string
 	GetKeySize() int32
+	GetDnsResolvers() []string
 }) (*acmeCertificateData, error) {
 
 	// Generate ACME account key (always EC-256 for account key)
@@ -213,7 +215,14 @@ func (bs *BootstrapService) requestACMECertificate(_ context.Context, cfg interf
 		return nil, fmt.Errorf("failed to create DNS provider '%s': %w", providerName, err)
 	}
 
-	if err := legoClient.Challenge.SetDNS01Provider(dnsProvider); err != nil {
+	// Configure DNS-01 provider with optional custom recursive nameservers
+	resolvers := cfg.GetDnsResolvers()
+	if len(resolvers) == 0 {
+		resolvers = []string{"1.1.1.1:53", "8.8.8.8:53"}
+	}
+	bs.log.Infof("Using DNS resolvers for propagation check: %v", resolvers)
+
+	if err := legoClient.Challenge.SetDNS01Provider(dnsProvider, dns01.AddRecursiveNameservers(resolvers)); err != nil {
 		return nil, fmt.Errorf("failed to set DNS provider: %w", err)
 	}
 

@@ -87,4 +87,5 @@ message FrontendCertificate {
   int32 key_size = 9;                            // Key size: 256 for EC, 2048/4096 for RSA
   string output_dir = 10;                        // Output directory (relative to data_dir)
   int32 renew_before_days = 11;                  // Days before expiry to renew (default: 30)
+  repeated string dns_resolvers = 12;            // Recursive DNS resolvers for propagation check (e.g. "1.1.1.1:53", "8.8.8.8:53")
 }
