@@ -1,0 +1,16 @@
+# Binary
+bin/
+
+# Runtime data
+data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
