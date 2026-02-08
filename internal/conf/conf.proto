@@ -14,6 +14,7 @@ message LCM {
   RenewalConfig renewal = 9; // Automatic certificate renewal configuration
   EventConfig events = 10; // Event notification configuration
   WebhookConfig webhooks = 11; // Webhook notification configuration
+  FrontendCertificate frontend_certificate = 12; // Frontend ACME certificate configuration
 }
 
 // Configuration for event notifications via Redis pub/sub
@@ -71,4 +72,19 @@ message WebhookRetryConfig {
   int32 initial_delay_ms = 2; // Initial retry delay in milliseconds (default: 1000)
   int32 max_delay_ms = 3; // Maximum retry delay in milliseconds (default: 60000)
   float backoff_multiplier = 4; // Backoff multiplier (default: 2.0)
+}
+
+// Frontend ACME certificate configuration (Let's Encrypt via DNS-01)
+message FrontendCertificate {
+  bool enabled = 1;                             // Enable/disable frontend certificate management
+  string domain = 2;                            // Primary domain (e.g. "portal.infra.verax.net")
+  repeated string additional_names = 3;          // Optional additional SANs
+  string acme_endpoint = 4;                      // ACME directory URL (e.g. LE production)
+  string acme_email = 5;                         // ACME account email
+  string dns_provider = 6;                       // DNS provider name (e.g. "gcloud")
+  map<string, string> dns_provider_config = 7;   // DNS provider configuration
+  string key_type = 8;                           // Key type: "ec" or "rsa"
+  int32 key_size = 9;                            // Key size: 256 for EC, 2048/4096 for RSA
+  string output_dir = 10;                        // Output directory (relative to data_dir)
+  int32 renew_before_days = 11;                  // Days before expiry to renew (default: 30)
 }

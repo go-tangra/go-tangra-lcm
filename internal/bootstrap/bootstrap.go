@@ -151,6 +151,13 @@ func (bs *BootstrapService) Bootstrap(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure deployer server certificate: %w", err)
 	}
 
+	// Step 8: Ensure frontend ACME certificate (non-fatal)
+	if bs.config.GetFrontendCertificate() != nil && bs.config.GetFrontendCertificate().GetEnabled() {
+		if err := bs.ensureFrontendCertificate(ctx); err != nil {
+			bs.log.Warnf("Failed to ensure frontend certificate (non-fatal): %v", err)
+		}
+	}
+
 	bs.log.Info("mTLS certificate bootstrap completed successfully")
 	return nil
 }

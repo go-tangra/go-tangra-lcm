@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.12.4
-// source: conf.proto
+// source: internal/conf/conf.proto
 
 package conf
 
@@ -28,19 +28,20 @@ type LCM struct {
 	AutoApproveCertificates bool                   `protobuf:"varint,3,opt,name=auto_approve_certificates,json=autoApproveCertificates,proto3" json:"auto_approve_certificates,omitempty"` // true = automatic, false = manual approval required
 	AutoGenerateCa          bool                   `protobuf:"varint,4,opt,name=auto_generate_ca,json=autoGenerateCa,proto3" json:"auto_generate_ca,omitempty"`                            // true = generate CA if not exists
 	Vault                   *Vault                 `protobuf:"bytes,5,opt,name=vault,proto3" json:"vault,omitempty"`
-	SharedSecret            string                 `protobuf:"bytes,6,opt,name=shared_secret,json=sharedSecret,proto3" json:"shared_secret,omitempty"` // Global shared secret for certificate requests
-	CaCertPath              string                 `protobuf:"bytes,7,opt,name=ca_cert_path,json=caCertPath,proto3" json:"ca_cert_path,omitempty"`     // Path to CA certificate file
-	CaKeyPath               string                 `protobuf:"bytes,8,opt,name=ca_key_path,json=caKeyPath,proto3" json:"ca_key_path,omitempty"`        // Path to CA private key file
-	Renewal                 *RenewalConfig         `protobuf:"bytes,9,opt,name=renewal,proto3" json:"renewal,omitempty"`                               // Automatic certificate renewal configuration
-	Events                  *EventConfig           `protobuf:"bytes,10,opt,name=events,proto3" json:"events,omitempty"`                                // Event notification configuration
-	Webhooks                *WebhookConfig         `protobuf:"bytes,11,opt,name=webhooks,proto3" json:"webhooks,omitempty"`                            // Webhook notification configuration
+	SharedSecret            string                 `protobuf:"bytes,6,opt,name=shared_secret,json=sharedSecret,proto3" json:"shared_secret,omitempty"`                       // Global shared secret for certificate requests
+	CaCertPath              string                 `protobuf:"bytes,7,opt,name=ca_cert_path,json=caCertPath,proto3" json:"ca_cert_path,omitempty"`                           // Path to CA certificate file
+	CaKeyPath               string                 `protobuf:"bytes,8,opt,name=ca_key_path,json=caKeyPath,proto3" json:"ca_key_path,omitempty"`                              // Path to CA private key file
+	Renewal                 *RenewalConfig         `protobuf:"bytes,9,opt,name=renewal,proto3" json:"renewal,omitempty"`                                                     // Automatic certificate renewal configuration
+	Events                  *EventConfig           `protobuf:"bytes,10,opt,name=events,proto3" json:"events,omitempty"`                                                      // Event notification configuration
+	Webhooks                *WebhookConfig         `protobuf:"bytes,11,opt,name=webhooks,proto3" json:"webhooks,omitempty"`                                                  // Webhook notification configuration
+	FrontendCertificate     *FrontendCertificate   `protobuf:"bytes,12,opt,name=frontend_certificate,json=frontendCertificate,proto3" json:"frontend_certificate,omitempty"` // Frontend ACME certificate configuration
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
 
 func (x *LCM) Reset() {
 	*x = LCM{}
-	mi := &file_conf_proto_msgTypes[0]
+	mi := &file_internal_conf_conf_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -52,7 +53,7 @@ func (x *LCM) String() string {
 func (*LCM) ProtoMessage() {}
 
 func (x *LCM) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_proto_msgTypes[0]
+	mi := &file_internal_conf_conf_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -65,7 +66,7 @@ func (x *LCM) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LCM.ProtoReflect.Descriptor instead.
 func (*LCM) Descriptor() ([]byte, []int) {
-	return file_conf_proto_rawDescGZIP(), []int{0}
+	return file_internal_conf_conf_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *LCM) GetDataDir() string {
@@ -145,6 +146,13 @@ func (x *LCM) GetWebhooks() *WebhookConfig {
 	return nil
 }
 
+func (x *LCM) GetFrontendCertificate() *FrontendCertificate {
+	if x != nil {
+		return x.FrontendCertificate
+	}
+	return nil
+}
+
 // Configuration for event notifications via Redis pub/sub
 type EventConfig struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -156,7 +164,7 @@ type EventConfig struct {
 
 func (x *EventConfig) Reset() {
 	*x = EventConfig{}
-	mi := &file_conf_proto_msgTypes[1]
+	mi := &file_internal_conf_conf_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -168,7 +176,7 @@ func (x *EventConfig) String() string {
 func (*EventConfig) ProtoMessage() {}
 
 func (x *EventConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_proto_msgTypes[1]
+	mi := &file_internal_conf_conf_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -181,7 +189,7 @@ func (x *EventConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventConfig.ProtoReflect.Descriptor instead.
 func (*EventConfig) Descriptor() ([]byte, []int) {
-	return file_conf_proto_rawDescGZIP(), []int{1}
+	return file_internal_conf_conf_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *EventConfig) GetEnabled() bool {
@@ -215,7 +223,7 @@ type RenewalConfig struct {
 
 func (x *RenewalConfig) Reset() {
 	*x = RenewalConfig{}
-	mi := &file_conf_proto_msgTypes[2]
+	mi := &file_internal_conf_conf_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -227,7 +235,7 @@ func (x *RenewalConfig) String() string {
 func (*RenewalConfig) ProtoMessage() {}
 
 func (x *RenewalConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_proto_msgTypes[2]
+	mi := &file_internal_conf_conf_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -240,7 +248,7 @@ func (x *RenewalConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewalConfig.ProtoReflect.Descriptor instead.
 func (*RenewalConfig) Descriptor() ([]byte, []int) {
-	return file_conf_proto_rawDescGZIP(), []int{2}
+	return file_internal_conf_conf_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RenewalConfig) GetEnabled() bool {
@@ -317,7 +325,7 @@ type Vault struct {
 
 func (x *Vault) Reset() {
 	*x = Vault{}
-	mi := &file_conf_proto_msgTypes[3]
+	mi := &file_internal_conf_conf_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -329,7 +337,7 @@ func (x *Vault) String() string {
 func (*Vault) ProtoMessage() {}
 
 func (x *Vault) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_proto_msgTypes[3]
+	mi := &file_internal_conf_conf_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -342,7 +350,7 @@ func (x *Vault) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Vault.ProtoReflect.Descriptor instead.
 func (*Vault) Descriptor() ([]byte, []int) {
-	return file_conf_proto_rawDescGZIP(), []int{3}
+	return file_internal_conf_conf_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Vault) GetRoleId() string {
@@ -429,7 +437,7 @@ type WebhookConfig struct {
 
 func (x *WebhookConfig) Reset() {
 	*x = WebhookConfig{}
-	mi := &file_conf_proto_msgTypes[4]
+	mi := &file_internal_conf_conf_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -441,7 +449,7 @@ func (x *WebhookConfig) String() string {
 func (*WebhookConfig) ProtoMessage() {}
 
 func (x *WebhookConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_proto_msgTypes[4]
+	mi := &file_internal_conf_conf_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -454,7 +462,7 @@ func (x *WebhookConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookConfig.ProtoReflect.Descriptor instead.
 func (*WebhookConfig) Descriptor() ([]byte, []int) {
-	return file_conf_proto_rawDescGZIP(), []int{4}
+	return file_internal_conf_conf_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *WebhookConfig) GetEnabled() bool {
@@ -507,7 +515,7 @@ type WebhookEndpoint struct {
 
 func (x *WebhookEndpoint) Reset() {
 	*x = WebhookEndpoint{}
-	mi := &file_conf_proto_msgTypes[5]
+	mi := &file_internal_conf_conf_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -519,7 +527,7 @@ func (x *WebhookEndpoint) String() string {
 func (*WebhookEndpoint) ProtoMessage() {}
 
 func (x *WebhookEndpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_proto_msgTypes[5]
+	mi := &file_internal_conf_conf_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -532,7 +540,7 @@ func (x *WebhookEndpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookEndpoint.ProtoReflect.Descriptor instead.
 func (*WebhookEndpoint) Descriptor() ([]byte, []int) {
-	return file_conf_proto_rawDescGZIP(), []int{5}
+	return file_internal_conf_conf_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *WebhookEndpoint) GetName() string {
@@ -590,7 +598,7 @@ type WebhookRetryConfig struct {
 
 func (x *WebhookRetryConfig) Reset() {
 	*x = WebhookRetryConfig{}
-	mi := &file_conf_proto_msgTypes[6]
+	mi := &file_internal_conf_conf_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -602,7 +610,7 @@ func (x *WebhookRetryConfig) String() string {
 func (*WebhookRetryConfig) ProtoMessage() {}
 
 func (x *WebhookRetryConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_proto_msgTypes[6]
+	mi := &file_internal_conf_conf_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -615,7 +623,7 @@ func (x *WebhookRetryConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookRetryConfig.ProtoReflect.Descriptor instead.
 func (*WebhookRetryConfig) Descriptor() ([]byte, []int) {
-	return file_conf_proto_rawDescGZIP(), []int{6}
+	return file_internal_conf_conf_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *WebhookRetryConfig) GetMaxAttempts() int32 {
@@ -646,13 +654,137 @@ func (x *WebhookRetryConfig) GetBackoffMultiplier() float32 {
 	return 0
 }
 
-var File_conf_proto protoreflect.FileDescriptor
+// Frontend ACME certificate configuration (Let's Encrypt via DNS-01)
+type FrontendCertificate struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Enabled           bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`                                                                                                                         // Enable/disable frontend certificate management
+	Domain            string                 `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`                                                                                                                            // Primary domain (e.g. "portal.infra.verax.net")
+	AdditionalNames   []string               `protobuf:"bytes,3,rep,name=additional_names,json=additionalNames,proto3" json:"additional_names,omitempty"`                                                                                   // Optional additional SANs
+	AcmeEndpoint      string                 `protobuf:"bytes,4,opt,name=acme_endpoint,json=acmeEndpoint,proto3" json:"acme_endpoint,omitempty"`                                                                                            // ACME directory URL (e.g. LE production)
+	AcmeEmail         string                 `protobuf:"bytes,5,opt,name=acme_email,json=acmeEmail,proto3" json:"acme_email,omitempty"`                                                                                                     // ACME account email
+	DnsProvider       string                 `protobuf:"bytes,6,opt,name=dns_provider,json=dnsProvider,proto3" json:"dns_provider,omitempty"`                                                                                               // DNS provider name (e.g. "gcloud")
+	DnsProviderConfig map[string]string      `protobuf:"bytes,7,rep,name=dns_provider_config,json=dnsProviderConfig,proto3" json:"dns_provider_config,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // DNS provider configuration
+	KeyType           string                 `protobuf:"bytes,8,opt,name=key_type,json=keyType,proto3" json:"key_type,omitempty"`                                                                                                           // Key type: "ec" or "rsa"
+	KeySize           int32                  `protobuf:"varint,9,opt,name=key_size,json=keySize,proto3" json:"key_size,omitempty"`                                                                                                          // Key size: 256 for EC, 2048/4096 for RSA
+	OutputDir         string                 `protobuf:"bytes,10,opt,name=output_dir,json=outputDir,proto3" json:"output_dir,omitempty"`                                                                                                    // Output directory (relative to data_dir)
+	RenewBeforeDays   int32                  `protobuf:"varint,11,opt,name=renew_before_days,json=renewBeforeDays,proto3" json:"renew_before_days,omitempty"`                                                                               // Days before expiry to renew (default: 30)
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
 
-const file_conf_proto_rawDesc = "" +
+func (x *FrontendCertificate) Reset() {
+	*x = FrontendCertificate{}
+	mi := &file_internal_conf_conf_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FrontendCertificate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FrontendCertificate) ProtoMessage() {}
+
+func (x *FrontendCertificate) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_conf_conf_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FrontendCertificate.ProtoReflect.Descriptor instead.
+func (*FrontendCertificate) Descriptor() ([]byte, []int) {
+	return file_internal_conf_conf_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *FrontendCertificate) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *FrontendCertificate) GetDomain() string {
+	if x != nil {
+		return x.Domain
+	}
+	return ""
+}
+
+func (x *FrontendCertificate) GetAdditionalNames() []string {
+	if x != nil {
+		return x.AdditionalNames
+	}
+	return nil
+}
+
+func (x *FrontendCertificate) GetAcmeEndpoint() string {
+	if x != nil {
+		return x.AcmeEndpoint
+	}
+	return ""
+}
+
+func (x *FrontendCertificate) GetAcmeEmail() string {
+	if x != nil {
+		return x.AcmeEmail
+	}
+	return ""
+}
+
+func (x *FrontendCertificate) GetDnsProvider() string {
+	if x != nil {
+		return x.DnsProvider
+	}
+	return ""
+}
+
+func (x *FrontendCertificate) GetDnsProviderConfig() map[string]string {
+	if x != nil {
+		return x.DnsProviderConfig
+	}
+	return nil
+}
+
+func (x *FrontendCertificate) GetKeyType() string {
+	if x != nil {
+		return x.KeyType
+	}
+	return ""
+}
+
+func (x *FrontendCertificate) GetKeySize() int32 {
+	if x != nil {
+		return x.KeySize
+	}
+	return 0
+}
+
+func (x *FrontendCertificate) GetOutputDir() string {
+	if x != nil {
+		return x.OutputDir
+	}
+	return ""
+}
+
+func (x *FrontendCertificate) GetRenewBeforeDays() int32 {
+	if x != nil {
+		return x.RenewBeforeDays
+	}
+	return 0
+}
+
+var File_internal_conf_conf_proto protoreflect.FileDescriptor
+
+const file_internal_conf_conf_proto_rawDesc = "" +
 	"\n" +
-	"\n" +
-	"conf.proto\x12\n" +
-	"kratos.api\"\xe7\x03\n" +
+	"\x18internal/conf/conf.proto\x12\n" +
+	"kratos.api\"\xbb\x04\n" +
 	"\x03LCM\x12\x19\n" +
 	"\bdata_dir\x18\x01 \x01(\tR\adataDir\x122\n" +
 	"\x15default_validity_days\x18\x02 \x01(\x05R\x13defaultValidityDays\x12:\n" +
@@ -666,7 +798,8 @@ const file_conf_proto_rawDesc = "" +
 	"\arenewal\x18\t \x01(\v2\x19.kratos.api.RenewalConfigR\arenewal\x12/\n" +
 	"\x06events\x18\n" +
 	" \x01(\v2\x17.kratos.api.EventConfigR\x06events\x125\n" +
-	"\bwebhooks\x18\v \x01(\v2\x19.kratos.api.WebhookConfigR\bwebhooks\"J\n" +
+	"\bwebhooks\x18\v \x01(\v2\x19.kratos.api.WebhookConfigR\bwebhooks\x12R\n" +
+	"\x14frontend_certificate\x18\f \x01(\v2\x1f.kratos.api.FrontendCertificateR\x13frontendCertificate\"J\n" +
 	"\vEventConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12!\n" +
 	"\ftopic_prefix\x18\x02 \x01(\tR\vtopicPrefix\"\xf4\x02\n" +
@@ -716,66 +849,88 @@ const file_conf_proto_rawDesc = "" +
 	"\x10initial_delay_ms\x18\x02 \x01(\x05R\x0einitialDelayMs\x12 \n" +
 	"\fmax_delay_ms\x18\x03 \x01(\x05R\n" +
 	"maxDelayMs\x12-\n" +
-	"\x12backoff_multiplier\x18\x04 \x01(\x02R\x11backoffMultiplierB+Z)github.com/menta2k/lcm/internal/conf;confb\x06proto3"
+	"\x12backoff_multiplier\x18\x04 \x01(\x02R\x11backoffMultiplier\"\x88\x04\n" +
+	"\x13FrontendCertificate\x12\x18\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x16\n" +
+	"\x06domain\x18\x02 \x01(\tR\x06domain\x12)\n" +
+	"\x10additional_names\x18\x03 \x03(\tR\x0fadditionalNames\x12#\n" +
+	"\racme_endpoint\x18\x04 \x01(\tR\facmeEndpoint\x12\x1d\n" +
+	"\n" +
+	"acme_email\x18\x05 \x01(\tR\tacmeEmail\x12!\n" +
+	"\fdns_provider\x18\x06 \x01(\tR\vdnsProvider\x12f\n" +
+	"\x13dns_provider_config\x18\a \x03(\v26.kratos.api.FrontendCertificate.DnsProviderConfigEntryR\x11dnsProviderConfig\x12\x19\n" +
+	"\bkey_type\x18\b \x01(\tR\akeyType\x12\x19\n" +
+	"\bkey_size\x18\t \x01(\x05R\akeySize\x12\x1d\n" +
+	"\n" +
+	"output_dir\x18\n" +
+	" \x01(\tR\toutputDir\x12*\n" +
+	"\x11renew_before_days\x18\v \x01(\x05R\x0frenewBeforeDays\x1aD\n" +
+	"\x16DnsProviderConfigEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B+Z)github.com/menta2k/lcm/internal/conf;confb\x06proto3"
 
 var (
-	file_conf_proto_rawDescOnce sync.Once
-	file_conf_proto_rawDescData []byte
+	file_internal_conf_conf_proto_rawDescOnce sync.Once
+	file_internal_conf_conf_proto_rawDescData []byte
 )
 
-func file_conf_proto_rawDescGZIP() []byte {
-	file_conf_proto_rawDescOnce.Do(func() {
-		file_conf_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_conf_proto_rawDesc), len(file_conf_proto_rawDesc)))
+func file_internal_conf_conf_proto_rawDescGZIP() []byte {
+	file_internal_conf_conf_proto_rawDescOnce.Do(func() {
+		file_internal_conf_conf_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_internal_conf_conf_proto_rawDesc), len(file_internal_conf_conf_proto_rawDesc)))
 	})
-	return file_conf_proto_rawDescData
+	return file_internal_conf_conf_proto_rawDescData
 }
 
-var file_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-var file_conf_proto_goTypes = []any{
-	(*LCM)(nil),                // 0: kratos.api.LCM
-	(*EventConfig)(nil),        // 1: kratos.api.EventConfig
-	(*RenewalConfig)(nil),      // 2: kratos.api.RenewalConfig
-	(*Vault)(nil),              // 3: kratos.api.Vault
-	(*WebhookConfig)(nil),      // 4: kratos.api.WebhookConfig
-	(*WebhookEndpoint)(nil),    // 5: kratos.api.WebhookEndpoint
-	(*WebhookRetryConfig)(nil), // 6: kratos.api.WebhookRetryConfig
-	nil,                        // 7: kratos.api.WebhookEndpoint.HeadersEntry
+var file_internal_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_internal_conf_conf_proto_goTypes = []any{
+	(*LCM)(nil),                 // 0: kratos.api.LCM
+	(*EventConfig)(nil),         // 1: kratos.api.EventConfig
+	(*RenewalConfig)(nil),       // 2: kratos.api.RenewalConfig
+	(*Vault)(nil),               // 3: kratos.api.Vault
+	(*WebhookConfig)(nil),       // 4: kratos.api.WebhookConfig
+	(*WebhookEndpoint)(nil),     // 5: kratos.api.WebhookEndpoint
+	(*WebhookRetryConfig)(nil),  // 6: kratos.api.WebhookRetryConfig
+	(*FrontendCertificate)(nil), // 7: kratos.api.FrontendCertificate
+	nil,                         // 8: kratos.api.WebhookEndpoint.HeadersEntry
+	nil,                         // 9: kratos.api.FrontendCertificate.DnsProviderConfigEntry
 }
-var file_conf_proto_depIdxs = []int32{
+var file_internal_conf_conf_proto_depIdxs = []int32{
 	3, // 0: kratos.api.LCM.vault:type_name -> kratos.api.Vault
 	2, // 1: kratos.api.LCM.renewal:type_name -> kratos.api.RenewalConfig
 	1, // 2: kratos.api.LCM.events:type_name -> kratos.api.EventConfig
 	4, // 3: kratos.api.LCM.webhooks:type_name -> kratos.api.WebhookConfig
-	6, // 4: kratos.api.WebhookConfig.retry:type_name -> kratos.api.WebhookRetryConfig
-	5, // 5: kratos.api.WebhookConfig.endpoints:type_name -> kratos.api.WebhookEndpoint
-	7, // 6: kratos.api.WebhookEndpoint.headers:type_name -> kratos.api.WebhookEndpoint.HeadersEntry
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	7, // 4: kratos.api.LCM.frontend_certificate:type_name -> kratos.api.FrontendCertificate
+	6, // 5: kratos.api.WebhookConfig.retry:type_name -> kratos.api.WebhookRetryConfig
+	5, // 6: kratos.api.WebhookConfig.endpoints:type_name -> kratos.api.WebhookEndpoint
+	8, // 7: kratos.api.WebhookEndpoint.headers:type_name -> kratos.api.WebhookEndpoint.HeadersEntry
+	9, // 8: kratos.api.FrontendCertificate.dns_provider_config:type_name -> kratos.api.FrontendCertificate.DnsProviderConfigEntry
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
-func init() { file_conf_proto_init() }
-func file_conf_proto_init() {
-	if File_conf_proto != nil {
+func init() { file_internal_conf_conf_proto_init() }
+func file_internal_conf_conf_proto_init() {
+	if File_internal_conf_conf_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_conf_proto_rawDesc), len(file_conf_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_conf_conf_proto_rawDesc), len(file_internal_conf_conf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_conf_proto_goTypes,
-		DependencyIndexes: file_conf_proto_depIdxs,
-		MessageInfos:      file_conf_proto_msgTypes,
+		GoTypes:           file_internal_conf_conf_proto_goTypes,
+		DependencyIndexes: file_internal_conf_conf_proto_depIdxs,
+		MessageInfos:      file_internal_conf_conf_proto_msgTypes,
 	}.Build()
-	File_conf_proto = out.File
-	file_conf_proto_goTypes = nil
-	file_conf_proto_depIdxs = nil
+	File_internal_conf_conf_proto = out.File
+	file_internal_conf_conf_proto_goTypes = nil
+	file_internal_conf_conf_proto_depIdxs = nil
 }
