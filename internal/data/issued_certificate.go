@@ -59,6 +59,15 @@ func (r *IssuedCertificateRepo) Create(ctx context.Context, cert *ent.IssuedCert
 	if cert.ClientID != "" {
 		builder.SetClientID(cert.ClientID)
 	}
+	if cert.IssuerType != "" {
+		builder.SetIssuerType(cert.IssuerType)
+	}
+	if cert.CommonName != "" {
+		builder.SetCommonName(cert.CommonName)
+	}
+	if cert.ServerGeneratedKey {
+		builder.SetServerGeneratedKey(cert.ServerGeneratedKey)
+	}
 	if cert.CertPem != "" {
 		builder.SetCertPem(cert.CertPem)
 	}

@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -20,6 +23,7 @@ import (
 type RenewalScheduler struct {
 	log                   *log.Helper
 	config                *conf.RenewalConfig
+	lcmConfig             *conf.LCM
 	issuedCertRepo        *data.IssuedCertificateRepo
 	renewalRepo           *data.CertificateRenewalRepo
 	issuerRepo            *data.IssuerRepo
@@ -38,6 +42,7 @@ type RenewalScheduler struct {
 func NewRenewalScheduler(
 	ctx *bootstrap.Context,
 	config *conf.RenewalConfig,
+	lcmConfig *conf.LCM,
 	issuedCertRepo *data.IssuedCertificateRepo,
 	renewalRepo *data.CertificateRenewalRepo,
 	issuerRepo *data.IssuerRepo,
@@ -48,6 +53,7 @@ func NewRenewalScheduler(
 	return &RenewalScheduler{
 		log:                   ctx.NewLoggerHelper("lcm/service/renewal-scheduler"),
 		config:                config,
+		lcmConfig:             lcmConfig,
 		issuedCertRepo:        issuedCertRepo,
 		renewalRepo:           renewalRepo,
 		issuerRepo:            issuerRepo,
@@ -408,6 +414,20 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 	// Get updated certificate for event data
 	cert, _ := s.issuedCertRepo.GetByID(ctx, renewal.CertificateID)
 
+	// Write renewed certificate files to disk for frontend certs
+	if cert != nil && cert.IssuerName == "lcm-frontend-acme" && s.lcmConfig != nil {
+		outputDir := "frontend"
+		if fc := s.lcmConfig.GetFrontendCertificate(); fc != nil && fc.GetOutputDir() != "" {
+			outputDir = fc.GetOutputDir()
+		}
+		certDir := filepath.Join(s.lcmConfig.GetDataDir(), outputDir)
+		if err := writeCertFiles(certDir, cert.CertPem, cert.PrivateKeyPem, cert.CaCertPem); err != nil {
+			s.log.Errorf("Failed to write renewed frontend cert files: %v", err)
+		} else {
+			s.log.Info("Renewed frontend certificate files written to disk")
+		}
+	}
+
 	// Publish renewal completed event
 	if s.eventPublisher != nil {
 		var tenantID uint32 = 0
@@ -579,5 +599,31 @@ func (s *RenewalScheduler) ManualRenewal(ctx context.Context, certificateID stri
 	}
 
 	s.log.Infof("Manual renewal scheduled for certificate %s", certificateID)
+	return nil
+}
+
+// writeCertFiles writes certificate, key, and CA files to disk.
+func writeCertFiles(dir, certPEM, keyPEM, caPEM string) error {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create certificate directory: %w", err)
+	}
+
+	certPath := filepath.Join(dir, "server.crt")
+	if err := os.WriteFile(certPath, []byte(certPEM), 0644); err != nil {
+		return fmt.Errorf("failed to write certificate: %w", err)
+	}
+
+	keyPath := filepath.Join(dir, "server.key")
+	if err := os.WriteFile(keyPath, []byte(keyPEM), 0600); err != nil {
+		return fmt.Errorf("failed to write private key: %w", err)
+	}
+
+	if caPEM != "" {
+		caPath := filepath.Join(dir, "ca.crt")
+		if err := os.WriteFile(caPath, []byte(caPEM), 0644); err != nil {
+			return fmt.Errorf("failed to write CA certificate: %w", err)
+		}
+	}
+
 	return nil
 }

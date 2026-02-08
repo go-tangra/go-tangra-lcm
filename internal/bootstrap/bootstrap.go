@@ -66,10 +66,12 @@ const (
 
 // BootstrapService handles initial certificate setup on server startup
 type BootstrapService struct {
-	config     *conf.LCM
-	certRepo   *data.MtlsCertificateRepo
-	clientRepo *data.LcmClientRepo
-	log        *log.Helper
+	config         *conf.LCM
+	certRepo       *data.MtlsCertificateRepo
+	clientRepo     *data.LcmClientRepo
+	issuedCertRepo *data.IssuedCertificateRepo
+	issuerRepo     *data.IssuerRepo
+	log            *log.Helper
 }
 
 // NewBootstrapService creates a new bootstrap service
@@ -77,6 +79,8 @@ func NewBootstrapService(
 	ctx *bootstrap.Context,
 	certRepo *data.MtlsCertificateRepo,
 	clientRepo *data.LcmClientRepo,
+	issuedCertRepo *data.IssuedCertificateRepo,
+	issuerRepo *data.IssuerRepo,
 ) (*BootstrapService, error) {
 	cfg, ok := ctx.GetCustomConfig("lcm")
 	if !ok {
@@ -88,10 +92,12 @@ func NewBootstrapService(
 	}
 
 	return &BootstrapService{
-		config:     lcmConfig,
-		certRepo:   certRepo,
-		clientRepo: clientRepo,
-		log:        ctx.NewLoggerHelper("lcm/bootstrap"),
+		config:         lcmConfig,
+		certRepo:       certRepo,
+		clientRepo:     clientRepo,
+		issuedCertRepo: issuedCertRepo,
+		issuerRepo:     issuerRepo,
+		log:            ctx.NewLoggerHelper("lcm/bootstrap"),
 	}, nil
 }
 

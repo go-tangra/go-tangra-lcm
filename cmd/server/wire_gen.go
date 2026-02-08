@@ -8,7 +8,6 @@ package main
 
 import (
 	"github.com/go-kratos/kratos/v2"
-	"github.com/tx7do/kratos-bootstrap/bootstrap"
 	bootstrap2 "github.com/go-tangra/go-tangra-lcm/internal/bootstrap"
 	"github.com/go-tangra/go-tangra-lcm/internal/cert"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
@@ -17,6 +16,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/service"
 	"github.com/go-tangra/go-tangra-lcm/internal/service/providers"
 	"github.com/go-tangra/go-tangra-lcm/internal/webhook"
+	"github.com/tx7do/kratos-bootstrap/bootstrap"
 )
 
 import (
@@ -80,15 +80,16 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	statisticsRepo := data.NewStatisticsRepo(context, entClient)
 	statisticsService := service.NewStatisticsService(context, statisticsRepo)
 	grpcServer := server.NewGRPCServer(context, certManager, auditLogRepo, systemService, lcmClientService, issuerService, certificateJobService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService)
-	bootstrapService, err := bootstrap2.NewBootstrapService(context, mtlsCertificateRepo, lcmClientRepo)
+	bootstrapService, err := bootstrap2.NewBootstrapService(context, mtlsCertificateRepo, lcmClientRepo, issuedCertificateRepo, issuerRepo)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	renewalConfig := providers.ProvideRenewalConfig(context)
+	lcm := providers.ProvideLCMConfig(context)
 	certificateRenewalRepo := data.NewCertificateRenewalRepo(context, entClient)
-	renewalScheduler := service.NewRenewalScheduler(context, renewalConfig, issuedCertificateRepo, certificateRenewalRepo, issuerRepo, lcmClientRepo, certificateJobService, publisher)
+	renewalScheduler := service.NewRenewalScheduler(context, renewalConfig, lcm, issuedCertificateRepo, certificateRenewalRepo, issuerRepo, lcmClientRepo, certificateJobService, publisher)
 	webhookService, err := webhook.NewService(context, client)
 	if err != nil {
 		cleanup2()

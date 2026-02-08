@@ -31,6 +31,7 @@ var ProviderSet = wire.NewSet(
 	service.NewMtlsCertificateRequestService,
 	service.NewStatisticsService,
 	ProvideRenewalConfig,
+	ProvideLCMConfig,
 	service.NewRenewalScheduler,
 	event.NewPublisher,
 	ProvidePrivateKeyEncryptor,
