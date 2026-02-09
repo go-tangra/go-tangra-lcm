@@ -15,6 +15,7 @@ message LCM {
   EventConfig events = 10; // Event notification configuration
   WebhookConfig webhooks = 11; // Webhook notification configuration
   FrontendCertificate frontend_certificate = 12; // Frontend ACME certificate configuration
+  repeated string dns_resolvers = 13; // Global DNS resolvers for ACME DNS-01 propagation checks (e.g. "1.1.1.1:53", "8.8.8.8:53")
 }
 
 // Configuration for event notifications via Redis pub/sub

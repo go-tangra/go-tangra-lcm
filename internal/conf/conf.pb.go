@@ -35,6 +35,7 @@ type LCM struct {
 	Events                  *EventConfig           `protobuf:"bytes,10,opt,name=events,proto3" json:"events,omitempty"`                                                      // Event notification configuration
 	Webhooks                *WebhookConfig         `protobuf:"bytes,11,opt,name=webhooks,proto3" json:"webhooks,omitempty"`                                                  // Webhook notification configuration
 	FrontendCertificate     *FrontendCertificate   `protobuf:"bytes,12,opt,name=frontend_certificate,json=frontendCertificate,proto3" json:"frontend_certificate,omitempty"` // Frontend ACME certificate configuration
+	DnsResolvers            []string               `protobuf:"bytes,13,rep,name=dns_resolvers,json=dnsResolvers,proto3" json:"dns_resolvers,omitempty"`                      // Global DNS resolvers for ACME DNS-01 propagation checks (e.g. "1.1.1.1:53", "8.8.8.8:53")
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
@@ -149,6 +150,13 @@ func (x *LCM) GetWebhooks() *WebhookConfig {
 func (x *LCM) GetFrontendCertificate() *FrontendCertificate {
 	if x != nil {
 		return x.FrontendCertificate
+	}
+	return nil
+}
+
+func (x *LCM) GetDnsResolvers() []string {
+	if x != nil {
+		return x.DnsResolvers
 	}
 	return nil
 }
@@ -792,7 +800,7 @@ var File_internal_conf_conf_proto protoreflect.FileDescriptor
 const file_internal_conf_conf_proto_rawDesc = "" +
 	"\n" +
 	"\x18internal/conf/conf.proto\x12\n" +
-	"kratos.api\"\xbb\x04\n" +
+	"kratos.api\"\xe0\x04\n" +
 	"\x03LCM\x12\x19\n" +
 	"\bdata_dir\x18\x01 \x01(\tR\adataDir\x122\n" +
 	"\x15default_validity_days\x18\x02 \x01(\x05R\x13defaultValidityDays\x12:\n" +
@@ -807,7 +815,8 @@ const file_internal_conf_conf_proto_rawDesc = "" +
 	"\x06events\x18\n" +
 	" \x01(\v2\x17.kratos.api.EventConfigR\x06events\x125\n" +
 	"\bwebhooks\x18\v \x01(\v2\x19.kratos.api.WebhookConfigR\bwebhooks\x12R\n" +
-	"\x14frontend_certificate\x18\f \x01(\v2\x1f.kratos.api.FrontendCertificateR\x13frontendCertificate\"J\n" +
+	"\x14frontend_certificate\x18\f \x01(\v2\x1f.kratos.api.FrontendCertificateR\x13frontendCertificate\x12#\n" +
+	"\rdns_resolvers\x18\r \x03(\tR\fdnsResolvers\"J\n" +
 	"\vEventConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12!\n" +
 	"\ftopic_prefix\x18\x02 \x01(\tR\vtopicPrefix\"\xf4\x02\n" +

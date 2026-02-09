@@ -235,7 +235,11 @@ func (bs *BootstrapService) requestACMECertificate(_ context.Context, cfg interf
 	}
 
 	// Configure DNS-01 provider with optional custom recursive nameservers
+	// Priority: per-frontend config > global LCM config > hardcoded defaults
 	resolvers := cfg.GetDnsResolvers()
+	if len(resolvers) == 0 && bs.config != nil {
+		resolvers = bs.config.GetDnsResolvers()
+	}
 	if len(resolvers) == 0 {
 		resolvers = []string{"1.1.1.1:53", "8.8.8.8:53"}
 	}

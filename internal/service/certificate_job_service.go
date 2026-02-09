@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
+	"github.com/go-acme/lego/v4/challenge/dns01"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/go-kratos/kratos/v2/log"
@@ -31,6 +32,7 @@ import (
 
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
 	"github.com/go-tangra/go-tangra-lcm/internal/biz"
+	"github.com/go-tangra/go-tangra-lcm/internal/conf"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/acmeissuer"
@@ -46,6 +48,7 @@ type CertificateJobService struct {
 	lcmV1.UnimplementedLcmCertificateJobServiceServer
 
 	log                   *log.Helper
+	lcmConfig             *conf.LCM
 	issuerRepo            *data.IssuerRepo
 	clientRepo            *data.LcmClientRepo
 	mtlsCertRepo          *data.MtlsCertificateRepo
@@ -57,16 +60,22 @@ type CertificateJobService struct {
 // NewCertificateJobService creates a new CertificateJobService
 func NewCertificateJobService(
 	ctx *bootstrap.Context,
+	lcmConfig *conf.LCM,
 	issuerRepo *data.IssuerRepo,
 	clientRepo *data.LcmClientRepo,
 	mtlsCertRepo *data.MtlsCertificateRepo,
 	issuedCertRepo *data.IssuedCertificateRepo,
 	eventPublisher *event.Publisher,
 ) *CertificateJobService {
-	dnsPropagationChecker := biz.NewDNSPropagationChecker(ctx.GetLogger())
+	var opts []biz.DNSPropagationCheckerOption
+	if lcmConfig != nil && len(lcmConfig.DnsResolvers) > 0 {
+		opts = append(opts, biz.WithDNSServers(lcmConfig.DnsResolvers))
+	}
+	dnsPropagationChecker := biz.NewDNSPropagationChecker(ctx.GetLogger(), opts...)
 
 	return &CertificateJobService{
 		log:                   ctx.NewLoggerHelper("lcm/service/certificate-job"),
+		lcmConfig:             lcmConfig,
 		issuerRepo:            issuerRepo,
 		clientRepo:            clientRepo,
 		mtlsCertRepo:          mtlsCertRepo,
@@ -465,6 +474,74 @@ func (s *CertificateJobService) CancelJob(ctx context.Context, req *lcmV1.Cancel
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+// RetryJob retries a failed certificate job
+func (s *CertificateJobService) RetryJob(ctx context.Context, req *lcmV1.RetryJobRequest) (*lcmV1.RetryJobResponse, error) {
+	tenantID, _, err := s.getClientInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get job from database
+	cert, err := s.issuedCertRepo.GetByID(ctx, req.GetJobId())
+	if err != nil {
+		return nil, err
+	}
+	if cert == nil {
+		return nil, lcmV1.ErrorNotFound("job '%s' not found", req.GetJobId())
+	}
+
+	// Verify tenant access
+	if tenantID != 0 && cert.TenantID != tenantID {
+		return nil, lcmV1.ErrorNotFound("job '%s' not found", req.GetJobId())
+	}
+
+	// Only failed jobs can be retried
+	if cert.Status != issuedcertificate.StatusFailed {
+		return nil, lcmV1.ErrorBadRequest("can only retry failed jobs, current status: %s", cert.Status)
+	}
+
+	// Validate the issuer still exists and is active
+	issuerEntity, err := s.issuerRepo.GetByTenantAndName(ctx, cert.TenantID, cert.IssuerName)
+	if err != nil {
+		return nil, err
+	}
+	if issuerEntity == nil {
+		return nil, lcmV1.ErrorNotFound("issuer '%s' no longer exists", cert.IssuerName)
+	}
+	if issuerEntity.Status != nil && *issuerEntity.Status != issuer.StatusISSUER_STATUS_ACTIVE {
+		return nil, lcmV1.ErrorBadRequest("issuer '%s' is not active", cert.IssuerName)
+	}
+
+	// Reconstruct certificate request from stored fields
+	certReq := &biz.CertificateRequest{
+		TenantID:    cert.TenantID,
+		ClientID:    cert.ClientID,
+		IssuerName:  cert.IssuerName,
+		IssuerType:  cert.IssuerType,
+		DNSNames:    cert.Domains,
+		IPAddresses: cert.IPAddresses,
+		CommonName:  cert.CommonName,
+		KeyType:     string(cert.KeyType),
+	}
+
+	// Reset job status to pending
+	if err := s.issuedCertRepo.UpdateStatus(ctx, req.GetJobId(), issuedcertificate.StatusPending, ""); err != nil {
+		s.log.Errorf("Failed to reset job status: %v", err)
+		return nil, lcmV1.ErrorInternalServerError("failed to reset job status")
+	}
+
+	// Start async processing
+	go s.processCertificateJob(req.GetJobId(), issuerEntity, certReq, cert.CsrPem, cert.PrivateKeyPem)
+
+	s.log.Infof("Job retry initiated: id=%s, issuer=%s, cn=%s", req.GetJobId(), cert.IssuerName, cert.CommonName)
+
+	return &lcmV1.RetryJobResponse{
+		JobId:   req.GetJobId(),
+		Status:  lcmV1.CertificateJobStatus_CERTIFICATE_JOB_STATUS_PENDING,
+		Message: "Job retry initiated",
+	}, nil
 }
 
 // processCertificateJob processes a certificate signing job asynchronously
@@ -928,7 +1005,12 @@ func (s *CertificateJobService) issueACMECertificate(ctx context.Context, issuer
 	}
 
 	// Configure DNS challenge
-	err = legoClient.Challenge.SetDNS01Provider(dnsProvider)
+	if s.lcmConfig != nil && len(s.lcmConfig.DnsResolvers) > 0 {
+		s.log.Infof("Using global DNS resolvers for propagation check: %v", s.lcmConfig.DnsResolvers)
+		err = legoClient.Challenge.SetDNS01Provider(dnsProvider, dns01.AddRecursiveNameservers(s.lcmConfig.DnsResolvers))
+	} else {
+		err = legoClient.Challenge.SetDNS01Provider(dnsProvider)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to set DNS provider: %w", err)
 	}

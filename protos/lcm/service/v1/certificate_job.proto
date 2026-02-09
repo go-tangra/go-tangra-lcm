@@ -45,6 +45,13 @@ service LcmCertificateJobService {
       post: "/v1/certificate-jobs/{job_id}/cancel"
     };
   }
+
+  // Retry a failed certificate job
+  rpc RetryJob(RetryJobRequest) returns (RetryJobResponse) {
+    option (google.api.http) = {
+      post: "/v1/certificate-jobs/{job_id}/retry"
+    };
+  }
 }
 
 // Job status enumeration
@@ -271,4 +278,24 @@ message CancelJobRequest {
       pattern: "^[a-fA-F0-9\\-]+$"
     }
   ];
+}
+
+// Request to retry a failed job
+message RetryJobRequest {
+  string job_id = 1 [
+    json_name = "jobId",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+}
+
+// Response from retrying a job
+message RetryJobResponse {
+  string job_id = 1 [json_name = "jobId"];
+  CertificateJobStatus status = 2 [json_name = "status"];
+  string message = 3 [json_name = "message"];
 }

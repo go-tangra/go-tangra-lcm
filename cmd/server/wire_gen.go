@@ -60,7 +60,8 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	issuerService := service.NewIssuerService(context, issuerRepo, lcmClientRepo, mtlsCertificateRepo)
 	issuedCertificateRepo := data.NewIssuedCertificateRepo(context, entClient)
 	publisher := event.NewPublisher(context, client)
-	certificateJobService := service.NewCertificateJobService(context, issuerRepo, lcmClientRepo, mtlsCertificateRepo, issuedCertificateRepo, publisher)
+	lcm := providers.ProvideLCMConfig(context)
+	certificateJobService := service.NewCertificateJobService(context, lcm, issuerRepo, lcmClientRepo, mtlsCertificateRepo, issuedCertificateRepo, publisher)
 	issuedCertificateService := service.NewIssuedCertificateService(context, issuedCertificateRepo, lcmClientRepo, mtlsCertificateRepo)
 	tenantSecretService := service.NewTenantSecretService(context, tenantSecretRepo, lcmClientRepo)
 	auditLogService := service.NewAuditLogService(context, auditLogRepo, lcmClientRepo)
@@ -88,7 +89,6 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		return nil, nil, err
 	}
 	renewalConfig := providers.ProvideRenewalConfig(context)
-	lcm := providers.ProvideLCMConfig(context)
 	certificateRenewalRepo := data.NewCertificateRenewalRepo(context, entClient)
 	renewalScheduler := service.NewRenewalScheduler(context, renewalConfig, lcm, issuedCertificateRepo, certificateRenewalRepo, issuerRepo, lcmClientRepo, certificateJobService, publisher)
 	webhookService, err := webhook.NewService(context, client)
