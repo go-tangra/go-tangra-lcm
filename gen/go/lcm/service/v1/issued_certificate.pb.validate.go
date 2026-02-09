@@ -321,6 +321,10 @@ func (m *GetIssuedCertificateRequest) validate(all bool) error {
 
 	// no validation rules for Id
 
+	if m.IncludePrivateKey != nil {
+		// no validation rules for IncludePrivateKey
+	}
+
 	if len(errors) > 0 {
 		return GetIssuedCertificateRequestMultiError(errors)
 	}
@@ -451,6 +455,22 @@ func (m *GetIssuedCertificateResponse) validate(all bool) error {
 				cause:  err,
 			}
 		}
+	}
+
+	if m.CertificatePem != nil {
+		// no validation rules for CertificatePem
+	}
+
+	if m.CaCertificatePem != nil {
+		// no validation rules for CaCertificatePem
+	}
+
+	if m.PrivateKeyPem != nil {
+		// no validation rules for PrivateKeyPem
+	}
+
+	if m.ServerGeneratedKey != nil {
+		// no validation rules for ServerGeneratedKey
 	}
 
 	if len(errors) > 0 {

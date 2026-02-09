@@ -62,11 +62,20 @@ message GetIssuedCertificateRequest {
       pattern: "^[a-fA-F0-9\\-]+$"
     }
   ];
+  // Whether to include the private key in the response
+  optional bool include_private_key = 2 [json_name = "includePrivateKey"];
 }
 
 // Response for getting a single issued certificate
 message GetIssuedCertificateResponse {
   IssuedCertificateInfo certificate = 1 [json_name = "certificate"];
+
+  // Certificate PEM data (only present for issued certificates)
+  optional string certificate_pem = 2 [json_name = "certificatePem"];
+  optional string ca_certificate_pem = 3 [json_name = "caCertificatePem"];
+  // Private key PEM (only if include_private_key=true and server-generated)
+  optional string private_key_pem = 4 [json_name = "privateKeyPem"];
+  optional bool server_generated_key = 5 [json_name = "serverGeneratedKey"];
 }
 
 // Issued certificate info

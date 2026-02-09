@@ -178,9 +178,27 @@ func (s *IssuedCertificateService) GetIssuedCertificate(ctx context.Context, req
 		return nil, lcmV1.ErrorNotFound("issued certificate '%s' not found", req.GetId())
 	}
 
-	return &lcmV1.GetIssuedCertificateResponse{
+	resp := &lcmV1.GetIssuedCertificateResponse{
 		Certificate: mapIssuedCertToProto(cert),
-	}, nil
+	}
+
+	// Include certificate PEM data
+	if cert.CertPem != "" {
+		resp.CertificatePem = &cert.CertPem
+	}
+	if cert.CaCertPem != "" {
+		resp.CaCertificatePem = &cert.CaCertPem
+	}
+
+	serverGenKey := cert.ServerGeneratedKey
+	resp.ServerGeneratedKey = &serverGenKey
+
+	// Include private key only if requested and server generated it
+	if req.IncludePrivateKey != nil && *req.IncludePrivateKey && cert.ServerGeneratedKey && cert.PrivateKeyPem != "" {
+		resp.PrivateKeyPem = &cert.PrivateKeyPem
+	}
+
+	return resp, nil
 }
 
 // mapIssuedCertToProto maps a database entity to a proto message

@@ -803,6 +803,11 @@ paths:
                   required: true
                   schema:
                     type: string
+                - name: includePrivateKey
+                  in: query
+                  description: Whether to include the private key in the response
+                  schema:
+                    type: boolean
             responses:
                 "200":
                     description: OK
@@ -1769,6 +1774,16 @@ components:
             properties:
                 certificate:
                     $ref: '#/components/schemas/IssuedCertificateInfo'
+                certificatePem:
+                    type: string
+                    description: Certificate PEM data (only present for issued certificates)
+                caCertificatePem:
+                    type: string
+                privateKeyPem:
+                    type: string
+                    description: Private key PEM (only if include_private_key=true and server-generated)
+                serverGeneratedKey:
+                    type: boolean
             description: Response for getting a single issued certificate
         GetIssuerInfoResponse:
             type: object

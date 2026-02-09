@@ -221,10 +221,12 @@ func (x *ListIssuedCertificatesResponse) GetTotal() uint32 {
 
 // Request to get a single issued certificate
 type GetIssuedCertificateRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Whether to include the private key in the response
+	IncludePrivateKey *bool `protobuf:"varint,2,opt,name=include_private_key,json=includePrivateKey,proto3,oneof" json:"include_private_key,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *GetIssuedCertificateRequest) Reset() {
@@ -264,12 +266,25 @@ func (x *GetIssuedCertificateRequest) GetId() string {
 	return ""
 }
 
+func (x *GetIssuedCertificateRequest) GetIncludePrivateKey() bool {
+	if x != nil && x.IncludePrivateKey != nil {
+		return *x.IncludePrivateKey
+	}
+	return false
+}
+
 // Response for getting a single issued certificate
 type GetIssuedCertificateResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Certificate   *IssuedCertificateInfo `protobuf:"bytes,1,opt,name=certificate,proto3" json:"certificate,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Certificate *IssuedCertificateInfo `protobuf:"bytes,1,opt,name=certificate,proto3" json:"certificate,omitempty"`
+	// Certificate PEM data (only present for issued certificates)
+	CertificatePem   *string `protobuf:"bytes,2,opt,name=certificate_pem,json=certificatePem,proto3,oneof" json:"certificate_pem,omitempty"`
+	CaCertificatePem *string `protobuf:"bytes,3,opt,name=ca_certificate_pem,json=caCertificatePem,proto3,oneof" json:"ca_certificate_pem,omitempty"`
+	// Private key PEM (only if include_private_key=true and server-generated)
+	PrivateKeyPem      *string `protobuf:"bytes,4,opt,name=private_key_pem,json=privateKeyPem,proto3,oneof" json:"private_key_pem,omitempty"`
+	ServerGeneratedKey *bool   `protobuf:"varint,5,opt,name=server_generated_key,json=serverGeneratedKey,proto3,oneof" json:"server_generated_key,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *GetIssuedCertificateResponse) Reset() {
@@ -307,6 +322,34 @@ func (x *GetIssuedCertificateResponse) GetCertificate() *IssuedCertificateInfo {
 		return x.Certificate
 	}
 	return nil
+}
+
+func (x *GetIssuedCertificateResponse) GetCertificatePem() string {
+	if x != nil && x.CertificatePem != nil {
+		return *x.CertificatePem
+	}
+	return ""
+}
+
+func (x *GetIssuedCertificateResponse) GetCaCertificatePem() string {
+	if x != nil && x.CaCertificatePem != nil {
+		return *x.CaCertificatePem
+	}
+	return ""
+}
+
+func (x *GetIssuedCertificateResponse) GetPrivateKeyPem() string {
+	if x != nil && x.PrivateKeyPem != nil {
+		return *x.PrivateKeyPem
+	}
+	return ""
+}
+
+func (x *GetIssuedCertificateResponse) GetServerGeneratedKey() bool {
+	if x != nil && x.ServerGeneratedKey != nil {
+		return *x.ServerGeneratedKey
+	}
+	return false
 }
 
 // Issued certificate info
@@ -478,11 +521,21 @@ const file_lcm_service_v1_issued_certificate_proto_rawDesc = "" +
 	"_page_size\"\x81\x01\n" +
 	"\x1eListIssuedCertificatesResponse\x12I\n" +
 	"\fcertificates\x18\x01 \x03(\v2%.lcm.service.v1.IssuedCertificateInfoR\fcertificates\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\rR\x05total\"M\n" +
+	"\x05total\x18\x02 \x01(\rR\x05total\"\x9a\x01\n" +
 	"\x1bGetIssuedCertificateRequest\x12.\n" +
-	"\x02id\x18\x01 \x01(\tB\x1e\xe0A\x02\xbaH\x18r\x16\x10\x01\x18$2\x10^[a-fA-F0-9\\-]+$R\x02id\"g\n" +
+	"\x02id\x18\x01 \x01(\tB\x1e\xe0A\x02\xbaH\x18r\x16\x10\x01\x18$2\x10^[a-fA-F0-9\\-]+$R\x02id\x123\n" +
+	"\x13include_private_key\x18\x02 \x01(\bH\x00R\x11includePrivateKey\x88\x01\x01B\x16\n" +
+	"\x14_include_private_key\"\x84\x03\n" +
 	"\x1cGetIssuedCertificateResponse\x12G\n" +
-	"\vcertificate\x18\x01 \x01(\v2%.lcm.service.v1.IssuedCertificateInfoR\vcertificate\"\x8c\x05\n" +
+	"\vcertificate\x18\x01 \x01(\v2%.lcm.service.v1.IssuedCertificateInfoR\vcertificate\x12,\n" +
+	"\x0fcertificate_pem\x18\x02 \x01(\tH\x00R\x0ecertificatePem\x88\x01\x01\x121\n" +
+	"\x12ca_certificate_pem\x18\x03 \x01(\tH\x01R\x10caCertificatePem\x88\x01\x01\x12+\n" +
+	"\x0fprivate_key_pem\x18\x04 \x01(\tH\x02R\rprivateKeyPem\x88\x01\x01\x125\n" +
+	"\x14server_generated_key\x18\x05 \x01(\bH\x03R\x12serverGeneratedKey\x88\x01\x01B\x12\n" +
+	"\x10_certificate_pemB\x15\n" +
+	"\x13_ca_certificate_pemB\x12\n" +
+	"\x10_private_key_pemB\x17\n" +
+	"\x15_server_generated_key\"\x8c\x05\n" +
 	"\x15IssuedCertificateInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vcommon_name\x18\x02 \x01(\tR\n" +
@@ -569,6 +622,8 @@ func file_lcm_service_v1_issued_certificate_proto_init() {
 		return
 	}
 	file_lcm_service_v1_issued_certificate_proto_msgTypes[0].OneofWrappers = []any{}
+	file_lcm_service_v1_issued_certificate_proto_msgTypes[2].OneofWrappers = []any{}
+	file_lcm_service_v1_issued_certificate_proto_msgTypes[3].OneofWrappers = []any{}
 	file_lcm_service_v1_issued_certificate_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
