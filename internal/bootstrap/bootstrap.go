@@ -42,6 +42,9 @@ const (
 	// PaperlessClientID is the client_id for the auto-generated paperless certificate
 	PaperlessClientID = "lcm-paperless"
 
+	// SharingClientID is the client_id for the auto-generated sharing certificate
+	SharingClientID = "lcm-sharing"
+
 	// ServerCertIssuer is the issuer name for the server certificate (used when signing admin certs)
 	ServerCertIssuer = "lcm-server"
 
@@ -55,6 +58,7 @@ const (
 	WardenCertDir    = "warden"
 	IpamCertDir      = "ipam"
 	PaperlessCertDir = "paperless"
+	SharingCertDir   = "sharing"
 
 	// Server certificate directory names for module services
 	// These contain server certificates that the services present to clients
@@ -62,6 +66,7 @@ const (
 	IpamServerCertDir      = "ipam-server"
 	PaperlessServerCertDir = "paperless-server"
 	DeployerServerCertDir  = "deployer-server"
+	SharingServerCertDir   = "sharing-server"
 )
 
 // BootstrapService handles initial certificate setup on server startup
@@ -142,6 +147,11 @@ func (bs *BootstrapService) Bootstrap(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure paperless certificate: %w", err)
 	}
 
+	// Step 6b: Ensure sharing client certificate exists (signed by CA)
+	if err := bs.ensureSharingCertificate(ctx, caCert, caKey); err != nil {
+		return fmt.Errorf("failed to ensure sharing certificate: %w", err)
+	}
+
 	// Step 7: Ensure module SERVER certificates exist (for services to present to clients)
 	// These are different from client certificates - they have SANs matching Docker service names
 	if err := bs.ensureWardenServerCertificate(ctx, caCert, caKey); err != nil {
@@ -155,6 +165,9 @@ func (bs *BootstrapService) Bootstrap(ctx context.Context) error {
 	}
 	if err := bs.ensureDeployerServerCertificate(ctx, caCert, caKey); err != nil {
 		return fmt.Errorf("failed to ensure deployer server certificate: %w", err)
+	}
+	if err := bs.ensureSharingServerCertificate(ctx, caCert, caKey); err != nil {
+		return fmt.Errorf("failed to ensure sharing server certificate: %w", err)
 	}
 
 	// Step 8: Ensure frontend ACME certificate (non-fatal)
@@ -615,6 +628,76 @@ func (bs *BootstrapService) ensurePaperlessCertificate(ctx context.Context, caCe
 	return nil
 }
 
+// ensureSharingCertificate ensures the sharing client certificate exists, generating it if necessary
+func (bs *BootstrapService) ensureSharingCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
+	sharingCertPath := filepath.Join(bs.config.GetDataDir(), SharingCertDir, "sharing.crt")
+	sharingKeyPath := filepath.Join(bs.config.GetDataDir(), SharingCertDir, "sharing.key")
+
+	// Check if sharing certificate exists in files
+	if bs.certificatesExist(sharingCertPath, sharingKeyPath) {
+		bs.log.Info("Sharing certificate already exists in files")
+		bs.ensureSharingClientEntry(ctx)
+		return nil
+	}
+
+	bs.log.Info("Sharing certificate not found in files, generating new one signed by CA...")
+
+	// Generate sharing private key (RSA-2048)
+	sharingKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return fmt.Errorf("failed to generate sharing key: %w", err)
+	}
+
+	// Generate unique serial number
+	serialNumber, err := bs.generateSerialNumber(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
+	// Create certificate template (client certificate, NOT CA)
+	now := time.Now()
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(serialNumber),
+		Subject: pkix.Name{
+			Country:            []string{"US"},
+			Organization:       []string{"LCM"},
+			OrganizationalUnit: []string{"LCM Sharing"},
+			CommonName:         SharingClientID,
+		},
+		NotBefore:             now,
+		NotAfter:              now.Add(365 * 24 * time.Hour), // 1 year
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+	}
+
+	// Create certificate signed by Root CA
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &sharingKey.PublicKey, caKey)
+	if err != nil {
+		return fmt.Errorf("failed to create sharing certificate: %w", err)
+	}
+
+	// Parse the created certificate
+	sharingCert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		return fmt.Errorf("failed to parse sharing certificate: %w", err)
+	}
+
+	// Save to files
+	if err := bs.saveCertificateToFiles(certDER, sharingKey, sharingCertPath, sharingKeyPath); err != nil {
+		return fmt.Errorf("failed to save sharing certificate to files: %w", err)
+	}
+
+	// Save to database
+	if err := bs.saveModuleCertificateToDatabase(ctx, sharingCert, sharingKey, serialNumber, SharingClientID, "LCM Sharing"); err != nil {
+		bs.log.Warnf("Failed to save sharing certificate to database (non-fatal): %v", err)
+	}
+
+	bs.log.Infof("Generated sharing certificate with serial number: %d", serialNumber)
+	return nil
+}
+
 // ensureWardenServerCertificate generates a SERVER certificate for the Warden service
 // This certificate has SANs matching Docker service names so TLS verification succeeds
 func (bs *BootstrapService) ensureWardenServerCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
@@ -862,6 +945,68 @@ func (bs *BootstrapService) ensureDeployerServerCertificate(ctx context.Context,
 	}
 
 	bs.log.Infof("Generated deployer server certificate with serial number: %d", serialNumber)
+	return nil
+}
+
+// ensureSharingServerCertificate generates a SERVER certificate for the Sharing service
+func (bs *BootstrapService) ensureSharingServerCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
+	serverCertPath := filepath.Join(bs.config.GetDataDir(), SharingServerCertDir, "server.crt")
+	serverKeyPath := filepath.Join(bs.config.GetDataDir(), SharingServerCertDir, "server.key")
+
+	if bs.certificatesExist(serverCertPath, serverKeyPath) {
+		bs.log.Info("Sharing server certificate already exists in files")
+		return nil
+	}
+
+	bs.log.Info("Sharing server certificate not found, generating new one...")
+
+	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return fmt.Errorf("failed to generate sharing server key: %w", err)
+	}
+
+	serialNumber, err := bs.generateSerialNumber(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
+	now := time.Now()
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(serialNumber),
+		Subject: pkix.Name{
+			Country:            []string{"US"},
+			Organization:       []string{"LCM"},
+			OrganizationalUnit: []string{"Sharing Service"},
+			CommonName:         "sharing-service",
+		},
+		NotBefore:             now,
+		NotAfter:              now.Add(365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+		DNSNames: []string{
+			"sharing-service",
+			"sharing",
+			"localhost",
+			"sharing.local",
+		},
+		IPAddresses: []net.IP{
+			net.IPv4(127, 0, 0, 1),
+			net.IPv6loopback,
+		},
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &serverKey.PublicKey, caKey)
+	if err != nil {
+		return fmt.Errorf("failed to create sharing server certificate: %w", err)
+	}
+
+	if err := bs.saveCertificateToFiles(certDER, serverKey, serverCertPath, serverKeyPath); err != nil {
+		return fmt.Errorf("failed to save sharing server certificate: %w", err)
+	}
+
+	bs.log.Infof("Generated sharing server certificate with serial number: %d", serialNumber)
 	return nil
 }
 
@@ -1183,6 +1328,22 @@ func (bs *BootstrapService) ensurePaperlessClientEntry(ctx context.Context) {
 	}
 }
 
+// ensureSharingClientEntry ensures the LcmClient entry exists for the sharing client
+func (bs *BootstrapService) ensureSharingClientEntry(ctx context.Context) {
+	existingClient, _ := bs.clientRepo.GetByTenantAndClientID(ctx, 0, SharingClientID)
+	if existingClient == nil {
+		_, err := bs.clientRepo.Create(ctx, 0, SharingClientID, map[string]string{
+			"type":        "sharing",
+			"description": "LCM Sharing Client (auto-generated)",
+		})
+		if err != nil {
+			bs.log.Warnf("Failed to create LcmClient entry for sharing (non-fatal): %v", err)
+		} else {
+			bs.log.Info("Created LcmClient entry for sharing")
+		}
+	}
+}
+
 // saveModuleCertificateToDatabase saves a module client certificate to the database
 func (bs *BootstrapService) saveModuleCertificateToDatabase(ctx context.Context, cert *x509.Certificate, key *rsa.PrivateKey, serialNumber int64, clientID string, orgUnit string) error {
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
@@ -1234,6 +1395,8 @@ func (bs *BootstrapService) saveModuleCertificateToDatabase(ctx context.Context,
 		bs.ensureIpamClientEntry(ctx)
 	case PaperlessClientID:
 		bs.ensurePaperlessClientEntry(ctx)
+	case SharingClientID:
+		bs.ensureSharingClientEntry(ctx)
 	}
 
 	bs.log.Infof("Saved %s certificate to database", clientID)
