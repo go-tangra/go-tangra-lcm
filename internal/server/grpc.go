@@ -20,7 +20,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/cert"
 	lcmMiddleware "github.com/go-tangra/go-tangra-lcm/pkg/middleware"
 	"github.com/go-tangra/go-tangra-lcm/pkg/middleware/audit"
-	appViewer "github.com/go-tangra/go-tangra-lcm/pkg/viewer"
+	appViewer "github.com/go-tangra/go-tangra-common/viewer"
 )
 
 // NewWhiteListMatcher Creates grpc whitelist for public endpoints

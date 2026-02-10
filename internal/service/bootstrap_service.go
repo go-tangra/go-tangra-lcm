@@ -26,7 +26,7 @@ import (
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
 	"github.com/go-tangra/go-tangra-lcm/internal/conf"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
-	appViewer "github.com/go-tangra/go-tangra-lcm/pkg/viewer"
+	appViewer "github.com/go-tangra/go-tangra-common/viewer"
 )
 
 // BootstrapService implements the LcmBootstrapService gRPC service

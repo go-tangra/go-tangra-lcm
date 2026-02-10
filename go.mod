@@ -9,7 +9,7 @@ require (
 	github.com/go-acme/lego/v4 v4.31.0
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/go-tangra/go-tangra-common v0.3.0
+	github.com/go-tangra/go-tangra-common v0.4.0
 	github.com/google/gnostic v0.7.1
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.7.0
@@ -20,7 +20,6 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/tx7do/go-crud/api v0.0.7
 	github.com/tx7do/go-crud/entgo v0.0.38
-	github.com/tx7do/go-crud/viewer v0.0.5
 	github.com/tx7do/go-scripts v0.0.5
 	github.com/tx7do/go-utils v1.1.34
 	github.com/tx7do/go-utils/copierutil v0.0.6
@@ -125,6 +124,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tx7do/go-crud/audit v0.0.2 // indirect
 	github.com/tx7do/go-crud/pagination v0.0.11 // indirect
+	github.com/tx7do/go-crud/viewer v0.0.6 // indirect
 	github.com/tx7do/go-utils/id v0.0.2 // indirect
 	github.com/tx7do/kratos-bootstrap/config v0.2.2 // indirect
 	github.com/tx7do/kratos-bootstrap/logger v0.1.2 // indirect
