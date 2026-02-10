@@ -15,6 +15,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
 	"github.com/go-tangra/go-tangra-lcm/internal/service"
 
+	commonV1 "github.com/go-tangra/go-tangra-common/gen/go/common/service/v1"
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
 	"github.com/go-tangra/go-tangra-lcm/internal/cert"
 	lcmMiddleware "github.com/go-tangra/go-tangra-lcm/pkg/middleware"
@@ -31,6 +32,8 @@ func newGrpcWhiteListMatcher() selector.MatchFunc {
 	whiteList["/lcm.service.v1.LcmClientService/DownloadClientCertificate"] = true
 	// System service endpoints are public
 	whiteList["/lcm.service.v1.SystemService/HealthCheck"] = true
+	// Bootstrap service is public - modules authenticate with module_registration_secret
+	whiteList["/common.service.v1.LcmBootstrapService/BootstrapCertificates"] = true
 
 	return func(ctx context.Context, operation string) bool {
 		if _, ok := whiteList[operation]; ok {
@@ -94,6 +97,7 @@ func NewGRPCServer(
 	certPermissionSvc *service.CertificatePermissionService,
 	mtlsCertRequestSvc *service.MtlsCertificateRequestService,
 	statisticsSvc *service.StatisticsService,
+	bootstrapSvc *service.BootstrapService,
 ) *grpc.Server {
 	cfg := ctx.GetConfig()
 	logger := ctx.GetLogger()
@@ -135,6 +139,7 @@ func NewGRPCServer(
 	lcmV1.RegisterCertificatePermissionServiceServer(srv, certPermissionSvc)
 	lcmV1.RegisterLcmMtlsCertificateRequestServiceServer(srv, mtlsCertRequestSvc)
 	lcmV1.RegisterLcmStatisticsServiceServer(srv, statisticsSvc)
+	commonV1.RegisterLcmBootstrapServiceServer(srv, bootstrapSvc)
 	l.Info("gRPC server configured with TLS and all LCM services")
 
 	return srv

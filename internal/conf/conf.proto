@@ -16,6 +16,18 @@ message LCM {
   WebhookConfig webhooks = 11; // Webhook notification configuration
   FrontendCertificate frontend_certificate = 12; // Frontend ACME certificate configuration
   repeated string dns_resolvers = 13; // Global DNS resolvers for ACME DNS-01 propagation checks (e.g. "1.1.1.1:53", "8.8.8.8:53")
+  string module_registration_secret = 14; // Separate secret for module cert bootstrap (NOT shared_secret)
+  repeated BootstrapModule bootstrap_modules = 15; // Config-driven module list for certificate generation
+}
+
+// BootstrapModule defines a module that needs certificates generated during bootstrap
+message BootstrapModule {
+  string module_id = 1;          // "deployer", "warden", "ipam", etc.
+  string client_id = 2;          // "lcm-deployer" — CN for client cert
+  string cert_dir = 3;           // "deployer" — subdirectory under data_dir
+  string server_cert_dir = 4;    // "deployer-server" — subdirectory for server cert (empty = no server cert)
+  string display_name = 5;       // "LCM Deployer" — for cert subject OU
+  repeated string dns_names = 6; // SANs for server cert: ["deployer-service", "deployer", "localhost"]
 }
 
 // Configuration for event notifications via Redis pub/sub

@@ -30,21 +30,6 @@ const (
 	// AdminClientID is the client_id for the auto-generated admin certificate
 	AdminClientID = "lcm-admin"
 
-	// DeployerClientID is the client_id for the auto-generated deployer certificate
-	DeployerClientID = "lcm-deployer"
-
-	// WardenClientID is the client_id for the auto-generated warden certificate
-	WardenClientID = "lcm-warden"
-
-	// IpamClientID is the client_id for the auto-generated ipam certificate
-	IpamClientID = "lcm-ipam"
-
-	// PaperlessClientID is the client_id for the auto-generated paperless certificate
-	PaperlessClientID = "lcm-paperless"
-
-	// SharingClientID is the client_id for the auto-generated sharing certificate
-	SharingClientID = "lcm-sharing"
-
 	// ServerCertIssuer is the issuer name for the server certificate (used when signing admin certs)
 	ServerCertIssuer = "lcm-server"
 
@@ -52,21 +37,8 @@ const (
 	RootCAIssuer = "lcm-root-ca"
 
 	// Certificate directory names (relative to data_dir)
-	ServerCertDir    = "server"
-	AdminCertDir     = "admin"
-	DeployerCertDir  = "deployer"
-	WardenCertDir    = "warden"
-	IpamCertDir      = "ipam"
-	PaperlessCertDir = "paperless"
-	SharingCertDir   = "sharing"
-
-	// Server certificate directory names for module services
-	// These contain server certificates that the services present to clients
-	WardenServerCertDir    = "warden-server"
-	IpamServerCertDir      = "ipam-server"
-	PaperlessServerCertDir = "paperless-server"
-	DeployerServerCertDir  = "deployer-server"
-	SharingServerCertDir   = "sharing-server"
+	ServerCertDir = "server"
+	AdminCertDir  = "admin"
 )
 
 // BootstrapService handles initial certificate setup on server startup
@@ -112,65 +84,36 @@ func (bs *BootstrapService) Bootstrap(ctx context.Context) error {
 	ctx = appViewer.NewSystemViewerContext(ctx)
 	bs.log.Info("Starting mTLS certificate bootstrap...")
 
-	// Step 1: Ensure server certificate exists
+	// Step 1: Ensure LCM server certificate exists (intermediate CA)
 	_, _, err := bs.ensureServerCertificate(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to ensure server certificate: %w", err)
 	}
 
-	// Step 2: Ensure admin client certificate exists (signed by CA, not server)
+	// Step 2: Load root CA for signing all subsequent certificates
 	caCert, caKey, err := bs.loadRootCA()
 	if err != nil {
-		return fmt.Errorf("failed to load root CA for admin cert signing: %w", err)
+		return fmt.Errorf("failed to load root CA for cert signing: %w", err)
 	}
+
+	// Step 3: Ensure admin client certificate (always needed, special case)
 	if err := bs.ensureAdminCertificate(ctx, caCert, caKey); err != nil {
 		return fmt.Errorf("failed to ensure admin certificate: %w", err)
 	}
 
-	// Step 3: Ensure deployer client certificate exists (signed by CA)
-	if err := bs.ensureDeployerCertificate(ctx, caCert, caKey); err != nil {
-		return fmt.Errorf("failed to ensure deployer certificate: %w", err)
+	// Step 4: Loop over configured bootstrap modules
+	for _, mod := range bs.config.GetBootstrapModules() {
+		if err := bs.ensureModuleClientCertificate(ctx, caCert, caKey, mod); err != nil {
+			return fmt.Errorf("failed to ensure %s client certificate: %w", mod.GetModuleId(), err)
+		}
+		if mod.GetServerCertDir() != "" {
+			if err := bs.ensureModuleServerCertificate(ctx, caCert, caKey, mod); err != nil {
+				return fmt.Errorf("failed to ensure %s server certificate: %w", mod.GetModuleId(), err)
+			}
+		}
 	}
 
-	// Step 4: Ensure warden client certificate exists (signed by CA)
-	if err := bs.ensureWardenCertificate(ctx, caCert, caKey); err != nil {
-		return fmt.Errorf("failed to ensure warden certificate: %w", err)
-	}
-
-	// Step 5: Ensure ipam client certificate exists (signed by CA)
-	if err := bs.ensureIpamCertificate(ctx, caCert, caKey); err != nil {
-		return fmt.Errorf("failed to ensure ipam certificate: %w", err)
-	}
-
-	// Step 6: Ensure paperless client certificate exists (signed by CA)
-	if err := bs.ensurePaperlessCertificate(ctx, caCert, caKey); err != nil {
-		return fmt.Errorf("failed to ensure paperless certificate: %w", err)
-	}
-
-	// Step 6b: Ensure sharing client certificate exists (signed by CA)
-	if err := bs.ensureSharingCertificate(ctx, caCert, caKey); err != nil {
-		return fmt.Errorf("failed to ensure sharing certificate: %w", err)
-	}
-
-	// Step 7: Ensure module SERVER certificates exist (for services to present to clients)
-	// These are different from client certificates - they have SANs matching Docker service names
-	if err := bs.ensureWardenServerCertificate(ctx, caCert, caKey); err != nil {
-		return fmt.Errorf("failed to ensure warden server certificate: %w", err)
-	}
-	if err := bs.ensureIpamServerCertificate(ctx, caCert, caKey); err != nil {
-		return fmt.Errorf("failed to ensure ipam server certificate: %w", err)
-	}
-	if err := bs.ensurePaperlessServerCertificate(ctx, caCert, caKey); err != nil {
-		return fmt.Errorf("failed to ensure paperless server certificate: %w", err)
-	}
-	if err := bs.ensureDeployerServerCertificate(ctx, caCert, caKey); err != nil {
-		return fmt.Errorf("failed to ensure deployer server certificate: %w", err)
-	}
-	if err := bs.ensureSharingServerCertificate(ctx, caCert, caKey); err != nil {
-		return fmt.Errorf("failed to ensure sharing server certificate: %w", err)
-	}
-
-	// Step 8: Ensure frontend ACME certificate (non-fatal)
+	// Step 5: Ensure frontend ACME certificate (non-fatal)
 	if bs.config.GetFrontendCertificate() != nil && bs.config.GetFrontendCertificate().GetEnabled() {
 		if err := bs.ensureFrontendCertificate(ctx); err != nil {
 			bs.log.Warnf("Failed to ensure frontend certificate (non-fatal): %v", err)
@@ -186,7 +129,6 @@ func (bs *BootstrapService) ensureServerCertificate(ctx context.Context) (*x509.
 	serverCertPath := filepath.Join(bs.config.GetDataDir(), ServerCertDir, "server.crt")
 	serverKeyPath := filepath.Join(bs.config.GetDataDir(), ServerCertDir, "server.key")
 
-	// Check if server certificate exists in files
 	if bs.certificatesExist(serverCertPath, serverKeyPath) {
 		bs.log.Info("Server certificate already exists in files, loading...")
 		return bs.loadCertificateAndKey(serverCertPath, serverKeyPath)
@@ -194,25 +136,21 @@ func (bs *BootstrapService) ensureServerCertificate(ctx context.Context) (*x509.
 
 	bs.log.Info("Server certificate not found, generating new intermediate CA certificate...")
 
-	// Load Root CA
 	caCert, caKey, err := bs.loadRootCA()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load root CA: %w", err)
 	}
 
-	// Generate server private key (RSA-2048)
 	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate server key: %w", err)
 	}
 
-	// Generate unique serial number
 	serialNumber, err := bs.generateSerialNumber(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate serial number: %w", err)
 	}
 
-	// Create certificate template with CA capabilities (intermediate CA)
 	now := time.Now()
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(serialNumber),
@@ -223,84 +161,67 @@ func (bs *BootstrapService) ensureServerCertificate(ctx context.Context) (*x509.
 			CommonName:         "lcm-server",
 		},
 		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour), // 1 year
+		NotAfter:              now.Add(365 * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		MaxPathLen:            0, // Can only sign end-entity certificates
+		MaxPathLen:            0,
 		MaxPathLenZero:        true,
 	}
 
-	// Add SANs (Subject Alternative Names)
-	template.DNSNames = []string{
-		"localhost",
-		"lcm-server",
-		"*.local",
-	}
+	template.DNSNames = []string{"localhost", "lcm-server", "*.local"}
 	template.IPAddresses = []net.IP{
 		net.IPv4(127, 0, 0, 1),
 		net.IPv4(0, 0, 0, 0),
 		net.IPv6loopback,
 	}
 
-	// Create certificate signed by Root CA
 	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &serverKey.PublicKey, caKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create server certificate: %w", err)
 	}
 
-	// Parse the created certificate
 	serverCert, err := x509.ParseCertificate(certDER)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse server certificate: %w", err)
 	}
 
-	// Save to files
 	if err := bs.saveCertificateToFiles(certDER, serverKey, serverCertPath, serverKeyPath); err != nil {
 		return nil, nil, fmt.Errorf("failed to save server certificate to files: %w", err)
 	}
 
-	// Save to database
 	if err := bs.saveServerCertificateToDatabase(ctx, serverCert, serverKey, serialNumber); err != nil {
 		bs.log.Warnf("Failed to save server certificate to database (non-fatal): %v", err)
-		// Continue even if database save fails - file-based cert is sufficient for server operation
 	}
 
 	bs.log.Infof("Generated server certificate with serial number: %d", serialNumber)
 	return serverCert, serverKey, nil
 }
 
-// ensureAdminCertificate ensures the admin client certificate exists, generating it if necessary
+// ensureAdminCertificate ensures the admin client certificate exists
 func (bs *BootstrapService) ensureAdminCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
 	adminCertPath := filepath.Join(bs.config.GetDataDir(), AdminCertDir, "admin.crt")
 	adminKeyPath := filepath.Join(bs.config.GetDataDir(), AdminCertDir, "admin.key")
 
-	// Check if admin certificate exists in files
 	if bs.certificatesExist(adminCertPath, adminKeyPath) {
 		bs.log.Info("Admin certificate already exists in files")
-		// Ensure client entry exists
-		bs.ensureClientEntry(ctx)
+		bs.ensureModuleClientEntry(ctx, AdminClientID, "admin")
 		return nil
 	}
 
-	// Files don't exist - we need to generate new certificate
-	// Even if one exists in DB, we need the files for the admin gateway to connect
 	bs.log.Info("Admin certificate not found in files, generating new one signed by CA...")
 
-	// Generate admin private key (RSA-2048)
 	adminKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return fmt.Errorf("failed to generate admin key: %w", err)
 	}
 
-	// Generate unique serial number
 	serialNumber, err := bs.generateSerialNumber(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to generate serial number: %w", err)
 	}
 
-	// Create certificate template (client certificate, NOT CA)
 	now := time.Now()
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(serialNumber),
@@ -311,409 +232,121 @@ func (bs *BootstrapService) ensureAdminCertificate(ctx context.Context, caCert *
 			CommonName:         AdminClientID,
 		},
 		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour), // 1 year
+		NotAfter:              now.Add(365 * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 	}
 
-	// Create certificate signed by Root CA
 	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &adminKey.PublicKey, caKey)
 	if err != nil {
 		return fmt.Errorf("failed to create admin certificate: %w", err)
 	}
 
-	// Parse the created certificate
 	adminCert, err := x509.ParseCertificate(certDER)
 	if err != nil {
 		return fmt.Errorf("failed to parse admin certificate: %w", err)
 	}
 
-	// Save to files
 	if err := bs.saveCertificateToFiles(certDER, adminKey, adminCertPath, adminKeyPath); err != nil {
 		return fmt.Errorf("failed to save admin certificate to files: %w", err)
 	}
 
-	// Save to database
 	if err := bs.saveClientCertificateToDatabase(ctx, adminCert, adminKey, serialNumber); err != nil {
 		bs.log.Warnf("Failed to save admin certificate to database (non-fatal): %v", err)
-		// Continue even if database save fails
 	}
 
 	bs.log.Infof("Generated admin certificate with serial number: %d", serialNumber)
 	return nil
 }
 
-// ensureDeployerCertificate ensures the deployer client certificate exists, generating it if necessary
-func (bs *BootstrapService) ensureDeployerCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
-	deployerCertPath := filepath.Join(bs.config.GetDataDir(), DeployerCertDir, "deployer.crt")
-	deployerKeyPath := filepath.Join(bs.config.GetDataDir(), DeployerCertDir, "deployer.key")
+// ensureModuleClientCertificate generates a client certificate for any module using config
+func (bs *BootstrapService) ensureModuleClientCertificate(ctx context.Context, caCert *x509.Certificate, caKey any, mod *conf.BootstrapModule) error {
+	moduleID := mod.GetModuleId()
+	clientID := mod.GetClientId()
+	certDir := mod.GetCertDir()
+	displayName := mod.GetDisplayName()
 
-	// Check if deployer certificate exists in files
-	if bs.certificatesExist(deployerCertPath, deployerKeyPath) {
-		bs.log.Info("Deployer certificate already exists in files")
-		// Ensure client entry exists
-		bs.ensureDeployerClientEntry(ctx)
+	certPath := filepath.Join(bs.config.GetDataDir(), certDir, moduleID+".crt")
+	keyPath := filepath.Join(bs.config.GetDataDir(), certDir, moduleID+".key")
+
+	if bs.certificatesExist(certPath, keyPath) {
+		bs.log.Infof("%s certificate already exists in files", displayName)
+		bs.ensureModuleClientEntry(ctx, clientID, moduleID)
 		return nil
 	}
 
-	// Files don't exist - we need to generate new certificate
-	bs.log.Info("Deployer certificate not found in files, generating new one signed by CA...")
+	bs.log.Infof("%s certificate not found in files, generating new one signed by CA...", displayName)
 
-	// Generate deployer private key (RSA-2048)
-	deployerKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return fmt.Errorf("failed to generate deployer key: %w", err)
+		return fmt.Errorf("failed to generate %s key: %w", moduleID, err)
 	}
 
-	// Generate unique serial number
 	serialNumber, err := bs.generateSerialNumber(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to generate serial number: %w", err)
 	}
 
-	// Create certificate template (client certificate, NOT CA)
 	now := time.Now()
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(serialNumber),
 		Subject: pkix.Name{
 			Country:            []string{"US"},
 			Organization:       []string{"LCM"},
-			OrganizationalUnit: []string{"LCM Deployer"},
-			CommonName:         DeployerClientID,
+			OrganizationalUnit: []string{displayName},
+			CommonName:         clientID,
 		},
 		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour), // 1 year
+		NotAfter:              now.Add(365 * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 	}
 
-	// Create certificate signed by Root CA
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &deployerKey.PublicKey, caKey)
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &key.PublicKey, caKey)
 	if err != nil {
-		return fmt.Errorf("failed to create deployer certificate: %w", err)
+		return fmt.Errorf("failed to create %s certificate: %w", moduleID, err)
 	}
 
-	// Parse the created certificate
-	deployerCert, err := x509.ParseCertificate(certDER)
+	cert, err := x509.ParseCertificate(certDER)
 	if err != nil {
-		return fmt.Errorf("failed to parse deployer certificate: %w", err)
+		return fmt.Errorf("failed to parse %s certificate: %w", moduleID, err)
 	}
 
-	// Save to files
-	if err := bs.saveCertificateToFiles(certDER, deployerKey, deployerCertPath, deployerKeyPath); err != nil {
-		return fmt.Errorf("failed to save deployer certificate to files: %w", err)
+	if err := bs.saveCertificateToFiles(certDER, key, certPath, keyPath); err != nil {
+		return fmt.Errorf("failed to save %s certificate to files: %w", moduleID, err)
 	}
 
-	// Save to database
-	if err := bs.saveDeployerCertificateToDatabase(ctx, deployerCert, deployerKey, serialNumber); err != nil {
-		bs.log.Warnf("Failed to save deployer certificate to database (non-fatal): %v", err)
-		// Continue even if database save fails
+	if err := bs.saveModuleCertificateToDatabase(ctx, cert, key, serialNumber, clientID); err != nil {
+		bs.log.Warnf("Failed to save %s certificate to database (non-fatal): %v", moduleID, err)
 	}
 
-	bs.log.Infof("Generated deployer certificate with serial number: %d", serialNumber)
+	bs.log.Infof("Generated %s certificate with serial number: %d", moduleID, serialNumber)
 	return nil
 }
 
-// ensureWardenCertificate ensures the warden client certificate exists, generating it if necessary
-func (bs *BootstrapService) ensureWardenCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
-	wardenCertPath := filepath.Join(bs.config.GetDataDir(), WardenCertDir, "warden.crt")
-	wardenKeyPath := filepath.Join(bs.config.GetDataDir(), WardenCertDir, "warden.key")
+// ensureModuleServerCertificate generates a server certificate for any module using config
+func (bs *BootstrapService) ensureModuleServerCertificate(ctx context.Context, caCert *x509.Certificate, caKey any, mod *conf.BootstrapModule) error {
+	moduleID := mod.GetModuleId()
+	serverCertDir := mod.GetServerCertDir()
+	dnsNames := mod.GetDnsNames()
 
-	// Check if warden certificate exists in files
-	if bs.certificatesExist(wardenCertPath, wardenKeyPath) {
-		bs.log.Info("Warden certificate already exists in files")
-		bs.ensureWardenClientEntry(ctx)
-		return nil
-	}
-
-	bs.log.Info("Warden certificate not found in files, generating new one signed by CA...")
-
-	// Generate warden private key (RSA-2048)
-	wardenKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return fmt.Errorf("failed to generate warden key: %w", err)
-	}
-
-	// Generate unique serial number
-	serialNumber, err := bs.generateSerialNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to generate serial number: %w", err)
-	}
-
-	// Create certificate template (client certificate, NOT CA)
-	now := time.Now()
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(serialNumber),
-		Subject: pkix.Name{
-			Country:            []string{"US"},
-			Organization:       []string{"LCM"},
-			OrganizationalUnit: []string{"LCM Warden"},
-			CommonName:         WardenClientID,
-		},
-		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour), // 1 year
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  false,
-	}
-
-	// Create certificate signed by Root CA
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &wardenKey.PublicKey, caKey)
-	if err != nil {
-		return fmt.Errorf("failed to create warden certificate: %w", err)
-	}
-
-	// Parse the created certificate
-	wardenCert, err := x509.ParseCertificate(certDER)
-	if err != nil {
-		return fmt.Errorf("failed to parse warden certificate: %w", err)
-	}
-
-	// Save to files
-	if err := bs.saveCertificateToFiles(certDER, wardenKey, wardenCertPath, wardenKeyPath); err != nil {
-		return fmt.Errorf("failed to save warden certificate to files: %w", err)
-	}
-
-	// Save to database
-	if err := bs.saveModuleCertificateToDatabase(ctx, wardenCert, wardenKey, serialNumber, WardenClientID, "LCM Warden"); err != nil {
-		bs.log.Warnf("Failed to save warden certificate to database (non-fatal): %v", err)
-	}
-
-	bs.log.Infof("Generated warden certificate with serial number: %d", serialNumber)
-	return nil
-}
-
-// ensureIpamCertificate ensures the ipam client certificate exists, generating it if necessary
-func (bs *BootstrapService) ensureIpamCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
-	ipamCertPath := filepath.Join(bs.config.GetDataDir(), IpamCertDir, "ipam.crt")
-	ipamKeyPath := filepath.Join(bs.config.GetDataDir(), IpamCertDir, "ipam.key")
-
-	// Check if ipam certificate exists in files
-	if bs.certificatesExist(ipamCertPath, ipamKeyPath) {
-		bs.log.Info("IPAM certificate already exists in files")
-		bs.ensureIpamClientEntry(ctx)
-		return nil
-	}
-
-	bs.log.Info("IPAM certificate not found in files, generating new one signed by CA...")
-
-	// Generate ipam private key (RSA-2048)
-	ipamKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return fmt.Errorf("failed to generate ipam key: %w", err)
-	}
-
-	// Generate unique serial number
-	serialNumber, err := bs.generateSerialNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to generate serial number: %w", err)
-	}
-
-	// Create certificate template (client certificate, NOT CA)
-	now := time.Now()
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(serialNumber),
-		Subject: pkix.Name{
-			Country:            []string{"US"},
-			Organization:       []string{"LCM"},
-			OrganizationalUnit: []string{"LCM IPAM"},
-			CommonName:         IpamClientID,
-		},
-		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour), // 1 year
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  false,
-	}
-
-	// Create certificate signed by Root CA
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &ipamKey.PublicKey, caKey)
-	if err != nil {
-		return fmt.Errorf("failed to create ipam certificate: %w", err)
-	}
-
-	// Parse the created certificate
-	ipamCert, err := x509.ParseCertificate(certDER)
-	if err != nil {
-		return fmt.Errorf("failed to parse ipam certificate: %w", err)
-	}
-
-	// Save to files
-	if err := bs.saveCertificateToFiles(certDER, ipamKey, ipamCertPath, ipamKeyPath); err != nil {
-		return fmt.Errorf("failed to save ipam certificate to files: %w", err)
-	}
-
-	// Save to database
-	if err := bs.saveModuleCertificateToDatabase(ctx, ipamCert, ipamKey, serialNumber, IpamClientID, "LCM IPAM"); err != nil {
-		bs.log.Warnf("Failed to save ipam certificate to database (non-fatal): %v", err)
-	}
-
-	bs.log.Infof("Generated ipam certificate with serial number: %d", serialNumber)
-	return nil
-}
-
-// ensurePaperlessCertificate ensures the paperless client certificate exists, generating it if necessary
-func (bs *BootstrapService) ensurePaperlessCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
-	paperlessCertPath := filepath.Join(bs.config.GetDataDir(), PaperlessCertDir, "paperless.crt")
-	paperlessKeyPath := filepath.Join(bs.config.GetDataDir(), PaperlessCertDir, "paperless.key")
-
-	// Check if paperless certificate exists in files
-	if bs.certificatesExist(paperlessCertPath, paperlessKeyPath) {
-		bs.log.Info("Paperless certificate already exists in files")
-		bs.ensurePaperlessClientEntry(ctx)
-		return nil
-	}
-
-	bs.log.Info("Paperless certificate not found in files, generating new one signed by CA...")
-
-	// Generate paperless private key (RSA-2048)
-	paperlessKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return fmt.Errorf("failed to generate paperless key: %w", err)
-	}
-
-	// Generate unique serial number
-	serialNumber, err := bs.generateSerialNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to generate serial number: %w", err)
-	}
-
-	// Create certificate template (client certificate, NOT CA)
-	now := time.Now()
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(serialNumber),
-		Subject: pkix.Name{
-			Country:            []string{"US"},
-			Organization:       []string{"LCM"},
-			OrganizationalUnit: []string{"LCM Paperless"},
-			CommonName:         PaperlessClientID,
-		},
-		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour), // 1 year
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  false,
-	}
-
-	// Create certificate signed by Root CA
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &paperlessKey.PublicKey, caKey)
-	if err != nil {
-		return fmt.Errorf("failed to create paperless certificate: %w", err)
-	}
-
-	// Parse the created certificate
-	paperlessCert, err := x509.ParseCertificate(certDER)
-	if err != nil {
-		return fmt.Errorf("failed to parse paperless certificate: %w", err)
-	}
-
-	// Save to files
-	if err := bs.saveCertificateToFiles(certDER, paperlessKey, paperlessCertPath, paperlessKeyPath); err != nil {
-		return fmt.Errorf("failed to save paperless certificate to files: %w", err)
-	}
-
-	// Save to database
-	if err := bs.saveModuleCertificateToDatabase(ctx, paperlessCert, paperlessKey, serialNumber, PaperlessClientID, "LCM Paperless"); err != nil {
-		bs.log.Warnf("Failed to save paperless certificate to database (non-fatal): %v", err)
-	}
-
-	bs.log.Infof("Generated paperless certificate with serial number: %d", serialNumber)
-	return nil
-}
-
-// ensureSharingCertificate ensures the sharing client certificate exists, generating it if necessary
-func (bs *BootstrapService) ensureSharingCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
-	sharingCertPath := filepath.Join(bs.config.GetDataDir(), SharingCertDir, "sharing.crt")
-	sharingKeyPath := filepath.Join(bs.config.GetDataDir(), SharingCertDir, "sharing.key")
-
-	// Check if sharing certificate exists in files
-	if bs.certificatesExist(sharingCertPath, sharingKeyPath) {
-		bs.log.Info("Sharing certificate already exists in files")
-		bs.ensureSharingClientEntry(ctx)
-		return nil
-	}
-
-	bs.log.Info("Sharing certificate not found in files, generating new one signed by CA...")
-
-	// Generate sharing private key (RSA-2048)
-	sharingKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return fmt.Errorf("failed to generate sharing key: %w", err)
-	}
-
-	// Generate unique serial number
-	serialNumber, err := bs.generateSerialNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to generate serial number: %w", err)
-	}
-
-	// Create certificate template (client certificate, NOT CA)
-	now := time.Now()
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(serialNumber),
-		Subject: pkix.Name{
-			Country:            []string{"US"},
-			Organization:       []string{"LCM"},
-			OrganizationalUnit: []string{"LCM Sharing"},
-			CommonName:         SharingClientID,
-		},
-		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour), // 1 year
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  false,
-	}
-
-	// Create certificate signed by Root CA
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &sharingKey.PublicKey, caKey)
-	if err != nil {
-		return fmt.Errorf("failed to create sharing certificate: %w", err)
-	}
-
-	// Parse the created certificate
-	sharingCert, err := x509.ParseCertificate(certDER)
-	if err != nil {
-		return fmt.Errorf("failed to parse sharing certificate: %w", err)
-	}
-
-	// Save to files
-	if err := bs.saveCertificateToFiles(certDER, sharingKey, sharingCertPath, sharingKeyPath); err != nil {
-		return fmt.Errorf("failed to save sharing certificate to files: %w", err)
-	}
-
-	// Save to database
-	if err := bs.saveModuleCertificateToDatabase(ctx, sharingCert, sharingKey, serialNumber, SharingClientID, "LCM Sharing"); err != nil {
-		bs.log.Warnf("Failed to save sharing certificate to database (non-fatal): %v", err)
-	}
-
-	bs.log.Infof("Generated sharing certificate with serial number: %d", serialNumber)
-	return nil
-}
-
-// ensureWardenServerCertificate generates a SERVER certificate for the Warden service
-// This certificate has SANs matching Docker service names so TLS verification succeeds
-func (bs *BootstrapService) ensureWardenServerCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
-	serverCertPath := filepath.Join(bs.config.GetDataDir(), WardenServerCertDir, "server.crt")
-	serverKeyPath := filepath.Join(bs.config.GetDataDir(), WardenServerCertDir, "server.key")
+	serverCertPath := filepath.Join(bs.config.GetDataDir(), serverCertDir, "server.crt")
+	serverKeyPath := filepath.Join(bs.config.GetDataDir(), serverCertDir, "server.key")
 
 	if bs.certificatesExist(serverCertPath, serverKeyPath) {
-		bs.log.Info("Warden server certificate already exists in files")
+		bs.log.Infof("%s server certificate already exists in files", moduleID)
 		return nil
 	}
 
-	bs.log.Info("Warden server certificate not found, generating new one...")
+	bs.log.Infof("%s server certificate not found, generating new one...", moduleID)
 
 	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return fmt.Errorf("failed to generate warden server key: %w", err)
+		return fmt.Errorf("failed to generate %s server key: %w", moduleID, err)
 	}
 
 	serialNumber, err := bs.generateSerialNumber(ctx)
@@ -721,14 +354,17 @@ func (bs *BootstrapService) ensureWardenServerCertificate(ctx context.Context, c
 		return fmt.Errorf("failed to generate serial number: %w", err)
 	}
 
+	serviceName := fmt.Sprintf("%s-service", moduleID)
+	displayName := fmt.Sprintf("%s Service", capitalize(moduleID))
+
 	now := time.Now()
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(serialNumber),
 		Subject: pkix.Name{
 			Country:            []string{"US"},
 			Organization:       []string{"LCM"},
-			OrganizationalUnit: []string{"Warden Service"},
-			CommonName:         "warden-service",
+			OrganizationalUnit: []string{displayName},
+			CommonName:         serviceName,
 		},
 		NotBefore:             now,
 		NotAfter:              now.Add(365 * 24 * time.Hour),
@@ -736,13 +372,7 @@ func (bs *BootstrapService) ensureWardenServerCertificate(ctx context.Context, c
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
-		// SANs must include Docker service name and common development hostnames
-		DNSNames: []string{
-			"warden-service",
-			"warden",
-			"localhost",
-			"warden.local",
-		},
+		DNSNames:              dnsNames,
 		IPAddresses: []net.IP{
 			net.IPv4(127, 0, 0, 1),
 			net.IPv6loopback,
@@ -751,263 +381,31 @@ func (bs *BootstrapService) ensureWardenServerCertificate(ctx context.Context, c
 
 	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &serverKey.PublicKey, caKey)
 	if err != nil {
-		return fmt.Errorf("failed to create warden server certificate: %w", err)
+		return fmt.Errorf("failed to create %s server certificate: %w", moduleID, err)
 	}
 
 	if err := bs.saveCertificateToFiles(certDER, serverKey, serverCertPath, serverKeyPath); err != nil {
-		return fmt.Errorf("failed to save warden server certificate: %w", err)
+		return fmt.Errorf("failed to save %s server certificate: %w", moduleID, err)
 	}
 
-	bs.log.Infof("Generated warden server certificate with serial number: %d", serialNumber)
+	bs.log.Infof("Generated %s server certificate with serial number: %d", moduleID, serialNumber)
 	return nil
 }
 
-// ensureIpamServerCertificate generates a SERVER certificate for the IPAM service
-func (bs *BootstrapService) ensureIpamServerCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
-	serverCertPath := filepath.Join(bs.config.GetDataDir(), IpamServerCertDir, "server.crt")
-	serverKeyPath := filepath.Join(bs.config.GetDataDir(), IpamServerCertDir, "server.key")
-
-	if bs.certificatesExist(serverCertPath, serverKeyPath) {
-		bs.log.Info("IPAM server certificate already exists in files")
-		return nil
+// ensureModuleClientEntry ensures the LcmClient entry exists for any module
+func (bs *BootstrapService) ensureModuleClientEntry(ctx context.Context, clientID, moduleType string) {
+	existingClient, _ := bs.clientRepo.GetByTenantAndClientID(ctx, 0, clientID)
+	if existingClient == nil {
+		_, err := bs.clientRepo.Create(ctx, 0, clientID, map[string]string{
+			"type":        moduleType,
+			"description": fmt.Sprintf("LCM %s Client (auto-generated)", capitalize(moduleType)),
+		})
+		if err != nil {
+			bs.log.Warnf("Failed to create LcmClient entry for %s (non-fatal): %v", moduleType, err)
+		} else {
+			bs.log.Infof("Created LcmClient entry for %s", moduleType)
+		}
 	}
-
-	bs.log.Info("IPAM server certificate not found, generating new one...")
-
-	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return fmt.Errorf("failed to generate ipam server key: %w", err)
-	}
-
-	serialNumber, err := bs.generateSerialNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to generate serial number: %w", err)
-	}
-
-	now := time.Now()
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(serialNumber),
-		Subject: pkix.Name{
-			Country:            []string{"US"},
-			Organization:       []string{"LCM"},
-			OrganizationalUnit: []string{"IPAM Service"},
-			CommonName:         "ipam-service",
-		},
-		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour),
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  false,
-		DNSNames: []string{
-			"ipam-service",
-			"ipam",
-			"localhost",
-			"ipam.local",
-		},
-		IPAddresses: []net.IP{
-			net.IPv4(127, 0, 0, 1),
-			net.IPv6loopback,
-		},
-	}
-
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &serverKey.PublicKey, caKey)
-	if err != nil {
-		return fmt.Errorf("failed to create ipam server certificate: %w", err)
-	}
-
-	if err := bs.saveCertificateToFiles(certDER, serverKey, serverCertPath, serverKeyPath); err != nil {
-		return fmt.Errorf("failed to save ipam server certificate: %w", err)
-	}
-
-	bs.log.Infof("Generated ipam server certificate with serial number: %d", serialNumber)
-	return nil
-}
-
-// ensurePaperlessServerCertificate generates a SERVER certificate for the Paperless service
-func (bs *BootstrapService) ensurePaperlessServerCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
-	serverCertPath := filepath.Join(bs.config.GetDataDir(), PaperlessServerCertDir, "server.crt")
-	serverKeyPath := filepath.Join(bs.config.GetDataDir(), PaperlessServerCertDir, "server.key")
-
-	if bs.certificatesExist(serverCertPath, serverKeyPath) {
-		bs.log.Info("Paperless server certificate already exists in files")
-		return nil
-	}
-
-	bs.log.Info("Paperless server certificate not found, generating new one...")
-
-	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return fmt.Errorf("failed to generate paperless server key: %w", err)
-	}
-
-	serialNumber, err := bs.generateSerialNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to generate serial number: %w", err)
-	}
-
-	now := time.Now()
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(serialNumber),
-		Subject: pkix.Name{
-			Country:            []string{"US"},
-			Organization:       []string{"LCM"},
-			OrganizationalUnit: []string{"Paperless Service"},
-			CommonName:         "paperless-service",
-		},
-		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour),
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  false,
-		DNSNames: []string{
-			"paperless-service",
-			"paperless",
-			"localhost",
-			"paperless.local",
-		},
-		IPAddresses: []net.IP{
-			net.IPv4(127, 0, 0, 1),
-			net.IPv6loopback,
-		},
-	}
-
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &serverKey.PublicKey, caKey)
-	if err != nil {
-		return fmt.Errorf("failed to create paperless server certificate: %w", err)
-	}
-
-	if err := bs.saveCertificateToFiles(certDER, serverKey, serverCertPath, serverKeyPath); err != nil {
-		return fmt.Errorf("failed to save paperless server certificate: %w", err)
-	}
-
-	bs.log.Infof("Generated paperless server certificate with serial number: %d", serialNumber)
-	return nil
-}
-
-// ensureDeployerServerCertificate generates a SERVER certificate for the Deployer service
-func (bs *BootstrapService) ensureDeployerServerCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
-	serverCertPath := filepath.Join(bs.config.GetDataDir(), DeployerServerCertDir, "server.crt")
-	serverKeyPath := filepath.Join(bs.config.GetDataDir(), DeployerServerCertDir, "server.key")
-
-	if bs.certificatesExist(serverCertPath, serverKeyPath) {
-		bs.log.Info("Deployer server certificate already exists in files")
-		return nil
-	}
-
-	bs.log.Info("Deployer server certificate not found, generating new one...")
-
-	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return fmt.Errorf("failed to generate deployer server key: %w", err)
-	}
-
-	serialNumber, err := bs.generateSerialNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to generate serial number: %w", err)
-	}
-
-	now := time.Now()
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(serialNumber),
-		Subject: pkix.Name{
-			Country:            []string{"US"},
-			Organization:       []string{"LCM"},
-			OrganizationalUnit: []string{"Deployer Service"},
-			CommonName:         "deployer-service",
-		},
-		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour),
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  false,
-		DNSNames: []string{
-			"deployer-service",
-			"deployer",
-			"localhost",
-			"deployer.local",
-		},
-		IPAddresses: []net.IP{
-			net.IPv4(127, 0, 0, 1),
-			net.IPv6loopback,
-		},
-	}
-
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &serverKey.PublicKey, caKey)
-	if err != nil {
-		return fmt.Errorf("failed to create deployer server certificate: %w", err)
-	}
-
-	if err := bs.saveCertificateToFiles(certDER, serverKey, serverCertPath, serverKeyPath); err != nil {
-		return fmt.Errorf("failed to save deployer server certificate: %w", err)
-	}
-
-	bs.log.Infof("Generated deployer server certificate with serial number: %d", serialNumber)
-	return nil
-}
-
-// ensureSharingServerCertificate generates a SERVER certificate for the Sharing service
-func (bs *BootstrapService) ensureSharingServerCertificate(ctx context.Context, caCert *x509.Certificate, caKey any) error {
-	serverCertPath := filepath.Join(bs.config.GetDataDir(), SharingServerCertDir, "server.crt")
-	serverKeyPath := filepath.Join(bs.config.GetDataDir(), SharingServerCertDir, "server.key")
-
-	if bs.certificatesExist(serverCertPath, serverKeyPath) {
-		bs.log.Info("Sharing server certificate already exists in files")
-		return nil
-	}
-
-	bs.log.Info("Sharing server certificate not found, generating new one...")
-
-	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return fmt.Errorf("failed to generate sharing server key: %w", err)
-	}
-
-	serialNumber, err := bs.generateSerialNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to generate serial number: %w", err)
-	}
-
-	now := time.Now()
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(serialNumber),
-		Subject: pkix.Name{
-			Country:            []string{"US"},
-			Organization:       []string{"LCM"},
-			OrganizationalUnit: []string{"Sharing Service"},
-			CommonName:         "sharing-service",
-		},
-		NotBefore:             now,
-		NotAfter:              now.Add(365 * 24 * time.Hour),
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  false,
-		DNSNames: []string{
-			"sharing-service",
-			"sharing",
-			"localhost",
-			"sharing.local",
-		},
-		IPAddresses: []net.IP{
-			net.IPv4(127, 0, 0, 1),
-			net.IPv6loopback,
-		},
-	}
-
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, caCert, &serverKey.PublicKey, caKey)
-	if err != nil {
-		return fmt.Errorf("failed to create sharing server certificate: %w", err)
-	}
-
-	if err := bs.saveCertificateToFiles(certDER, serverKey, serverCertPath, serverKeyPath); err != nil {
-		return fmt.Errorf("failed to save sharing server certificate: %w", err)
-	}
-
-	bs.log.Infof("Generated sharing server certificate with serial number: %d", serialNumber)
-	return nil
 }
 
 // certificatesExist checks if both certificate and key files exist
@@ -1026,12 +424,10 @@ func (bs *BootstrapService) loadRootCA() (*x509.Certificate, any, error) {
 	caCertPath := bs.config.GetCaCertPath()
 	caKeyPath := bs.config.GetCaKeyPath()
 
-	// Check if CA files exist
 	if !bs.certificatesExist(caCertPath, caKeyPath) {
 		return nil, nil, fmt.Errorf("root CA certificates not found at %s and %s", caCertPath, caKeyPath)
 	}
 
-	// Load CA certificate
 	caCertPEM, err := os.ReadFile(caCertPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read CA certificate: %w", err)
@@ -1047,7 +443,6 @@ func (bs *BootstrapService) loadRootCA() (*x509.Certificate, any, error) {
 		return nil, nil, fmt.Errorf("failed to parse CA certificate: %w", err)
 	}
 
-	// Load CA private key
 	caKeyPEM, err := os.ReadFile(caKeyPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read CA key: %w", err)
@@ -1077,7 +472,6 @@ func (bs *BootstrapService) loadRootCA() (*x509.Certificate, any, error) {
 
 // loadCertificateAndKey loads a certificate and RSA private key from files
 func (bs *BootstrapService) loadCertificateAndKey(certPath, keyPath string) (*x509.Certificate, *rsa.PrivateKey, error) {
-	// Load certificate
 	certPEM, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read certificate: %w", err)
@@ -1093,7 +487,6 @@ func (bs *BootstrapService) loadCertificateAndKey(certPath, keyPath string) (*x5
 		return nil, nil, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
-	// Load private key
 	keyPEM, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read key: %w", err)
@@ -1128,34 +521,27 @@ func (bs *BootstrapService) loadCertificateAndKey(certPath, keyPath string) (*x5
 
 // generateSerialNumber generates a unique serial number for certificates
 func (bs *BootstrapService) generateSerialNumber(ctx context.Context) (int64, error) {
-	// Use timestamp-based serial with collision checking
 	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
-
-	// Try to find a unique serial number
 	for i := 0; i < 100; i++ {
 		serialNumber := timestamp + int64(i)
 		exists, err := bs.certRepo.IsExistBySerialNumber(ctx, serialNumber)
 		if err != nil {
 			bs.log.Warnf("Error checking serial number existence: %v", err)
-			// If database check fails, use the timestamp directly
 			return timestamp, nil
 		}
 		if !exists {
 			return serialNumber, nil
 		}
 	}
-
 	return 0, fmt.Errorf("failed to generate unique serial number after 100 attempts")
 }
 
 // saveCertificateToFiles saves a certificate and private key to files
 func (bs *BootstrapService) saveCertificateToFiles(certDER []byte, key *rsa.PrivateKey, certPath, keyPath string) error {
-	// Ensure directory exists
 	if err := os.MkdirAll(filepath.Dir(certPath), 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// Save certificate
 	certOut, err := os.Create(certPath)
 	if err != nil {
 		return fmt.Errorf("failed to create certificate file: %w", err)
@@ -1166,7 +552,6 @@ func (bs *BootstrapService) saveCertificateToFiles(certDER []byte, key *rsa.Priv
 		return fmt.Errorf("failed to write certificate: %w", err)
 	}
 
-	// Save private key
 	keyOut, err := os.Create(keyPath)
 	if err != nil {
 		return fmt.Errorf("failed to create key file: %w", err)
@@ -1182,7 +567,6 @@ func (bs *BootstrapService) saveCertificateToFiles(certDER []byte, key *rsa.Priv
 		return fmt.Errorf("failed to write private key: %w", err)
 	}
 
-	// Set appropriate permissions on key file
 	if err := os.Chmod(keyPath, 0600); err != nil {
 		return fmt.Errorf("failed to set key file permissions: %w", err)
 	}
@@ -1198,7 +582,6 @@ func (bs *BootstrapService) saveServerCertificateToDatabase(ctx context.Context,
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
 	fingerprint := sha256.Sum256(cert.Raw)
 
-	// Encode public key
 	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
 	if err != nil {
 		return fmt.Errorf("failed to marshal public key: %w", err)
@@ -1248,217 +631,11 @@ func (bs *BootstrapService) saveServerCertificateToDatabase(ctx context.Context,
 	return nil
 }
 
-// ensureClientEntry ensures the LcmClient entry exists for the admin client
-func (bs *BootstrapService) ensureClientEntry(ctx context.Context) {
-	existingClient, _ := bs.clientRepo.GetByTenantAndClientID(ctx, 0, AdminClientID)
-	if existingClient == nil {
-		_, err := bs.clientRepo.Create(ctx, 0, AdminClientID, map[string]string{
-			"type":        "admin",
-			"description": "LCM Admin Client (auto-generated)",
-		})
-		if err != nil {
-			bs.log.Warnf("Failed to create LcmClient entry (non-fatal): %v", err)
-		} else {
-			bs.log.Info("Created LcmClient entry for admin")
-		}
-	}
-}
-
-// ensureDeployerClientEntry ensures the LcmClient entry exists for the deployer client
-func (bs *BootstrapService) ensureDeployerClientEntry(ctx context.Context) {
-	existingClient, _ := bs.clientRepo.GetByTenantAndClientID(ctx, 0, DeployerClientID)
-	if existingClient == nil {
-		_, err := bs.clientRepo.Create(ctx, 0, DeployerClientID, map[string]string{
-			"type":        "deployer",
-			"description": "LCM Deployer Client (auto-generated)",
-		})
-		if err != nil {
-			bs.log.Warnf("Failed to create LcmClient entry for deployer (non-fatal): %v", err)
-		} else {
-			bs.log.Info("Created LcmClient entry for deployer")
-		}
-	}
-}
-
-// ensureWardenClientEntry ensures the LcmClient entry exists for the warden client
-func (bs *BootstrapService) ensureWardenClientEntry(ctx context.Context) {
-	existingClient, _ := bs.clientRepo.GetByTenantAndClientID(ctx, 0, WardenClientID)
-	if existingClient == nil {
-		_, err := bs.clientRepo.Create(ctx, 0, WardenClientID, map[string]string{
-			"type":        "warden",
-			"description": "LCM Warden Client (auto-generated)",
-		})
-		if err != nil {
-			bs.log.Warnf("Failed to create LcmClient entry for warden (non-fatal): %v", err)
-		} else {
-			bs.log.Info("Created LcmClient entry for warden")
-		}
-	}
-}
-
-// ensureIpamClientEntry ensures the LcmClient entry exists for the ipam client
-func (bs *BootstrapService) ensureIpamClientEntry(ctx context.Context) {
-	existingClient, _ := bs.clientRepo.GetByTenantAndClientID(ctx, 0, IpamClientID)
-	if existingClient == nil {
-		_, err := bs.clientRepo.Create(ctx, 0, IpamClientID, map[string]string{
-			"type":        "ipam",
-			"description": "LCM IPAM Client (auto-generated)",
-		})
-		if err != nil {
-			bs.log.Warnf("Failed to create LcmClient entry for ipam (non-fatal): %v", err)
-		} else {
-			bs.log.Info("Created LcmClient entry for ipam")
-		}
-	}
-}
-
-// ensurePaperlessClientEntry ensures the LcmClient entry exists for the paperless client
-func (bs *BootstrapService) ensurePaperlessClientEntry(ctx context.Context) {
-	existingClient, _ := bs.clientRepo.GetByTenantAndClientID(ctx, 0, PaperlessClientID)
-	if existingClient == nil {
-		_, err := bs.clientRepo.Create(ctx, 0, PaperlessClientID, map[string]string{
-			"type":        "paperless",
-			"description": "LCM Paperless Client (auto-generated)",
-		})
-		if err != nil {
-			bs.log.Warnf("Failed to create LcmClient entry for paperless (non-fatal): %v", err)
-		} else {
-			bs.log.Info("Created LcmClient entry for paperless")
-		}
-	}
-}
-
-// ensureSharingClientEntry ensures the LcmClient entry exists for the sharing client
-func (bs *BootstrapService) ensureSharingClientEntry(ctx context.Context) {
-	existingClient, _ := bs.clientRepo.GetByTenantAndClientID(ctx, 0, SharingClientID)
-	if existingClient == nil {
-		_, err := bs.clientRepo.Create(ctx, 0, SharingClientID, map[string]string{
-			"type":        "sharing",
-			"description": "LCM Sharing Client (auto-generated)",
-		})
-		if err != nil {
-			bs.log.Warnf("Failed to create LcmClient entry for sharing (non-fatal): %v", err)
-		} else {
-			bs.log.Info("Created LcmClient entry for sharing")
-		}
-	}
-}
-
-// saveModuleCertificateToDatabase saves a module client certificate to the database
-func (bs *BootstrapService) saveModuleCertificateToDatabase(ctx context.Context, cert *x509.Certificate, key *rsa.PrivateKey, serialNumber int64, clientID string, orgUnit string) error {
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
-	fingerprint := sha256.Sum256(cert.Raw)
-
-	// Encode public key
-	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
-	if err != nil {
-		return fmt.Errorf("failed to marshal public key: %w", err)
-	}
-	pubKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubKeyBytes})
-
-	keyUsages := bs.keyUsageToStrings(cert.KeyUsage)
-	extKeyUsages := bs.extKeyUsageToStrings(cert.ExtKeyUsage)
-
-	certData := &lcmV1.MtlsCertificate{
-		SerialNumber:       ptr(serialNumber),
-		ClientId:           ptr(clientID),
-		CommonName:         ptr(cert.Subject.CommonName),
-		SubjectDn:          ptr(cert.Subject.String()),
-		IssuerDn:           ptr(cert.Issuer.String()),
-		IssuerName:         ptr(RootCAIssuer),
-		FingerprintSha256:  ptr(hex.EncodeToString(fingerprint[:])),
-		PublicKeyAlgorithm: ptr("RSA"),
-		PublicKeySize:      ptr(int32(key.PublicKey.Size() * 8)),
-		SignatureAlgorithm: ptr(cert.SignatureAlgorithm.String()),
-		CertificatePem:     ptr(string(certPEM)),
-		PublicKeyPem:       ptr(string(pubKeyPEM)),
-		CertType:           ptr(lcmV1.MtlsCertificateType_MTLS_CERT_TYPE_CLIENT),
-		Status:             ptr(lcmV1.MtlsCertificateStatus_MTLS_CERTIFICATE_STATUS_ACTIVE),
-		IsCa:               ptr(false),
-		KeyUsage:           keyUsages,
-		ExtKeyUsage:        extKeyUsages,
-		NotBefore:          timestamppb.New(cert.NotBefore),
-		NotAfter:           timestamppb.New(cert.NotAfter),
-		IssuedAt:           timestamppb.Now(),
-	}
-
-	_, err = bs.certRepo.Create(ctx, certData)
-	if err != nil {
-		return fmt.Errorf("failed to create certificate in database: %w", err)
-	}
-
-	// Also create the LcmClient entry if it doesn't exist based on clientID
-	switch clientID {
-	case WardenClientID:
-		bs.ensureWardenClientEntry(ctx)
-	case IpamClientID:
-		bs.ensureIpamClientEntry(ctx)
-	case PaperlessClientID:
-		bs.ensurePaperlessClientEntry(ctx)
-	case SharingClientID:
-		bs.ensureSharingClientEntry(ctx)
-	}
-
-	bs.log.Infof("Saved %s certificate to database", clientID)
-	return nil
-}
-
-// saveDeployerCertificateToDatabase saves the deployer certificate to the database
-func (bs *BootstrapService) saveDeployerCertificateToDatabase(ctx context.Context, cert *x509.Certificate, key *rsa.PrivateKey, serialNumber int64) error {
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
-	fingerprint := sha256.Sum256(cert.Raw)
-
-	// Encode public key
-	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
-	if err != nil {
-		return fmt.Errorf("failed to marshal public key: %w", err)
-	}
-	pubKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubKeyBytes})
-
-	keyUsages := bs.keyUsageToStrings(cert.KeyUsage)
-	extKeyUsages := bs.extKeyUsageToStrings(cert.ExtKeyUsage)
-
-	certData := &lcmV1.MtlsCertificate{
-		SerialNumber:       ptr(serialNumber),
-		ClientId:           ptr(DeployerClientID),
-		CommonName:         ptr(cert.Subject.CommonName),
-		SubjectDn:          ptr(cert.Subject.String()),
-		IssuerDn:           ptr(cert.Issuer.String()),
-		IssuerName:         ptr(RootCAIssuer),
-		FingerprintSha256:  ptr(hex.EncodeToString(fingerprint[:])),
-		PublicKeyAlgorithm: ptr("RSA"),
-		PublicKeySize:      ptr(int32(key.PublicKey.Size() * 8)),
-		SignatureAlgorithm: ptr(cert.SignatureAlgorithm.String()),
-		CertificatePem:     ptr(string(certPEM)),
-		PublicKeyPem:       ptr(string(pubKeyPEM)),
-		CertType:           ptr(lcmV1.MtlsCertificateType_MTLS_CERT_TYPE_CLIENT),
-		Status:             ptr(lcmV1.MtlsCertificateStatus_MTLS_CERTIFICATE_STATUS_ACTIVE),
-		IsCa:               ptr(false),
-		KeyUsage:           keyUsages,
-		ExtKeyUsage:        extKeyUsages,
-		NotBefore:          timestamppb.New(cert.NotBefore),
-		NotAfter:           timestamppb.New(cert.NotAfter),
-		IssuedAt:           timestamppb.Now(),
-	}
-
-	_, err = bs.certRepo.Create(ctx, certData)
-	if err != nil {
-		return fmt.Errorf("failed to create certificate in database: %w", err)
-	}
-
-	// Also create the LcmClient entry if it doesn't exist
-	bs.ensureDeployerClientEntry(ctx)
-
-	bs.log.Info("Saved deployer certificate to database")
-	return nil
-}
-
-// saveClientCertificateToDatabase saves a client certificate to the database
+// saveClientCertificateToDatabase saves the admin client certificate to the database
 func (bs *BootstrapService) saveClientCertificateToDatabase(ctx context.Context, cert *x509.Certificate, key *rsa.PrivateKey, serialNumber int64) error {
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
 	fingerprint := sha256.Sum256(cert.Raw)
 
-	// Encode public key
 	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
 	if err != nil {
 		return fmt.Errorf("failed to marshal public key: %w", err)
@@ -1496,10 +673,62 @@ func (bs *BootstrapService) saveClientCertificateToDatabase(ctx context.Context,
 		return fmt.Errorf("failed to create certificate in database: %w", err)
 	}
 
-	// Also create the LcmClient entry if it doesn't exist
-	bs.ensureClientEntry(ctx)
+	bs.ensureModuleClientEntry(ctx, AdminClientID, "admin")
 
 	bs.log.Info("Saved admin certificate to database")
+	return nil
+}
+
+// saveModuleCertificateToDatabase saves a module client certificate to the database
+func (bs *BootstrapService) saveModuleCertificateToDatabase(ctx context.Context, cert *x509.Certificate, key *rsa.PrivateKey, serialNumber int64, clientID string) error {
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+	fingerprint := sha256.Sum256(cert.Raw)
+
+	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	if err != nil {
+		return fmt.Errorf("failed to marshal public key: %w", err)
+	}
+	pubKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubKeyBytes})
+
+	keyUsages := bs.keyUsageToStrings(cert.KeyUsage)
+	extKeyUsages := bs.extKeyUsageToStrings(cert.ExtKeyUsage)
+
+	certData := &lcmV1.MtlsCertificate{
+		SerialNumber:       ptr(serialNumber),
+		ClientId:           ptr(clientID),
+		CommonName:         ptr(cert.Subject.CommonName),
+		SubjectDn:          ptr(cert.Subject.String()),
+		IssuerDn:           ptr(cert.Issuer.String()),
+		IssuerName:         ptr(RootCAIssuer),
+		FingerprintSha256:  ptr(hex.EncodeToString(fingerprint[:])),
+		PublicKeyAlgorithm: ptr("RSA"),
+		PublicKeySize:      ptr(int32(key.PublicKey.Size() * 8)),
+		SignatureAlgorithm: ptr(cert.SignatureAlgorithm.String()),
+		CertificatePem:     ptr(string(certPEM)),
+		PublicKeyPem:       ptr(string(pubKeyPEM)),
+		CertType:           ptr(lcmV1.MtlsCertificateType_MTLS_CERT_TYPE_CLIENT),
+		Status:             ptr(lcmV1.MtlsCertificateStatus_MTLS_CERTIFICATE_STATUS_ACTIVE),
+		IsCa:               ptr(false),
+		KeyUsage:           keyUsages,
+		ExtKeyUsage:        extKeyUsages,
+		NotBefore:          timestamppb.New(cert.NotBefore),
+		NotAfter:           timestamppb.New(cert.NotAfter),
+		IssuedAt:           timestamppb.Now(),
+	}
+
+	_, err = bs.certRepo.Create(ctx, certData)
+	if err != nil {
+		return fmt.Errorf("failed to create certificate in database: %w", err)
+	}
+
+	// Extract module type from clientID (strip "lcm-" prefix)
+	moduleType := clientID
+	if len(clientID) > 4 && clientID[:4] == "lcm-" {
+		moduleType = clientID[4:]
+	}
+	bs.ensureModuleClientEntry(ctx, clientID, moduleType)
+
+	bs.log.Infof("Saved %s certificate to database", clientID)
 	return nil
 }
 
@@ -1566,6 +795,17 @@ func (bs *BootstrapService) extKeyUsageToStrings(ekus []x509.ExtKeyUsage) []stri
 		}
 	}
 	return usages
+}
+
+func capitalize(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	b := []byte(s)
+	if b[0] >= 'a' && b[0] <= 'z' {
+		b[0] -= 32
+	}
+	return string(b)
 }
 
 // ptr is a helper function to create a pointer to a value

@@ -81,7 +81,8 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	}
 	statisticsRepo := data.NewStatisticsRepo(context, entClient)
 	statisticsService := service.NewStatisticsService(context, statisticsRepo)
-	grpcServer := server.NewGRPCServer(context, certManager, auditLogRepo, systemService, lcmClientService, issuerService, certificateJobService, issuedCertificateService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService)
+	bootstrapSvc := service.NewBootstrapService(context, lcm, mtlsCertificateRepo, lcmClientRepo)
+	grpcServer := server.NewGRPCServer(context, certManager, auditLogRepo, systemService, lcmClientService, issuerService, certificateJobService, issuedCertificateService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService, bootstrapSvc)
 	bootstrapService, err := bootstrap2.NewBootstrapService(context, mtlsCertificateRepo, lcmClientRepo, issuedCertificateRepo, issuerRepo)
 	if err != nil {
 		cleanup2()
