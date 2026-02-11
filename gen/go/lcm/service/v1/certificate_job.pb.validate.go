@@ -907,6 +907,10 @@ func (m *ListJobsRequest) validate(all bool) error {
 		// no validation rules for TenantId
 	}
 
+	if m.ClientId != nil {
+		// no validation rules for ClientId
+	}
+
 	if len(errors) > 0 {
 		return ListJobsRequestMultiError(errors)
 	}
@@ -1181,6 +1185,8 @@ func (m *CertificateJobInfo) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for ClientId
 
 	if m.CompletedAt != nil {
 

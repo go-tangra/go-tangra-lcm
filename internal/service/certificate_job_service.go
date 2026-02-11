@@ -361,7 +361,7 @@ func (s *CertificateJobService) GetJobResult(ctx context.Context, req *lcmV1.Get
 
 // ListJobs lists certificate jobs for the authenticated client
 func (s *CertificateJobService) ListJobs(ctx context.Context, req *lcmV1.ListJobsRequest) (*lcmV1.ListJobsResponse, error) {
-	tenantID, _, err := s.getClientInfo(ctx)
+	tenantID, clientID, err := s.getClientInfo(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -381,16 +381,25 @@ func (s *CertificateJobService) ListJobs(ctx context.Context, req *lcmV1.ListJob
 		filter.Page = 1
 	}
 
-	// Admin clients (tenant_id=0) can query all jobs or a specific tenant's jobs
-	if tenantID == 0 {
-		if req.TenantId != nil {
-			// Admin requesting specific tenant's jobs
-			filter.TenantID = req.TenantId
+	// For direct mTLS connections (not proxied from admin-service),
+	// always scope to the authenticated client's own jobs.
+	if !client.IsProxiedRequest(ctx) {
+		filter.ClientID = clientID
+		if tenantID != 0 {
+			filter.TenantID = &tenantID
 		}
-		// If TenantID is nil, query all tenants (no filter)
 	} else {
-		// Regular clients can only see their own tenant's jobs
-		filter.TenantID = &tenantID
+		// Proxied request from admin-service — admin can filter by tenant/client
+		if tenantID == 0 {
+			if req.TenantId != nil {
+				filter.TenantID = req.TenantId
+			}
+		} else {
+			filter.TenantID = &tenantID
+		}
+		if req.ClientId != nil {
+			filter.ClientID = *req.ClientId
+		}
 	}
 
 	// Map proto status to database status
@@ -418,6 +427,7 @@ func (s *CertificateJobService) ListJobs(ctx context.Context, req *lcmV1.ListJob
 			IssuerName: cert.IssuerName,
 			IssuerType: cert.IssuerType,
 			CommonName: cert.CommonName,
+			ClientId:   cert.ClientID,
 			CreatedAt:  timestamppb.New(cert.CreatedAt),
 		}
 		if !cert.UpdatedAt.IsZero() && cert.Status != "pending" && cert.Status != "processing" {

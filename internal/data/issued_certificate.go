@@ -315,6 +315,7 @@ func (r *IssuedCertificateRepo) ListByIssuerName(ctx context.Context, issuerName
 // ListFilter represents filters for listing issued certificates
 type ListFilter struct {
 	TenantID         *uint32
+	ClientID         string
 	Status           *issuedcertificate.Status
 	IssuerName       string
 	AutoRenewEnabled *bool
@@ -419,6 +420,9 @@ func (r *IssuedCertificateRepo) List(ctx context.Context, filter *ListFilter) ([
 	if filter != nil {
 		if filter.TenantID != nil {
 			query = query.Where(issuedcertificate.TenantIDEQ(*filter.TenantID))
+		}
+		if filter.ClientID != "" {
+			query = query.Where(issuedcertificate.ClientIDEQ(filter.ClientID))
 		}
 		if filter.Status != nil {
 			query = query.Where(issuedcertificate.StatusEQ(*filter.Status))

@@ -631,6 +631,7 @@ type ListJobsRequest struct {
 	PageSize      *uint32                `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3,oneof" json:"page_size,omitempty"`
 	IssuerName    *string                `protobuf:"bytes,4,opt,name=issuer_name,json=issuerName,proto3,oneof" json:"issuer_name,omitempty"` // Filter by issuer name
 	TenantId      *uint32                `protobuf:"varint,5,opt,name=tenant_id,json=tenantId,proto3,oneof" json:"tenant_id,omitempty"`      // Tenant ID override (admin only)
+	ClientId      *string                `protobuf:"bytes,6,opt,name=client_id,json=clientId,proto3,oneof" json:"client_id,omitempty"`       // Filter by client ID (admin only, auto-set for direct mTLS)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -700,6 +701,13 @@ func (x *ListJobsRequest) GetTenantId() uint32 {
 	return 0
 }
 
+func (x *ListJobsRequest) GetClientId() string {
+	if x != nil && x.ClientId != nil {
+		return *x.ClientId
+	}
+	return ""
+}
+
 // List jobs response
 type ListJobsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -764,6 +772,7 @@ type CertificateJobInfo struct {
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	CompletedAt   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=completed_at,json=completedAt,proto3,oneof" json:"completed_at,omitempty"`
 	ErrorMessage  *string                `protobuf:"bytes,8,opt,name=error_message,json=errorMessage,proto3,oneof" json:"error_message,omitempty"`
+	ClientId      string                 `protobuf:"bytes,9,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -850,6 +859,13 @@ func (x *CertificateJobInfo) GetCompletedAt() *timestamppb.Timestamp {
 func (x *CertificateJobInfo) GetErrorMessage() string {
 	if x != nil && x.ErrorMessage != nil {
 		return *x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *CertificateJobInfo) GetClientId() string {
+	if x != nil {
+		return x.ClientId
 	}
 	return ""
 }
@@ -1088,24 +1104,27 @@ const file_lcm_service_v1_certificate_job_proto_rawDesc = "" +
 	"\b_csr_pemB\v\n" +
 	"\t_key_typeB\v\n" +
 	"\t_key_sizeB\x17\n" +
-	"\x15_server_generated_key\"\x97\x02\n" +
+	"\x15_server_generated_key\"\xc7\x02\n" +
 	"\x0fListJobsRequest\x12A\n" +
 	"\x06status\x18\x01 \x01(\x0e2$.lcm.service.v1.CertificateJobStatusH\x00R\x06status\x88\x01\x01\x12\x17\n" +
 	"\x04page\x18\x02 \x01(\rH\x01R\x04page\x88\x01\x01\x12 \n" +
 	"\tpage_size\x18\x03 \x01(\rH\x02R\bpageSize\x88\x01\x01\x12$\n" +
 	"\vissuer_name\x18\x04 \x01(\tH\x03R\n" +
 	"issuerName\x88\x01\x01\x12 \n" +
-	"\ttenant_id\x18\x05 \x01(\rH\x04R\btenantId\x88\x01\x01B\t\n" +
+	"\ttenant_id\x18\x05 \x01(\rH\x04R\btenantId\x88\x01\x01\x12 \n" +
+	"\tclient_id\x18\x06 \x01(\tH\x05R\bclientId\x88\x01\x01B\t\n" +
 	"\a_statusB\a\n" +
 	"\x05_pageB\f\n" +
 	"\n" +
 	"_page_sizeB\x0e\n" +
 	"\f_issuer_nameB\f\n" +
 	"\n" +
-	"_tenant_id\"`\n" +
+	"_tenant_idB\f\n" +
+	"\n" +
+	"_client_id\"`\n" +
 	"\x10ListJobsResponse\x126\n" +
 	"\x04jobs\x18\x01 \x03(\v2\".lcm.service.v1.CertificateJobInfoR\x04jobs\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\rR\x05total\"\x98\x03\n" +
+	"\x05total\x18\x02 \x01(\rR\x05total\"\xb5\x03\n" +
 	"\x12CertificateJobInfo\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12<\n" +
 	"\x06status\x18\x02 \x01(\x0e2$.lcm.service.v1.CertificateJobStatusR\x06status\x12\x1f\n" +
@@ -1118,7 +1137,8 @@ const file_lcm_service_v1_certificate_job_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12B\n" +
 	"\fcompleted_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x00R\vcompletedAt\x88\x01\x01\x12(\n" +
-	"\rerror_message\x18\b \x01(\tH\x01R\ferrorMessage\x88\x01\x01B\x0f\n" +
+	"\rerror_message\x18\b \x01(\tH\x01R\ferrorMessage\x88\x01\x01\x12\x1b\n" +
+	"\tclient_id\x18\t \x01(\tR\bclientIdB\x0f\n" +
 	"\r_completed_atB\x10\n" +
 	"\x0e_error_message\"I\n" +
 	"\x10CancelJobRequest\x125\n" +
