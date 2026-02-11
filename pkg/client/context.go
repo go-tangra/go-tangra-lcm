@@ -4,6 +4,9 @@ import (
 	"context"
 	"crypto/x509"
 	"time"
+
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 )
 
 // ClientInfo contains information about the authenticated client
@@ -50,10 +53,22 @@ func IsClientAuthenticated(ctx context.Context) bool {
 	return false
 }
 
-// GetClientID extracts the client ID (CommonName) from the context
+// GetClientID extracts the client ID (CommonName) from the context.
+// It first checks the middleware-injected ClientInfo, then falls back to
+// extracting the CN directly from the gRPC peer TLS certificate.
+// This fallback is needed for streaming RPCs where Kratos middleware
+// context may not be propagated to stream.Context().
 func GetClientID(ctx context.Context) string {
 	if clientInfo, ok := GetClientInfoFromContext(ctx); ok && clientInfo.CommonName != "" {
 		return clientInfo.CommonName
+	}
+	// Fallback: extract CN directly from gRPC peer TLS info (streaming RPCs)
+	if p, ok := peer.FromContext(ctx); ok && p.AuthInfo != nil {
+		if tlsInfo, ok := p.AuthInfo.(credentials.TLSInfo); ok {
+			if len(tlsInfo.State.PeerCertificates) > 0 {
+				return tlsInfo.State.PeerCertificates[0].Subject.CommonName
+			}
+		}
 	}
 	return ""
 }
