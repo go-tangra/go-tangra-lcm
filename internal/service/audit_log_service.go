@@ -39,7 +39,7 @@ func (s *AuditLogService) getClientTenantID(ctx context.Context) (uint32, error)
 	// If request is proxied from admin-service, use tenant ID from metadata directly
 	if client.IsProxiedRequest(ctx) {
 		tenantID := client.GetTenantID(ctx)
-		s.log.Debugf("Using tenant ID from metadata: %d", tenantID)
+		s.log.Infof("Using tenant ID from metadata: %d", tenantID)
 		return tenantID, nil
 	}
 

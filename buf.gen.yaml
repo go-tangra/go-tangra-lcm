@@ -9,6 +9,7 @@ managed:
     - module: buf.build/bufbuild/protovalidate
     - module: buf.build/kratos/apis
     - module: buf.build/gnostic/gnostic
+    - module: buf.build/menta2k-org/redact
   override:
     - file_option: go_package_prefix
       value: github.com/go-tangra/go-tangra-lcm/gen/go
@@ -35,6 +36,12 @@ plugins:
       - paths=source_relative
 
   - local: protoc-gen-validate
+    out: gen/go
+    opt:
+      - paths=source_relative
+      - lang=go
+
+  - local: protoc-gen-redact
     out: gen/go
     opt:
       - paths=source_relative

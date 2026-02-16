@@ -7,6 +7,7 @@ import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
+import "redact/v3/redact.proto";
 import "lcm/service/v1/client.proto";
 
 // mTLS Certificate Request Status
@@ -25,8 +26,8 @@ message MtlsCertificateRequest {
   optional string request_id = 2 [json_name = "requestId"]; // UUID for tracking
   optional string client_id = 3 [json_name = "clientId"]; // Requesting client ID
   optional string common_name = 4 [json_name = "commonName"]; // CN for the certificate
-  optional string csr_pem = 5 [json_name = "csrPem"]; // PEM-encoded CSR
-  optional string public_key = 6 [json_name = "publicKey"]; // Public key from CSR
+  optional string csr_pem = 5 [json_name = "csrPem", (redact.v3.value).string = ""]; // PEM-encoded CSR
+  optional string public_key = 6 [json_name = "publicKey", (redact.v3.value).string = ""]; // Public key from CSR
   repeated string dns_names = 7 [json_name = "dnsNames"]; // Subject Alternative Names - DNS
   repeated string ip_addresses = 8 [json_name = "ipAddresses"]; // Subject Alternative Names - IPs
   optional string issuer_name = 9 [json_name = "issuerName"]; // Issuer to use for signing
@@ -102,14 +103,16 @@ message CreateMtlsCertificateRequestRequest {
     (buf.validate.field).string = {
       max_len: 16384
       pattern: "^-----BEGIN CERTIFICATE REQUEST-----[\\s\\S]*-----END CERTIFICATE REQUEST-----[\\s]*$"
-    }
+    },
+    (redact.v3.value).string = ""
   ];
   optional string public_key = 4 [
     json_name = "publicKey",
     (buf.validate.field).string = {
       max_len: 8192
       pattern: "^-----BEGIN PUBLIC KEY-----[\\s\\S]*-----END PUBLIC KEY-----[\\s]*$"
-    }
+    },
+    (redact.v3.value).string = ""
   ];
   repeated string dns_names = 5 [
     json_name = "dnsNames",

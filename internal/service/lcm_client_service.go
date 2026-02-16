@@ -543,7 +543,7 @@ func (s *LcmClientService) StreamCertificateUpdates(req *lcmV1.StreamCertificate
 			// Parse the event
 			updateEvent, err := s.parseEventForClient(msg, clientID)
 			if err != nil {
-				s.log.Debugf("Skipping event: %v", err)
+				s.log.Infof("Skipping event: %v", err)
 				continue
 			}
 			if updateEvent == nil {
@@ -555,7 +555,7 @@ func (s *LcmClientService) StreamCertificateUpdates(req *lcmV1.StreamCertificate
 				s.log.Errorf("Failed to send event to client %s: %v", clientID, err)
 				return err
 			}
-			s.log.Debugf("Sent certificate update to client %s: %s", clientID, updateEvent.EventType)
+			s.log.Infof("Sent certificate update to client %s: %s", clientID, updateEvent.EventType)
 		}
 	}
 }

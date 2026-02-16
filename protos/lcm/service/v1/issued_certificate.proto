@@ -6,6 +6,7 @@ import "buf/validate/validate.proto";
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
 import "google/protobuf/timestamp.proto";
+import "redact/v3/redact.proto";
 
 // Issued Certificate Service - view and manage issued certificates
 service LcmIssuedCertificateService {
@@ -20,6 +21,14 @@ service LcmIssuedCertificateService {
   rpc GetIssuedCertificate(GetIssuedCertificateRequest) returns (GetIssuedCertificateResponse) {
     option (google.api.http) = {
       get: "/v1/issued-certificates/{id}"
+    };
+  }
+
+  // Force renew an issued certificate
+  rpc ForceRenewCertificate(ForceRenewCertificateRequest) returns (ForceRenewCertificateResponse) {
+    option (google.api.http) = {
+      post: "/v1/issued-certificates/{id}/renew"
+      body: "*"
     };
   }
 }
@@ -71,10 +80,10 @@ message GetIssuedCertificateResponse {
   IssuedCertificateInfo certificate = 1 [json_name = "certificate"];
 
   // Certificate PEM data (only present for issued certificates)
-  optional string certificate_pem = 2 [json_name = "certificatePem"];
-  optional string ca_certificate_pem = 3 [json_name = "caCertificatePem"];
+  optional string certificate_pem = 2 [json_name = "certificatePem", (redact.v3.value).string = ""];
+  optional string ca_certificate_pem = 3 [json_name = "caCertificatePem", (redact.v3.value).string = ""];
   // Private key PEM (only if include_private_key=true and server-generated)
-  optional string private_key_pem = 4 [json_name = "privateKeyPem"];
+  optional string private_key_pem = 4 [json_name = "privateKeyPem", (redact.v3.value).string = ""];
   optional bool server_generated_key = 5 [json_name = "serverGeneratedKey"];
 }
 
@@ -94,4 +103,23 @@ message IssuedCertificateInfo {
   optional string error_message = 12 [json_name = "errorMessage"];
   google.protobuf.Timestamp created_at = 13 [json_name = "createdAt"];
   google.protobuf.Timestamp updated_at = 14 [json_name = "updatedAt"];
+}
+
+// Request to force renew an issued certificate
+message ForceRenewCertificateRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+}
+
+// Response for force renewing an issued certificate
+message ForceRenewCertificateResponse {
+  string renewal_id = 1 [json_name = "renewalId"];
+  string message = 2 [json_name = "message"];
 }

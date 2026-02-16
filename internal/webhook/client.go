@@ -84,7 +84,7 @@ func (c *Client) Deliver(ctx context.Context, endpoint *conf.WebhookEndpoint, ev
 
 		if err == nil && statusCode >= 200 && statusCode < 300 {
 			result.Success = true
-			c.log.Debugf("Webhook delivered successfully to %s (attempt %d, status %d)",
+			c.log.Infof("Webhook delivered successfully to %s (attempt %d, status %d)",
 				endpoint.GetUrl(), attempt, statusCode)
 			return result
 		}

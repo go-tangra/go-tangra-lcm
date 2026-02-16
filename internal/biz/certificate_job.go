@@ -220,7 +220,7 @@ func (m *CertificateJobManager) CleanupOldJobs(maxAge time.Duration) int {
 			job.CompletedAt != nil && job.CompletedAt.Before(cutoff) {
 			m.jobs.Delete(key)
 			removed++
-			m.log.Debugf("Cleaned up old job: id=%s, completed_at=%s", job.ID, job.CompletedAt)
+			m.log.Infof("Cleaned up old job: id=%s, completed_at=%s", job.ID, job.CompletedAt)
 		}
 		return true
 	})

@@ -15,6 +15,7 @@ require (
 	github.com/google/wire v0.7.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/lib/pq v1.10.9
+	github.com/menta2k/protoc-gen-redact/v3 v3.0.0-20251106150014-896cdd075ab1
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.18.2
@@ -99,7 +100,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
-	github.com/menta2k/protoc-gen-redact/v3 v3.0.0-20251106150014-896cdd075ab1 // indirect
 	github.com/miekg/dns v1.1.69 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect

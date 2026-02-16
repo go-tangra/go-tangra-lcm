@@ -91,6 +91,150 @@ menus:
       - platform:admin
       - tenant:manager
 
+dashboard_widgets:
+  - id: lcm.issued_certs_total
+    name: Issued Certificates
+    description: Active and total issued certificate counts
+    icon: lucide:award
+    widget_type: stat_card
+    data_source:
+      endpoint: /admin/v1/modules/lcm/v1/statistics
+      method: GET
+    data_mapping:
+      value_path: issuedCertificates.activeCount
+      total_path: issuedCertificates.totalCount
+      label: Certificates
+    default_size:
+      width: 3
+      height: 1
+    tags: [lcm, overview]
+    authority: [platform:admin, tenant:manager]
+
+  - id: lcm.expiring_soon
+    name: Expiring Soon
+    description: Certificates expiring within configured days
+    icon: lucide:clock
+    widget_type: stat_card
+    data_source:
+      endpoint: /admin/v1/modules/lcm/v1/statistics
+      method: GET
+    data_mapping:
+      value_path: issuedCertificates.expireSoonCount
+      total_path: issuedCertificates.expireSoonDays
+      label: Expiring Soon
+    default_size:
+      width: 3
+      height: 1
+    tags: [lcm, overview]
+    authority: [platform:admin, tenant:manager]
+
+  - id: lcm.certificate_status_pie
+    name: Certificate Status
+    description: Pie chart of certificate statuses
+    icon: lucide:pie-chart
+    widget_type: pie_chart
+    data_source:
+      endpoint: /admin/v1/modules/lcm/v1/statistics
+      method: GET
+    data_mapping:
+      series_path: issuedCertificates
+      series_fields: activeCount,expiredCount,revokedCount,pendingCount,failedCount
+      series_labels: Active,Expired,Revoked,Pending,Failed
+    default_size:
+      width: 4
+      height: 2
+    tags: [lcm, chart]
+    authority: [platform:admin, tenant:manager]
+
+  - id: lcm.recent_errors
+    name: Recent Errors
+    description: List of recent certificate job errors
+    icon: lucide:alert-triangle
+    widget_type: list
+    data_source:
+      endpoint: /admin/v1/modules/lcm/v1/statistics
+      method: GET
+    data_mapping:
+      items_path: recentErrors
+      title_field: errorMessage
+      subtitle_field: commonName
+      time_field: occurredAt
+    default_size:
+      width: 4
+      height: 2
+    tags: [lcm, errors]
+    authority: [platform:admin, tenant:manager]
+
+  - id: lcm.issuer_distribution
+    name: Issuers by Type
+    description: Pie chart of certificate issuers grouped by type
+    icon: lucide:stamp
+    widget_type: pie_chart
+    data_source:
+      endpoint: /admin/v1/modules/lcm/v1/statistics
+      method: GET
+    data_mapping:
+      data_path: issuers.byType
+      label: Issuer Type
+    default_size:
+      width: 4
+      height: 2
+    tags: [lcm, chart]
+    authority: [platform:admin, tenant:manager]
+
+  - id: lcm.cert_expiration_timeline
+    name: Expiration Timeline
+    description: Certificates expiring in the next 30/60/90 days
+    icon: lucide:calendar-clock
+    widget_type: bar_chart
+    data_source:
+      endpoint: /admin/v1/modules/lcm/v1/statistics
+      method: GET
+    data_mapping:
+      data_path: issuedCertificates.byIssuerType
+      label: By Issuer
+    default_size:
+      width: 4
+      height: 2
+    tags: [lcm, chart]
+    authority: [platform:admin, tenant:manager]
+
+  - id: lcm.job_status_pie
+    name: Job Status
+    description: Pie chart of certificate job statuses
+    icon: lucide:pie-chart
+    widget_type: pie_chart
+    data_source:
+      endpoint: /admin/v1/modules/lcm/v1/statistics
+      method: GET
+    data_mapping:
+      series_path: jobs
+      series_fields: completedCount,failedCount,pendingCount,processingCount,cancelledCount
+      series_labels: Completed,Failed,Pending,Processing,Cancelled
+    default_size:
+      width: 4
+      height: 2
+    tags: [lcm, chart]
+    authority: [platform:admin, tenant:manager]
+
+  - id: lcm.auto_renew_stat
+    name: Auto-Renew Enabled
+    description: Certificates with auto-renewal enabled
+    icon: lucide:refresh-cw
+    widget_type: stat_card
+    data_source:
+      endpoint: /admin/v1/modules/lcm/v1/statistics
+      method: GET
+    data_mapping:
+      value_path: issuedCertificates.autoRenewEnabledCount
+      total_path: issuedCertificates.totalCount
+      label: Auto-Renew
+    default_size:
+      width: 3
+      height: 1
+    tags: [lcm, overview]
+    authority: [platform:admin, tenant:manager]
+
 permission_groups:
   - name: LCM
     module: lcm

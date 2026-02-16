@@ -52,7 +52,7 @@ func (s *IssuerService) getClientTenantID(ctx context.Context) (uint32, error) {
 	// If tenant ID was already set from gRPC metadata (admin-service proxy),
 	// use it directly without DB lookup
 	if clientInfo.TenantID > 0 && clientInfo.Certificate == nil {
-		s.log.Debugf("Using tenant ID from metadata: %d (user: %s)", clientInfo.TenantID, clientInfo.CommonName)
+		s.log.Infof("Using tenant ID from metadata: %d (user: %s)", clientInfo.TenantID, clientInfo.CommonName)
 		return clientInfo.TenantID, nil
 	}
 
@@ -72,7 +72,7 @@ func (s *IssuerService) getClientTenantID(ctx context.Context) (uint32, error) {
 			// Continue with CN as client_id (backwards compatibility)
 		} else if actualClientID != "" {
 			clientID = actualClientID
-			s.log.Debugf("Resolved CN '%s' to client_id '%s'", certCN, clientID)
+			s.log.Infof("Resolved CN '%s' to client_id '%s'", certCN, clientID)
 		}
 	}
 

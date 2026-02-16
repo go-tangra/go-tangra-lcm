@@ -127,18 +127,18 @@ func NewGRPCServer(
 	// Create the gRPC server
 	srv := grpc.NewServer(opts...)
 
-	// Register services
-	lcmV1.RegisterSystemServiceServer(srv, systemSvc)
-	lcmV1.RegisterLcmClientServiceServer(srv, lcmClientSvc)
-	lcmV1.RegisterLcmIssuerServiceServer(srv, issuerSvc)
-	lcmV1.RegisterLcmCertificateJobServiceServer(srv, certJobSvc)
-	lcmV1.RegisterLcmIssuedCertificateServiceServer(srv, issuedCertSvc)
-	lcmV1.RegisterTenantSecretServiceServer(srv, tenantSecretSvc)
-	lcmV1.RegisterAuditLogServiceServer(srv, auditLogSvc)
-	lcmV1.RegisterLcmMtlsCertificateServiceServer(srv, mtlsCertSvc)
-	lcmV1.RegisterCertificatePermissionServiceServer(srv, certPermissionSvc)
-	lcmV1.RegisterLcmMtlsCertificateRequestServiceServer(srv, mtlsCertRequestSvc)
-	lcmV1.RegisterLcmStatisticsServiceServer(srv, statisticsSvc)
+	// Register services with redacted wrappers to prevent sensitive data from leaking in logs
+	lcmV1.RegisterRedactedSystemServiceServer(srv, systemSvc, nil)
+	lcmV1.RegisterRedactedLcmClientServiceServer(srv, lcmClientSvc, nil)
+	lcmV1.RegisterRedactedLcmIssuerServiceServer(srv, issuerSvc, nil)
+	lcmV1.RegisterRedactedLcmCertificateJobServiceServer(srv, certJobSvc, nil)
+	lcmV1.RegisterRedactedLcmIssuedCertificateServiceServer(srv, issuedCertSvc, nil)
+	lcmV1.RegisterRedactedTenantSecretServiceServer(srv, tenantSecretSvc, nil)
+	lcmV1.RegisterRedactedAuditLogServiceServer(srv, auditLogSvc, nil)
+	lcmV1.RegisterRedactedLcmMtlsCertificateServiceServer(srv, mtlsCertSvc, nil)
+	lcmV1.RegisterRedactedCertificatePermissionServiceServer(srv, certPermissionSvc, nil)
+	lcmV1.RegisterRedactedLcmMtlsCertificateRequestServiceServer(srv, mtlsCertRequestSvc, nil)
+	lcmV1.RegisterRedactedLcmStatisticsServiceServer(srv, statisticsSvc, nil)
 	commonV1.RegisterLcmBootstrapServiceServer(srv, bootstrapSvc)
 	l.Info("gRPC server configured with TLS and all LCM services")
 

@@ -4,6 +4,7 @@ package lcm.service.v1;
 
 import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
+import "redact/v3/redact.proto";
 
 service LcmClientService {
   // Client registration (public)
@@ -35,7 +36,7 @@ message DownloadClientCertificateRequest {
     min_len: 200
     max_len: 8192
     pattern: "^-----BEGIN PUBLIC KEY-----[\\s\\S]*-----END PUBLIC KEY-----[\\s]*$"
-  }]; // Public key of the certificate used for validation
+  }, (redact.v3.value).string = ""]; // Public key of the certificate used for validation
   string request_id = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 128
@@ -52,12 +53,12 @@ message DownloadClientCertificateResponse {
     min_len: 200
     max_len: 16384
     pattern: "^-----BEGIN CERTIFICATE-----[\\s\\S]*-----END CERTIFICATE-----[\\s]*$"
-  }]; // PEM encoded mTLS client certificate
+  }, (redact.v3.value).string = ""]; // PEM encoded mTLS client certificate
   optional string ca_certificate_pem = 2 [(buf.validate.field).string = {
     min_len: 200
     max_len: 16384
     pattern: "^-----BEGIN CERTIFICATE-----[\\s\\S]*-----END CERTIFICATE-----[\\s]*$"
-  }]; // PEM encoded CA certificate
+  }, (redact.v3.value).string = ""]; // PEM encoded CA certificate
   ClientCertificateStatus status = 3;
 }
 
@@ -92,12 +93,12 @@ message CreateLcmClientRequest {
     max_len: 253
     pattern: "^[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?)*$"
   }];
-  optional string shared_secret = 3;
+  optional string shared_secret = 3 [(redact.v3.value).string = ""];
   string public_key = 4 [(buf.validate.field).string = {
     min_len: 200
     max_len: 8192
     pattern: "^-----BEGIN PUBLIC KEY-----[\\s\\S]*-----END PUBLIC KEY-----[\\s]*$"
-  }]; // Client's public key for initial cert
+  }, (redact.v3.value).string = ""]; // Client's public key for initial cert
   repeated string dns_names = 5 [(buf.validate.field).repeated = {
     max_items: 100
     items: {
@@ -142,7 +143,7 @@ message CreateLcmClientResponse {
     min_len: 200
     max_len: 16384
     pattern: "^-----BEGIN CERTIFICATE-----[\\s\\S]*-----END CERTIFICATE-----[\\s]*$"
-  }]; // PEM encoded CA certificate
+  }, (redact.v3.value).string = ""]; // PEM encoded CA certificate
 }
 // ClientCertificate is a simplified view of an mTLS certificate for client-facing APIs
 message ClientCertificate {
@@ -153,7 +154,7 @@ message ClientCertificate {
   optional string subject = 5;
   optional string issuer_dn = 6;
   optional string fingerprint = 7;
-  optional string certificate_pem = 8;
+  optional string certificate_pem = 8 [(redact.v3.value).string = ""];
   optional string not_before = 9;
   optional string not_after = 10;
   optional ClientCertificateStatus status = 11;
@@ -213,7 +214,7 @@ message ListClientCertificatesRequest {
 // ListClientCertificatesResponse - contains all certificates for the client
 message ListClientCertificatesResponse {
   repeated CertificateInfo certificates = 1;
-  optional string ca_certificate_pem = 2; // CA certificate for verification
+  optional string ca_certificate_pem = 2 [(redact.v3.value).string = ""]; // CA certificate for verification
 }
 
 // CertificateInfo - detailed certificate information for client use
@@ -227,7 +228,7 @@ message CertificateInfo {
   ClientCertificateStatus status = 7;
   google.protobuf.Timestamp issued_at = 8;
   google.protobuf.Timestamp expires_at = 9;
-  optional string certificate_pem = 10; // Only included if requested
+  optional string certificate_pem = 10 [(redact.v3.value).string = ""]; // Only included if requested
   optional string fingerprint_sha256 = 11;
   bool is_renewed = 12; // True if this cert replaced a previous one
   optional string previous_serial_number = 13; // Serial of the cert this one replaced
@@ -246,7 +247,7 @@ message StreamCertificateUpdatesRequest {
 message CertificateUpdateEvent {
   CertificateUpdateType event_type = 1;
   CertificateInfo certificate = 2;
-  optional string ca_certificate_pem = 3; // Included with issued/renewed events
+  optional string ca_certificate_pem = 3 [(redact.v3.value).string = ""]; // Included with issued/renewed events
   google.protobuf.Timestamp event_time = 4;
   optional string message = 5; // Human-readable description
 }

@@ -32,7 +32,7 @@ func NewEntClient(ctx *bootstrap.Context) (*entCrud.EntClient[*ent.Client], func
 		client := ent.NewClient(
 			ent.Driver(drv),
 			ent.Log(func(a ...any) {
-				l.Debug(a...)
+				l.Info(a...)
 			}),
 		)
 		if client == nil {

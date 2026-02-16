@@ -95,7 +95,7 @@ func (p *Publisher) Publish(ctx context.Context, topic string, data any) error {
 		return err
 	}
 
-	p.log.Debugf("Published event to %s: %s", fullTopic, event.ID)
+	p.log.Infof("Published event to %s: %s", fullTopic, event.ID)
 	return nil
 }
 

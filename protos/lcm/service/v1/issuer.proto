@@ -6,6 +6,7 @@ import "buf/validate/validate.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "redact/v3/redact.proto";
 
 service LcmIssuerService {
   // ACME issuer management (authenticated)
@@ -89,7 +90,7 @@ message IssuerInfo {
   string type = 2; // "self-signed", "acme", etc.
   optional IssuerStatus status = 3; // Whether the issuer is enabled
   string description = 4; // Human-readable description
-  map<string, string> config = 5; // Issuer-specific configuration (sanitized for security)
+  map<string, string> config = 5 [(redact.v3.value).element.empty = true]; // Issuer-specific configuration (sanitized for security)
   google.protobuf.Timestamp create_time = 6;
   google.protobuf.Timestamp update_time = 7;
 }
@@ -209,14 +210,14 @@ message AcmeIssuer {
     max_len: 100
     pattern: "^[a-zA-Z0-9\\-_]+$"
   }]; // DNS provider name for DNS challenges
-  map<string, string> provider_config = 9; // Provider-specific configuration for ACME challenges
+  map<string, string> provider_config = 9 [(redact.v3.value).element.empty = true]; // Provider-specific configuration for ACME challenges
   // External Account Binding (EAB) for ACME providers that require it (e.g., ZeroSSL, Google Trust Services)
   optional string eab_kid = 10 [(buf.validate.field).string = {
     max_len: 255
   }]; // EAB Key Identifier
   optional string eab_hmac_key = 11 [(buf.validate.field).string = {
     max_len: 512
-  }]; // EAB HMAC Key (base64 encoded)
+  }, (redact.v3.value).string = ""]; // EAB HMAC Key (base64 encoded)
 }
 message CreateIssuerResponse {
   IssuerInfo issuer = 1;

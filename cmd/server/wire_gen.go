@@ -58,11 +58,12 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	lcmClientService := service.NewLcmClientService(context, certManager, lcmClientRepo, mtlsCertificateRequestRepo, mtlsCertificateRepo, tenantSecretRepo, client)
 	issuerRepo := data.NewIssuerRepo(context, entClient)
 	issuerService := service.NewIssuerService(context, issuerRepo, lcmClientRepo, mtlsCertificateRepo)
+	lcm := providers.ProvideLCMConfig(context)
 	issuedCertificateRepo := data.NewIssuedCertificateRepo(context, entClient)
 	publisher := event.NewPublisher(context, client)
-	lcm := providers.ProvideLCMConfig(context)
 	certificateJobService := service.NewCertificateJobService(context, lcm, issuerRepo, lcmClientRepo, mtlsCertificateRepo, issuedCertificateRepo, publisher)
-	issuedCertificateService := service.NewIssuedCertificateService(context, issuedCertificateRepo, lcmClientRepo, mtlsCertificateRepo)
+	certificateRenewalRepo := data.NewCertificateRenewalRepo(context, entClient)
+	issuedCertificateService := service.NewIssuedCertificateService(context, issuedCertificateRepo, lcmClientRepo, mtlsCertificateRepo, certificateRenewalRepo)
 	tenantSecretService := service.NewTenantSecretService(context, tenantSecretRepo, lcmClientRepo)
 	auditLogService := service.NewAuditLogService(context, auditLogRepo, lcmClientRepo)
 	mtlsCertService, err := service.NewMtlsCertService(context, mtlsCertificateRepo, lcmClientRepo)
@@ -81,16 +82,15 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	}
 	statisticsRepo := data.NewStatisticsRepo(context, entClient)
 	statisticsService := service.NewStatisticsService(context, statisticsRepo)
-	bootstrapSvc := service.NewBootstrapService(context, lcm, mtlsCertificateRepo, lcmClientRepo)
-	grpcServer := server.NewGRPCServer(context, certManager, auditLogRepo, systemService, lcmClientService, issuerService, certificateJobService, issuedCertificateService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService, bootstrapSvc)
-	bootstrapService, err := bootstrap2.NewBootstrapService(context, mtlsCertificateRepo, lcmClientRepo, issuedCertificateRepo, issuerRepo)
+	bootstrapService := service.NewBootstrapService(context, lcm, mtlsCertificateRepo, lcmClientRepo)
+	grpcServer := server.NewGRPCServer(context, certManager, auditLogRepo, systemService, lcmClientService, issuerService, certificateJobService, issuedCertificateService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService, bootstrapService)
+	bootstrapBootstrapService, err := bootstrap2.NewBootstrapService(context, mtlsCertificateRepo, lcmClientRepo, issuedCertificateRepo, issuerRepo)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	renewalConfig := providers.ProvideRenewalConfig(context)
-	certificateRenewalRepo := data.NewCertificateRenewalRepo(context, entClient)
 	renewalScheduler := service.NewRenewalScheduler(context, renewalConfig, lcm, issuedCertificateRepo, certificateRenewalRepo, issuerRepo, lcmClientRepo, certificateJobService, publisher)
 	webhookService, err := webhook.NewService(context, client)
 	if err != nil {
@@ -98,7 +98,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	app := newApp(context, grpcServer, bootstrapService, renewalScheduler, webhookService)
+	app := newApp(context, grpcServer, bootstrapBootstrapService, renewalScheduler, webhookService)
 	return app, func() {
 		cleanup2()
 		cleanup()

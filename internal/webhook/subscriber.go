@@ -159,7 +159,7 @@ func (s *Subscriber) processMessage(ctx context.Context, msg *redis.Message) {
 		// Try without the prefix (the topic already has full path like "lcm.certificate.issued")
 		eventType, ok = TopicToEventType[msg.Channel]
 		if !ok {
-			s.log.Debugf("Ignoring unrecognized topic: %s", msg.Channel)
+			s.log.Infof("Ignoring unrecognized topic: %s", msg.Channel)
 			return
 		}
 	}

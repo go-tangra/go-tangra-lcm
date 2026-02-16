@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
@@ -10,6 +12,7 @@ import (
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterenewal"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
 	"github.com/go-tangra/go-tangra-lcm/pkg/client"
 )
@@ -22,6 +25,7 @@ type IssuedCertificateService struct {
 	issuedCertRepo *data.IssuedCertificateRepo
 	clientRepo     *data.LcmClientRepo
 	mtlsCertRepo   *data.MtlsCertificateRepo
+	renewalRepo    *data.CertificateRenewalRepo
 }
 
 // NewIssuedCertificateService creates a new IssuedCertificateService
@@ -30,12 +34,14 @@ func NewIssuedCertificateService(
 	issuedCertRepo *data.IssuedCertificateRepo,
 	clientRepo *data.LcmClientRepo,
 	mtlsCertRepo *data.MtlsCertificateRepo,
+	renewalRepo *data.CertificateRenewalRepo,
 ) *IssuedCertificateService {
 	return &IssuedCertificateService{
 		log:            ctx.NewLoggerHelper("lcm/service/issued-certificate"),
 		issuedCertRepo: issuedCertRepo,
 		clientRepo:     clientRepo,
 		mtlsCertRepo:   mtlsCertRepo,
+		renewalRepo:    renewalRepo,
 	}
 }
 
@@ -45,7 +51,7 @@ func (s *IssuedCertificateService) getClientInfo(ctx context.Context) (uint32, s
 	if client.IsProxiedRequest(ctx) {
 		tenantID := client.GetTenantID(ctx)
 		clientID := client.GetClientID(ctx)
-		s.log.Debugf("Using tenant ID from metadata: %d (user: %s)", tenantID, clientID)
+		s.log.Infof("Using tenant ID from metadata: %d (user: %s)", tenantID, clientID)
 		return tenantID, clientID, nil
 	}
 
@@ -63,7 +69,7 @@ func (s *IssuedCertificateService) getClientInfo(ctx context.Context) (uint32, s
 			s.log.Errorf("Failed to lookup client_id by CN: %v", err)
 		} else if actualClientID != "" {
 			clientID = actualClientID
-			s.log.Debugf("Resolved CN '%s' to client_id '%s'", certCN, clientID)
+			s.log.Infof("Resolved CN '%s' to client_id '%s'", certCN, clientID)
 		}
 	}
 
@@ -199,6 +205,72 @@ func (s *IssuedCertificateService) GetIssuedCertificate(ctx context.Context, req
 	}
 
 	return resp, nil
+}
+
+// ForceRenewCertificate triggers an immediate renewal for an issued certificate
+func (s *IssuedCertificateService) ForceRenewCertificate(ctx context.Context, req *lcmV1.ForceRenewCertificateRequest) (*lcmV1.ForceRenewCertificateResponse, error) {
+	tenantID, _, err := s.getClientInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Look up the certificate
+	cert, err := s.issuedCertRepo.GetByID(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	if cert == nil {
+		return nil, lcmV1.ErrorNotFound("issued certificate '%s' not found", req.GetId())
+	}
+
+	// Verify tenant access
+	if tenantID != 0 && cert.TenantID != tenantID {
+		return nil, lcmV1.ErrorNotFound("issued certificate '%s' not found", req.GetId())
+	}
+
+	// Only allow renewal for ISSUED or EXPIRED certificates
+	if cert.Status != issuedcertificate.StatusIssued && cert.Status != issuedcertificate.StatusExpired {
+		return nil, lcmV1.ErrorBadRequest("certificate must be in ISSUED or EXPIRED status to renew")
+	}
+
+	// Check if there's already a pending/processing renewal
+	existing, err := s.renewalRepo.GetPendingByCertificateID(ctx, cert.ID)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil && existing.Status == certificaterenewal.StatusProcessing {
+		return nil, lcmV1.ErrorBadRequest("renewal already in progress for this certificate")
+	}
+
+	// Cancel any existing pending renewal
+	if existing != nil {
+		if cancelErr := s.renewalRepo.Cancel(ctx, existing.ID); cancelErr != nil {
+			s.log.Errorf("Failed to cancel existing renewal %d: %v", existing.ID, cancelErr)
+		}
+	}
+
+	// Create a new renewal job scheduled immediately
+	renewal := &ent.CertificateRenewal{
+		CertificateID:     cert.ID,
+		ClientID:          cert.ClientID,
+		IssuerName:        cert.IssuerName,
+		Domains:           cert.Domains,
+		OriginalExpiresAt: cert.ExpiresAt,
+		ScheduledAt:       time.Now(),
+		MaxAttempts:       3,
+	}
+
+	created, err := s.renewalRepo.Create(ctx, renewal)
+	if err != nil {
+		return nil, err
+	}
+
+	s.log.Infof("Force renewal scheduled for certificate %s (renewal ID: %d)", cert.ID, created.ID)
+
+	return &lcmV1.ForceRenewCertificateResponse{
+		RenewalId: fmt.Sprintf("%d", created.ID),
+		Message:   "Renewal scheduled successfully",
+	}, nil
 }
 
 // mapIssuedCertToProto maps a database entity to a proto message

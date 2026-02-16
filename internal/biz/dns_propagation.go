@@ -129,7 +129,7 @@ func (c *DNSPropagationChecker) WaitForPropagation(ctx context.Context, domain, 
 
 		// Calculate backoff delay
 		delay := c.calculateBackoffDelay(attempt)
-		c.logger.Debugf("DNS propagation attempt %d/%d failed, waiting %s before retry",
+		c.logger.Infof("DNS propagation attempt %d/%d failed, waiting %s before retry",
 			attempt, c.maxRetries, delay)
 
 		select {
@@ -156,7 +156,7 @@ func (c *DNSPropagationChecker) checkAllServers(ctx context.Context, recordName,
 	for _, server := range c.dnsServers {
 		values, err := c.queryTXTRecord(ctx, server, recordName)
 		if err != nil {
-			c.logger.Debugf("DNS query failed for %s on %s: %v", recordName, server, err)
+			c.logger.Warnf("DNS query failed for %s on %s: %v", recordName, server, err)
 			serverResults[server] = false
 			continue
 		}
@@ -187,7 +187,7 @@ func (c *DNSPropagationChecker) checkAllServers(ctx context.Context, recordName,
 	threshold := int(math.Ceil(float64(len(c.dnsServers)) * c.threshold))
 	propagated := successCount >= threshold
 
-	c.logger.Debugf("DNS propagation check: %d/%d servers confirmed (threshold: %d)",
+	c.logger.Infof("DNS propagation check: %d/%d servers confirmed (threshold: %d)",
 		successCount, len(c.dnsServers), threshold)
 
 	return propagated, foundList, serverResults

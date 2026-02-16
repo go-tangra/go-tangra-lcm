@@ -12,14 +12,14 @@ service LcmStatisticsService {
   // GetStatistics returns comprehensive statistics about the LCM system
   rpc GetStatistics (GetStatisticsRequest) returns (GetStatisticsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/lcm/statistics"
+      get: "/v1/statistics"
     };
   }
 
   // GetTenantStatistics returns statistics for a specific tenant
   rpc GetTenantStatistics (GetTenantStatisticsRequest) returns (TenantStatistics) {
     option (google.api.http) = {
-      get: "/api/v1/lcm/statistics/tenant/{tenant_id}"
+      get: "/v1/statistics/tenant/{tenant_id}"
     };
   }
 }

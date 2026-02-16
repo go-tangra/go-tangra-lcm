@@ -7,6 +7,7 @@ import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
+import "redact/v3/redact.proto";
 import "lcm/service/v1/client.proto";
 
 // mTLS Certificate Status (for issued certificates)
@@ -45,8 +46,8 @@ message MtlsCertificate {
   optional string public_key_algorithm = 9 [json_name = "publicKeyAlgorithm"]; // e.g., RSA, ECDSA
   optional int32 public_key_size = 10 [json_name = "publicKeySize"]; // Key size in bits
   optional string signature_algorithm = 11 [json_name = "signatureAlgorithm"]; // e.g., SHA256WithRSA
-  optional string certificate_pem = 12 [json_name = "certificatePem"]; // PEM-encoded certificate
-  optional string public_key_pem = 13 [json_name = "publicKeyPem"]; // PEM-encoded public key
+  optional string certificate_pem = 12 [json_name = "certificatePem", (redact.v3.value).string = ""]; // PEM-encoded certificate
+  optional string public_key_pem = 13 [json_name = "publicKeyPem", (redact.v3.value).string = ""]; // PEM-encoded public key
   repeated string dns_names = 14 [json_name = "dnsNames"]; // Subject Alternative Names - DNS
   repeated string ip_addresses = 15 [json_name = "ipAddresses"]; // Subject Alternative Names - IPs
   repeated string email_addresses = 16 [json_name = "emailAddresses"]; // Subject Alternative Names - Email
@@ -140,14 +141,16 @@ message IssueMtlsCertificateRequest {
     (buf.validate.field).string = {
       max_len: 16384
       pattern: "^-----BEGIN CERTIFICATE REQUEST-----[\\s\\S]*-----END CERTIFICATE REQUEST-----[\\s]*$"
-    }
+    },
+    (redact.v3.value).string = ""
   ];
   optional string public_key_pem = 4 [
     json_name = "publicKeyPem",
     (buf.validate.field).string = {
       max_len: 8192
       pattern: "^-----BEGIN PUBLIC KEY-----[\\s\\S]*-----END PUBLIC KEY-----[\\s]*$"
-    }
+    },
+    (redact.v3.value).string = ""
   ];
   repeated string dns_names = 5 [
     json_name = "dnsNames",
@@ -210,7 +213,7 @@ message IssueMtlsCertificateRequest {
 
 message IssueMtlsCertificateResponse {
   MtlsCertificate mtls_certificate = 1 [json_name = "mtlsCertificate"];
-  optional string ca_certificate_pem = 2 [json_name = "caCertificatePem"]; // CA cert for chain building
+  optional string ca_certificate_pem = 2 [json_name = "caCertificatePem", (redact.v3.value).string = ""]; // CA cert for chain building
 }
 
 // Update mTLS Certificate (metadata, notes only - cert content is immutable)
@@ -278,7 +281,8 @@ message RenewMtlsCertificateRequest {
     (buf.validate.field).string = {
       max_len: 8192
       pattern: "^-----BEGIN PUBLIC KEY-----[\\s\\S]*-----END PUBLIC KEY-----[\\s]*$"
-    }
+    },
+    (redact.v3.value).string = ""
   ]; // New public key (optional, reuse existing if not provided)
   optional int32 validity_days = 3 [
     json_name = "validityDays",
@@ -317,9 +321,9 @@ message DownloadMtlsCertificateRequest {
 }
 
 message DownloadMtlsCertificateResponse {
-  string certificate_pem = 1 [json_name = "certificatePem"];
-  optional string chain_pem = 2 [json_name = "chainPem"]; // Full chain if requested
-  optional string ca_certificate_pem = 3 [json_name = "caCertificatePem"];
+  string certificate_pem = 1 [json_name = "certificatePem", (redact.v3.value).string = ""];
+  optional string chain_pem = 2 [json_name = "chainPem", (redact.v3.value).string = ""]; // Full chain if requested
+  optional string ca_certificate_pem = 3 [json_name = "caCertificatePem", (redact.v3.value).string = ""];
 }
 
 // mTLS Certificate Admin Service

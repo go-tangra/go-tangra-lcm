@@ -94,7 +94,7 @@ func (s *CertificateJobService) getClientInfo(ctx context.Context) (uint32, stri
 	if client.IsProxiedRequest(ctx) {
 		tenantID := client.GetTenantID(ctx)
 		clientID := client.GetClientID(ctx)
-		s.log.Debugf("Using tenant ID from metadata: %d (user: %s)", tenantID, clientID)
+		s.log.Infof("Using tenant ID from metadata: %d (user: %s)", tenantID, clientID)
 		return tenantID, clientID, nil
 	}
 
@@ -114,7 +114,7 @@ func (s *CertificateJobService) getClientInfo(ctx context.Context) (uint32, stri
 			// Continue with CN as client_id (backwards compatibility)
 		} else if actualClientID != "" {
 			clientID = actualClientID
-			s.log.Debugf("Resolved CN '%s' to client_id '%s'", certCN, clientID)
+			s.log.Infof("Resolved CN '%s' to client_id '%s'", certCN, clientID)
 		}
 	}
 
@@ -249,7 +249,7 @@ func (s *CertificateJobService) RequestCertificate(ctx context.Context, req *lcm
 
 	// Publish certificate requested event
 	if s.eventPublisher != nil {
-		_ = s.eventPublisher.PublishCertificateRequested(ctx, &event.CertificateRequestedEvent{
+		if pubErr := s.eventPublisher.PublishCertificateRequested(ctx, &event.CertificateRequestedEvent{
 			JobID:       jobID,
 			ClientID:    clientID,
 			TenantID:    tenantID,
@@ -258,7 +258,9 @@ func (s *CertificateJobService) RequestCertificate(ctx context.Context, req *lcm
 			CommonName:  req.GetCommonName(),
 			DNSNames:    req.GetDnsNames(),
 			IPAddresses: req.GetIpAddresses(),
-		})
+		}); pubErr != nil {
+			s.log.Warnf("Failed to publish certificate requested event for job %s: %v", jobID, pubErr)
+		}
 	}
 
 	return &lcmV1.RequestCertificateResponse{
@@ -476,11 +478,13 @@ func (s *CertificateJobService) CancelJob(ctx context.Context, req *lcmV1.Cancel
 
 	// Publish cancellation event
 	if s.eventPublisher != nil {
-		_ = s.eventPublisher.PublishCertificateCancelled(ctx, &event.CertificateCancelledEvent{
+		if pubErr := s.eventPublisher.PublishCertificateCancelled(ctx, &event.CertificateCancelledEvent{
 			JobID:    req.GetJobId(),
 			ClientID: clientID,
 			TenantID: tenantID,
-		})
+		}); pubErr != nil {
+			s.log.Warnf("Failed to publish certificate cancelled event for job %s: %v", req.GetJobId(), pubErr)
+		}
 	}
 
 	return &emptypb.Empty{}, nil
@@ -579,7 +583,7 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 
 	// Publish processing event
 	if s.eventPublisher != nil {
-		_ = s.eventPublisher.PublishCertificateProcessing(ctx, &event.CertificateRequestedEvent{
+		if pubErr := s.eventPublisher.PublishCertificateProcessing(ctx, &event.CertificateRequestedEvent{
 			JobID:       jobID,
 			ClientID:    certReq.ClientID,
 			TenantID:    certReq.TenantID,
@@ -588,7 +592,9 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 			CommonName:  certReq.CommonName,
 			DNSNames:    certReq.DNSNames,
 			IPAddresses: certReq.IPAddresses,
-		})
+		}); pubErr != nil {
+			s.log.Warnf("Failed to publish certificate processing event for job %s: %v", jobID, pubErr)
+		}
 	}
 
 	// Issue certificate based on type
@@ -614,7 +620,7 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 
 		// Publish failure event
 		if s.eventPublisher != nil {
-			_ = s.eventPublisher.PublishCertificateFailed(ctx, &event.CertificateFailedEvent{
+			if pubErr := s.eventPublisher.PublishCertificateFailed(ctx, &event.CertificateFailedEvent{
 				JobID:        jobID,
 				ClientID:     certReq.ClientID,
 				TenantID:     certReq.TenantID,
@@ -622,7 +628,9 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 				IssuerType:   certReq.IssuerType,
 				CommonName:   certReq.CommonName,
 				ErrorMessage: err.Error(),
-			})
+			}); pubErr != nil {
+				s.log.Warnf("Failed to publish certificate failed event for job %s: %v", jobID, pubErr)
+			}
 		}
 		return
 	}
@@ -645,7 +653,7 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 
 	// Publish success event
 	if s.eventPublisher != nil {
-		_ = s.eventPublisher.PublishCertificateIssued(ctx, &event.CertificateIssuedEvent{
+		if pubErr := s.eventPublisher.PublishCertificateIssued(ctx, &event.CertificateIssuedEvent{
 			JobID:               jobID,
 			ClientID:            certReq.ClientID,
 			TenantID:            certReq.TenantID,
@@ -659,7 +667,9 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 			SubjectOrganization: issuedCert.SubjectOrganization,
 			SubjectOrgUnit:      issuedCert.SubjectOrgUnit,
 			SubjectCountry:      issuedCert.SubjectCountry,
-		})
+		}); pubErr != nil {
+			s.log.Warnf("Failed to publish certificate issued event for job %s: %v", jobID, pubErr)
+		}
 	}
 }
 

@@ -237,6 +237,10 @@ paths:
                   schema:
                     type: integer
                     format: uint32
+                - name: clientId
+                  in: query
+                  schema:
+                    type: string
             responses:
                 "200":
                     description: OK
@@ -302,6 +306,25 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/GetJobResultResponse'
+    /v1/certificate-jobs/{jobId}/retry:
+        post:
+            tags:
+                - LcmCertificateJobService
+            description: Retry a failed certificate job
+            operationId: LcmCertificateJobService_RetryJob
+            parameters:
+                - name: jobId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RetryJobResponse'
     /v1/certificate-jobs/{jobId}/status:
         get:
             tags:
@@ -815,6 +838,31 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/GetIssuedCertificateResponse'
+    /v1/issued-certificates/{id}/renew:
+        post:
+            tags:
+                - LcmIssuedCertificateService
+            description: Force renew an issued certificate
+            operationId: LcmIssuedCertificateService_ForceRenewCertificate
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ForceRenewCertificateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ForceRenewCertificateResponse'
     /v1/issuers:
         get:
             tags:
@@ -1405,6 +1453,8 @@ components:
                     format: date-time
                 errorMessage:
                     type: string
+                clientId:
+                    type: string
             description: Job summary info for listing
         CertificatePermission:
             type: object
@@ -1735,6 +1785,22 @@ components:
                     type: string
                 caCertificatePem:
                     type: string
+        ForceRenewCertificateRequest:
+            required:
+                - id
+            type: object
+            properties:
+                id:
+                    type: string
+            description: Request to force renew an issued certificate
+        ForceRenewCertificateResponse:
+            type: object
+            properties:
+                renewalId:
+                    type: string
+                message:
+                    type: string
+            description: Response for force renewing an issued certificate
         GetAuditLogByAuditIdResponse:
             type: object
             properties:
@@ -2721,6 +2787,24 @@ components:
                 message:
                     type: string
             description: Response with job ID for tracking
+        RetryJobResponse:
+            type: object
+            properties:
+                jobId:
+                    type: string
+                status:
+                    enum:
+                        - CERTIFICATE_JOB_STATUS_UNSPECIFIED
+                        - CERTIFICATE_JOB_STATUS_PENDING
+                        - CERTIFICATE_JOB_STATUS_PROCESSING
+                        - CERTIFICATE_JOB_STATUS_COMPLETED
+                        - CERTIFICATE_JOB_STATUS_FAILED
+                        - CERTIFICATE_JOB_STATUS_CANCELLED
+                    type: string
+                    format: enum
+                message:
+                    type: string
+            description: Response from retrying a job
         RevokeMtlsCertificateRequest:
             required:
                 - serialNumber

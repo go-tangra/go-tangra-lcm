@@ -46,7 +46,7 @@ func (s *CertificatePermissionService) getClientInfo(ctx context.Context) (uint3
 	if client.IsProxiedRequest(ctx) {
 		tenantID := client.GetTenantID(ctx)
 		clientID := client.GetClientID(ctx)
-		s.log.Debugf("Using tenant ID from metadata: %d (user: %s)", tenantID, clientID)
+		s.log.Infof("Using tenant ID from metadata: %d (user: %s)", tenantID, clientID)
 		return tenantID, clientID, 0, nil
 	}
 

@@ -155,7 +155,7 @@ func (s *RenewalScheduler) scanAndScheduleRenewals() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	s.log.Debug("Scanning for certificates due for renewal...")
+	s.log.Info("Scanning for certificates due for renewal...")
 
 	// Get default configuration values
 	daysBeforeExpiry := s.config.GetDefaultDaysBeforeExpiry()
@@ -176,7 +176,7 @@ func (s *RenewalScheduler) scanAndScheduleRenewals() {
 	}
 
 	if len(certs) == 0 {
-		s.log.Debug("No certificates due for renewal")
+		s.log.Info("No certificates due for renewal")
 		return
 	}
 
@@ -191,7 +191,7 @@ func (s *RenewalScheduler) scanAndScheduleRenewals() {
 			continue
 		}
 		if existing != nil {
-			s.log.Debugf("Renewal already pending for cert %s", cert.ID)
+			s.log.Infof("Renewal already pending for cert %s", cert.ID)
 			continue
 		}
 
@@ -230,7 +230,7 @@ func (s *RenewalScheduler) scanAndScheduleRenewals() {
 			if cert.Edges.LcmClient != nil && cert.Edges.LcmClient.TenantID != nil {
 				tenantID = *cert.Edges.LcmClient.TenantID
 			}
-			_ = s.eventPublisher.PublishRenewalScheduled(ctx, &event.RenewalScheduledEvent{
+			if pubErr := s.eventPublisher.PublishRenewalScheduled(ctx, &event.RenewalScheduledEvent{
 				RenewalID:     createdRenewal.ID,
 				CertificateID: cert.ID,
 				ClientID:      cert.ClientID,
@@ -238,7 +238,9 @@ func (s *RenewalScheduler) scanAndScheduleRenewals() {
 				IssuerName:    cert.IssuerName,
 				ScheduledAt:   createdRenewal.ScheduledAt,
 				ExpiresAt:     cert.ExpiresAt,
-			})
+			}); pubErr != nil {
+				s.log.Warnf("Failed to publish renewal scheduled event for cert %s: %v", cert.ID, pubErr)
+			}
 		}
 	}
 
@@ -412,7 +414,10 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 	s.log.Infof("Certificate renewal completed successfully: cert=%s, renewal=%d", renewal.CertificateID, renewal.ID)
 
 	// Get updated certificate for event data
-	cert, _ := s.issuedCertRepo.GetByID(ctx, renewal.CertificateID)
+	cert, certErr := s.issuedCertRepo.GetByID(ctx, renewal.CertificateID)
+	if certErr != nil {
+		s.log.Warnf("Failed to fetch updated certificate %s for event data: %v", renewal.CertificateID, certErr)
+	}
 
 	// Write renewed certificate files to disk for frontend certs
 	if cert != nil && cert.IssuerName == "lcm-frontend-acme" && s.lcmConfig != nil {
@@ -443,7 +448,7 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 			}
 			newExpiresAt = cert.ExpiresAt
 		}
-		_ = s.eventPublisher.PublishRenewalCompleted(ctx, &event.RenewalCompletedEvent{
+		if pubErr := s.eventPublisher.PublishRenewalCompleted(ctx, &event.RenewalCompletedEvent{
 			RenewalID:       renewal.ID,
 			CertificateID:   renewal.CertificateID,
 			ClientID:        renewal.ClientID,
@@ -451,7 +456,9 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 			NewSerialNumber: newSerial,
 			NewExpiresAt:    newExpiresAt,
 			AttemptNumber:   renewal.AttemptNumber,
-		})
+		}); pubErr != nil {
+			s.log.Warnf("Failed to publish renewal completed event for cert %s: %v", renewal.CertificateID, pubErr)
+		}
 	}
 }
 
@@ -460,7 +467,9 @@ func (s *RenewalScheduler) handleRenewalFailure(ctx context.Context, renewal *en
 	s.log.Errorf("Certificate renewal failed: cert=%s, renewal=%d, error=%v", renewal.CertificateID, renewal.ID, renewalErr)
 
 	// Increment attempts on the certificate
-	_ = s.issuedCertRepo.IncrementRenewalAttempts(ctx, renewal.CertificateID)
+	if incErr := s.issuedCertRepo.IncrementRenewalAttempts(ctx, renewal.CertificateID); incErr != nil {
+		s.log.Warnf("Failed to increment renewal attempts for cert %s: %v", renewal.CertificateID, incErr)
+	}
 
 	// Check if this is a permanent error or we've exceeded max attempts
 	permanent := false
@@ -472,14 +481,17 @@ func (s *RenewalScheduler) handleRenewalFailure(ctx context.Context, renewal *en
 
 	// Get tenant ID for event
 	var tenantID uint32 = 0
-	cert, _ := s.issuedCertRepo.GetByID(ctx, renewal.CertificateID)
+	cert, certErr := s.issuedCertRepo.GetByID(ctx, renewal.CertificateID)
+	if certErr != nil {
+		s.log.Warnf("Failed to fetch certificate %s for tenant ID: %v", renewal.CertificateID, certErr)
+	}
 	if cert != nil && cert.Edges.LcmClient != nil && cert.Edges.LcmClient.TenantID != nil {
 		tenantID = *cert.Edges.LcmClient.TenantID
 	}
 
 	// Publish failure event
 	if s.eventPublisher != nil {
-		_ = s.eventPublisher.PublishRenewalFailed(ctx, &event.RenewalFailedEvent{
+		if pubErr := s.eventPublisher.PublishRenewalFailed(ctx, &event.RenewalFailedEvent{
 			RenewalID:     renewal.ID,
 			CertificateID: renewal.CertificateID,
 			ClientID:      renewal.ClientID,
@@ -488,7 +500,9 @@ func (s *RenewalScheduler) handleRenewalFailure(ctx context.Context, renewal *en
 			AttemptNumber: renewal.AttemptNumber,
 			MaxAttempts:   renewal.MaxAttempts,
 			WillRetry:     willRetry,
-		})
+		}); pubErr != nil {
+			s.log.Warnf("Failed to publish renewal failed event for cert %s: %v", renewal.CertificateID, pubErr)
+		}
 	}
 
 	if !willRetry {
@@ -579,7 +593,9 @@ func (s *RenewalScheduler) ManualRenewal(ctx context.Context, certificateID stri
 
 	// Cancel any existing pending renewal
 	if existing != nil {
-		_ = s.renewalRepo.Cancel(ctx, existing.ID)
+		if cancelErr := s.renewalRepo.Cancel(ctx, existing.ID); cancelErr != nil {
+			s.log.Warnf("Failed to cancel existing renewal %d: %v", existing.ID, cancelErr)
+		}
 	}
 
 	// Create a new renewal job scheduled immediately
