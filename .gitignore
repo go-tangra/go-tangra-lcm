@@ -2,7 +2,7 @@
 bin/
 
 # Runtime data
-data/
+/data/
 
 # IDE
 .idea/
