@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -171,6 +172,14 @@ func (bs *BootstrapService) ensureServerCertificate(ctx context.Context) (*x509.
 	}
 
 	template.DNSNames = []string{"localhost", "lcm-server", "lcm-service", "*.local"}
+	if extra := os.Getenv("ADDITIONAL_DOMAINS"); extra != "" {
+		for _, d := range strings.Split(extra, ",") {
+			d = strings.TrimSpace(d)
+			if d != "" {
+				template.DNSNames = append(template.DNSNames, d)
+			}
+		}
+	}
 	template.IPAddresses = []net.IP{
 		net.IPv4(127, 0, 0, 1),
 		net.IPv4(0, 0, 0, 0),
@@ -333,6 +342,16 @@ func (bs *BootstrapService) ensureModuleServerCertificate(ctx context.Context, c
 	moduleID := mod.GetModuleId()
 	serverCertDir := mod.GetServerCertDir()
 	dnsNames := mod.GetDnsNames()
+
+	// Append additional domains from env var (e.g., ADDITIONAL_DOMAINS=portal.infra.verax.net)
+	if extra := os.Getenv("ADDITIONAL_DOMAINS"); extra != "" {
+		for _, d := range strings.Split(extra, ",") {
+			d = strings.TrimSpace(d)
+			if d != "" {
+				dnsNames = append(dnsNames, d)
+			}
+		}
+	}
 
 	serverCertPath := filepath.Join(bs.config.GetDataDir(), serverCertDir, "server.crt")
 	serverKeyPath := filepath.Join(bs.config.GetDataDir(), serverCertDir, "server.key")
