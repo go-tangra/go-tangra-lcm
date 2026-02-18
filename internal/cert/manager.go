@@ -159,6 +159,7 @@ func (cm *CertManager) generateServerCertificates(certPath, keyPath string) erro
 	template.DNSNames = []string{
 		"localhost",
 		"lcm-server",
+		"lcm-service",
 		"*.local",
 	}
 	template.IPAddresses = []net.IP{

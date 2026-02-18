@@ -170,7 +170,7 @@ func (bs *BootstrapService) ensureServerCertificate(ctx context.Context) (*x509.
 		MaxPathLenZero:        true,
 	}
 
-	template.DNSNames = []string{"localhost", "lcm-server", "*.local"}
+	template.DNSNames = []string{"localhost", "lcm-server", "lcm-service", "*.local"}
 	template.IPAddresses = []net.IP{
 		net.IPv4(127, 0, 0, 1),
 		net.IPv4(0, 0, 0, 0),

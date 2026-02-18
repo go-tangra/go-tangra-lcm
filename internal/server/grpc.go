@@ -75,6 +75,8 @@ func newGrpcMiddleware(
 		audit.WithWriteAuditLogFunc(audit.NewDatabaseWriter(auditLogRepo)),
 		audit.WithSkipOperations(
 			"/lcm.service.v1.SystemService/HealthCheck",
+			"/lcm.service.v1.BackupService/ExportBackup",
+			"/lcm.service.v1.BackupService/ImportBackup",
 		),
 	))
 
@@ -97,6 +99,7 @@ func NewGRPCServer(
 	certPermissionSvc *service.CertificatePermissionService,
 	mtlsCertRequestSvc *service.MtlsCertificateRequestService,
 	statisticsSvc *service.StatisticsService,
+	backupSvc *service.BackupService,
 	bootstrapSvc *service.BootstrapService,
 ) *grpc.Server {
 	cfg := ctx.GetConfig()
@@ -139,6 +142,7 @@ func NewGRPCServer(
 	lcmV1.RegisterRedactedCertificatePermissionServiceServer(srv, certPermissionSvc, nil)
 	lcmV1.RegisterRedactedLcmMtlsCertificateRequestServiceServer(srv, mtlsCertRequestSvc, nil)
 	lcmV1.RegisterRedactedLcmStatisticsServiceServer(srv, statisticsSvc, nil)
+	lcmV1.RegisterRedactedBackupServiceServer(srv, backupSvc, nil)
 	commonV1.RegisterLcmBootstrapServiceServer(srv, bootstrapSvc)
 	l.Info("gRPC server configured with TLS and all LCM services")
 
