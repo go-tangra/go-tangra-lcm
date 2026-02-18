@@ -58,12 +58,16 @@ func (cm *CertManager) GetServerTLSConfig() (*tls.Config, error) {
 	serverCertPath := filepath.Join(cm.config.GetDataDir(), "server", "server.crt")
 	serverKeyPath := filepath.Join(cm.config.GetDataDir(), "server", "server.key")
 
+	cm.log.Infof("GetServerTLSConfig: checking cert at %s, ADDITIONAL_DOMAINS=%q", serverCertPath, os.Getenv("ADDITIONAL_DOMAINS"))
+
 	// Check if server certificates exist
 	if !cm.certificatesExist(serverCertPath, serverKeyPath) {
 		cm.log.Info("Server certificates not found, generating new ones...")
 		if err := cm.generateServerCertificates(serverCertPath, serverKeyPath); err != nil {
 			return nil, fmt.Errorf("failed to generate server certificates: %w", err)
 		}
+	} else {
+		cm.log.Info("Server certificates already exist, loading...")
 	}
 
 	// Load the server certificate and key
@@ -171,6 +175,7 @@ func (cm *CertManager) generateServerCertificates(certPath, keyPath string) erro
 			}
 		}
 	}
+	cm.log.Infof("generateServerCertificates: DNSNames=%v", template.DNSNames)
 	template.IPAddresses = []net.IP{
 		net.IPv4(127, 0, 0, 1),
 		net.IPv4(0, 0, 0, 0),
