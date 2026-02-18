@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -161,6 +162,14 @@ func (cm *CertManager) generateServerCertificates(certPath, keyPath string) erro
 		"lcm-server",
 		"lcm-service",
 		"*.local",
+	}
+	if extra := os.Getenv("ADDITIONAL_DOMAINS"); extra != "" {
+		for _, d := range strings.Split(extra, ",") {
+			d = strings.TrimSpace(d)
+			if d != "" {
+				template.DNSNames = append(template.DNSNames, d)
+			}
+		}
 	}
 	template.IPAddresses = []net.IP{
 		net.IPv4(127, 0, 0, 1),
