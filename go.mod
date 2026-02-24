@@ -1,6 +1,7 @@
 module github.com/go-tangra/go-tangra-lcm
 
 go 1.25.4
+
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1
 	entgo.io/ent v0.14.5
@@ -8,7 +9,7 @@ require (
 	github.com/go-acme/lego/v4 v4.31.0
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/go-tangra/go-tangra-common v0.4.0
+	github.com/go-tangra/go-tangra-common v0.5.0
 	github.com/google/gnostic v0.7.1
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.7.0
