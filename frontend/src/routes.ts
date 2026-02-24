@@ -4,7 +4,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/lcm',
     name: 'CertificateManagement',
-    component: () => import('shell/vben/layouts').then((m) => m.BasicLayout),
+    component: () => import('shell/app-layout'),
     redirect: '/lcm/issuer',
     meta: {
       order: 2006,
