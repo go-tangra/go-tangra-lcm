@@ -19,5 +19,6 @@ import (
 // ProviderSet is the Wire provider set for service layer.
 var ProviderSet = wire.NewSet(
 	server.NewGRPCServer,
-	cert.NewCertManager
+	server.NewHTTPServer,
+	cert.NewCertManager,
 )

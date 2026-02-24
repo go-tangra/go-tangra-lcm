@@ -99,7 +99,8 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	app := newApp(context, grpcServer, bootstrapBootstrapService, renewalScheduler, webhookService)
+	httpServer := server.NewHTTPServer(context)
+	app := newApp(context, grpcServer, httpServer, bootstrapBootstrapService, renewalScheduler, webhookService)
 	return app, func() {
 		cleanup2()
 		cleanup()
