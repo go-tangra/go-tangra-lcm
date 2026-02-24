@@ -7,9 +7,9 @@ FROM node:20-alpine AS frontend-builder
 RUN npm install -g pnpm@9
 
 WORKDIR /frontend
-COPY go-tangra-lcm/frontend/package.json go-tangra-lcm/frontend/pnpm-lock.yaml* ./
+COPY frontend/package.json frontend/pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile || pnpm install
-COPY go-tangra-lcm/frontend/ .
+COPY frontend/ .
 RUN pnpm build
 
 ##################################
@@ -34,16 +34,11 @@ RUN curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(un
 WORKDIR /src
 
 # Copy go mod files first for better caching
-COPY go-tangra-lcm/go.mod go-tangra-lcm/go.sum ./
-
-# Copy go-tangra-common (local dependency)
-COPY go-tangra-common/ /go-tangra-common/
-RUN go mod edit -replace github.com/go-tangra/go-tangra-common=/go-tangra-common
-
+COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the entire source code
-COPY go-tangra-lcm/ .
+COPY . .
 
 # Regenerate proto descriptor (ensures embedded descriptor.bin is always up to date)
 RUN buf build -o cmd/server/assets/descriptor.bin
