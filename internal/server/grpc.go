@@ -58,6 +58,7 @@ func systemViewerMiddleware() middleware.Middleware {
 func newGrpcMiddleware(
 	logger log.Logger,
 	auditLogRepo *data.AuditLogRepo,
+	mtlsCertRepo *data.MtlsCertificateRepo,
 ) []middleware.Middleware {
 	var ms []middleware.Middleware
 
@@ -66,6 +67,8 @@ func newGrpcMiddleware(
 	// Add mTLS middleware for client certificate authentication FIRST
 	// This must run before the operation logging to populate client context
 	ms = append(ms, lcmMiddleware.MTLSMiddleware(logger))
+	// Track last-seen timestamp for mTLS certificates (throttled, non-blocking)
+	ms = append(ms, lcmMiddleware.LastSeenMiddleware(logger, mtlsCertRepo))
 	ms = append(ms, logging.Server(logger))
 
 	// Add audit logging middleware with cryptographic signing
@@ -88,6 +91,7 @@ func NewGRPCServer(
 	ctx *bootstrap.Context,
 	certManager *cert.CertManager,
 	auditLogRepo *data.AuditLogRepo,
+	mtlsCertRepo *data.MtlsCertificateRepo,
 	systemSvc *service.SystemService,
 	lcmClientSvc *service.LcmClientService,
 	issuerSvc *service.IssuerService,
@@ -114,7 +118,7 @@ func NewGRPCServer(
 	// Create gRPC server options
 	opts := []grpc.ServerOption{
 		grpc.TLSConfig(tlsConfig),
-		grpc.Middleware(newGrpcMiddleware(logger, auditLogRepo)...),
+		grpc.Middleware(newGrpcMiddleware(logger, auditLogRepo, mtlsCertRepo)...),
 	}
 
 	// Add server configuration from bootstrap config
