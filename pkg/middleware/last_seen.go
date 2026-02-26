@@ -11,6 +11,8 @@ import (
 
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
 	"github.com/go-tangra/go-tangra-lcm/pkg/client"
+
+	appViewer "github.com/go-tangra/go-tangra-common/viewer"
 )
 
 const lastSeenThrottle = 5 * time.Minute
@@ -44,7 +46,8 @@ func LastSeenMiddleware(logger log.Logger, mtlsCertRepo *data.MtlsCertificateRep
 				}
 
 				go func() {
-					if err := mtlsCertRepo.UpdateLastSeen(context.Background(), serialInt); err != nil {
+					bgCtx := appViewer.NewSystemViewerContext(context.Background())
+					if err := mtlsCertRepo.UpdateLastSeen(bgCtx, serialInt); err != nil {
 						l.Warnf("failed to update last_seen_at for serial %s: %v", serial, err)
 					}
 				}()
