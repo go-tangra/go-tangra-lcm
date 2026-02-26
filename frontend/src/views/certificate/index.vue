@@ -123,9 +123,9 @@ const gridOptions: VxeGridProps<MtlsCertificate> = {
 
   columns: [
     { title: $t('ui.table.seq'), type: 'seq', width: 50 },
-    { title: $t('lcm.page.certificate.serialNumber'), field: 'serialNumber', width: 150, sortable: true },
-    { title: $t('lcm.page.certificate.commonName'), field: 'commonName', minWidth: 180, sortable: true },
-    { title: $t('lcm.page.certificate.clientId'), field: 'clientId', width: 120, sortable: true },
+    { title: $t('lcm.page.certificate.serialNumber'), field: 'serialNumber', width: 150 },
+    { title: $t('lcm.page.certificate.commonName'), field: 'commonName', minWidth: 180 },
+    { title: $t('lcm.page.certificate.clientId'), field: 'clientId', width: 120 },
     { title: $t('lcm.page.certificate.issuerName'), field: 'issuerName', width: 120 },
     {
       title: $t('ui.table.status'),
@@ -150,7 +150,6 @@ const gridOptions: VxeGridProps<MtlsCertificate> = {
       field: 'lastSeenAt',
       formatter: 'formatDateTime',
       width: 140,
-      sortable: true,
     },
     {
       title: $t('ui.table.action'),

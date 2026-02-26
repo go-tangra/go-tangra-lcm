@@ -142,6 +142,9 @@ func (r *MtlsCertificateRepo) ListWithFilters(ctx context.Context, req *lcmV1.Li
 		builder.Where(mtlscertificate.StatusNEQ(mtlscertificate.StatusMTLS_CERTIFICATE_STATUS_REVOKED))
 	}
 
+	// Default sort by common_name ascending
+	builder.Order(mtlscertificate.ByCommonName())
+
 	// Apply pagination
 	pagingReq := &pagination.PagingRequest{}
 	if req.Page != nil {
