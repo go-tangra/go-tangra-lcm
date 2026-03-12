@@ -33,9 +33,6 @@ RUN curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(un
 # Set working directory
 WORKDIR /src
 
-# Copy go-tangra-common (local replace directive, provided via additional_contexts)
-COPY --from=common . /go-tangra-common/
-
 # Copy go mod files first for better caching
 COPY go.mod go.sum ./
 RUN go mod download
