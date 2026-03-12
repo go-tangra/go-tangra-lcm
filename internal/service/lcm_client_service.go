@@ -22,6 +22,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/mtlscertificaterequest"
 	"github.com/go-tangra/go-tangra-lcm/internal/event"
+	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
 	"github.com/go-tangra/go-tangra-lcm/pkg/client"
 )
 
@@ -37,6 +38,7 @@ type LcmClientService struct {
 	tenantSecretRepo *data.TenantSecretRepo
 	redisClient      *redis.Client
 	topicPrefix      string
+	metrics          *metrics.Collector
 }
 
 // NewLcmClientService creates a new LcmClientService
@@ -48,6 +50,7 @@ func NewLcmClientService(
 	certRepo *data.MtlsCertificateRepo,
 	tenantSecretRepo *data.TenantSecretRepo,
 	redisClient *redis.Client,
+	collector *metrics.Collector,
 ) *LcmClientService {
 	topicPrefix := "lcm"
 	customConfig, ok := ctx.GetCustomConfig("lcm")
@@ -68,6 +71,7 @@ func NewLcmClientService(
 		tenantSecretRepo: tenantSecretRepo,
 		redisClient:      redisClient,
 		topicPrefix:      topicPrefix,
+		metrics:          collector,
 	}
 }
 
@@ -124,6 +128,7 @@ func (s *LcmClientService) RegisterLcmClient(ctx context.Context, req *lcmV1.Cre
 			return nil, err
 		}
 		s.log.Infof("Created new client: %s (tenant_id=%d)", req.GetClientId(), tenantID)
+		s.metrics.ClientCreated("active")
 	} else {
 		// Update existing client metadata
 		client, err = s.clientRepo.Update(ctx, client.ID, req.GetMetadata())
@@ -207,6 +212,9 @@ func (s *LcmClientService) RegisterLcmClient(ctx context.Context, req *lcmV1.Cre
 		if err := s.requestRepo.MarkAsIssued(ctx, certRequest.ID, serialNumber); err != nil {
 			s.log.Errorf("Failed to mark request as issued: %v", err)
 		}
+
+		// Update metrics: new mTLS client certificate created
+		s.metrics.MtlsCertificateCreated("active", lcmV1.MtlsCertificateType_MTLS_CERT_TYPE_CLIENT.String())
 
 		// Get CA certificate
 		caCertPEM, err := s.certManager.GetCACertificatePEM()

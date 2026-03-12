@@ -14,6 +14,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/cert"
 	"github.com/go-tangra/go-tangra-lcm/internal/conf"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
+	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
 	"github.com/go-tangra/go-tangra-lcm/pkg/crypto"
 )
 
@@ -26,6 +27,7 @@ type MtlsCertService struct {
 	clientRepo *data.LcmClientRepo
 	config     *conf.LCM
 	issuer     *crypto.MtlsIssuer
+	metrics    *metrics.Collector
 }
 
 // NewMtlsCertService creates a new MtlsCertService
@@ -33,6 +35,7 @@ func NewMtlsCertService(
 	ctx *bootstrap.Context,
 	certRepo *data.MtlsCertificateRepo,
 	clientRepo *data.LcmClientRepo,
+	collector *metrics.Collector,
 ) (*MtlsCertService, error) {
 	logger := ctx.NewLoggerHelper("lcm/service/mtls_cert")
 
@@ -72,6 +75,7 @@ func NewMtlsCertService(
 		clientRepo: clientRepo,
 		config:     lcmConfig,
 		issuer:     issuer,
+		metrics:    collector,
 	}, nil
 }
 
@@ -232,6 +236,9 @@ func (s *MtlsCertService) IssueMtlsCertificate(ctx context.Context, req *lcmV1.I
 
 	s.log.Infof("Successfully issued mTLS certificate with serial: %d for client: %s", serialNumber, req.GetClientId())
 
+	// Update metrics
+	s.metrics.MtlsCertificateCreated("active", certType.String())
+
 	response := &lcmV1.IssueMtlsCertificateResponse{
 		MtlsCertificate:  savedCert,
 		CaCertificatePem: ptr(s.issuer.GetCACertificatePEM()),
@@ -265,6 +272,10 @@ func (s *MtlsCertService) RevokeMtlsCertificate(ctx context.Context, req *lcmV1.
 	if err != nil {
 		return nil, err
 	}
+
+	// Update metrics: status changed from active to revoked
+	s.metrics.MtlsCertificateStatusChanged("active", "revoked")
+
 	return &lcmV1.RevokeMtlsCertificateResponse{MtlsCertificate: cert}, nil
 }
 
@@ -400,6 +411,13 @@ func (s *MtlsCertService) RenewMtlsCertificate(ctx context.Context, req *lcmV1.R
 		return nil, lcmV1.ErrorInternalServerError("failed to save renewal certificate")
 	}
 
+	// Update metrics: new certificate created
+	renewCertType := "client"
+	if newCertData.CertType != nil {
+		renewCertType = newCertData.GetCertType().String()
+	}
+	s.metrics.MtlsCertificateCreated("active", renewCertType)
+
 	// Optionally revoke the old certificate
 	var updatedOldCert *lcmV1.MtlsCertificate
 	if req.RevokeOld != nil && req.GetRevokeOld() {
@@ -413,6 +431,9 @@ func (s *MtlsCertService) RenewMtlsCertificate(ctx context.Context, req *lcmV1.R
 			s.log.Warnf("Failed to revoke old certificate during renewal: %v", err)
 			// Don't fail the renewal, just log the warning
 			updatedOldCert = oldCert
+		} else {
+			// Update metrics: old certificate revoked
+			s.metrics.MtlsCertificateStatusChanged("active", "revoked")
 		}
 	} else {
 		updatedOldCert = oldCert
@@ -437,6 +458,18 @@ func (s *MtlsCertService) DeleteMtlsCertificate(ctx context.Context, req *lcmV1.
 	if err != nil {
 		return nil, err
 	}
+
+	// Update metrics
+	status := "active"
+	if cert.Status != nil {
+		status = cert.GetStatus().String()
+	}
+	certType := "client"
+	if cert.CertType != nil {
+		certType = cert.GetCertType().String()
+	}
+	s.metrics.MtlsCertificateDeleted(status, certType)
+
 	return &lcmV1.DeleteMtlsCertificateResponse{MtlsCertificate: cert}, nil
 }
 

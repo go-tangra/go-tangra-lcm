@@ -13,6 +13,7 @@ import (
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
 
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
+	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
 	"github.com/go-tangra/go-tangra-lcm/internal/service"
 
 	commonV1 "github.com/go-tangra/go-tangra-common/gen/go/common/service/v1"
@@ -59,10 +60,12 @@ func newGrpcMiddleware(
 	logger log.Logger,
 	auditLogRepo *data.AuditLogRepo,
 	mtlsCertRepo *data.MtlsCertificateRepo,
+	collector *metrics.Collector,
 ) []middleware.Middleware {
 	var ms []middleware.Middleware
 
 	ms = append(ms, recovery.Recovery())
+	ms = append(ms, collector.Middleware())
 	ms = append(ms, systemViewerMiddleware()) // Inject system viewer for ENT privacy
 	// Add mTLS middleware for client certificate authentication FIRST
 	// This must run before the operation logging to populate client context
@@ -90,6 +93,7 @@ func newGrpcMiddleware(
 func NewGRPCServer(
 	ctx *bootstrap.Context,
 	certManager *cert.CertManager,
+	collector *metrics.Collector,
 	auditLogRepo *data.AuditLogRepo,
 	mtlsCertRepo *data.MtlsCertificateRepo,
 	systemSvc *service.SystemService,
@@ -118,7 +122,7 @@ func NewGRPCServer(
 	// Create gRPC server options
 	opts := []grpc.ServerOption{
 		grpc.TLSConfig(tlsConfig),
-		grpc.Middleware(newGrpcMiddleware(logger, auditLogRepo, mtlsCertRepo)...),
+		grpc.Middleware(newGrpcMiddleware(logger, auditLogRepo, mtlsCertRepo, collector)...),
 	}
 
 	// Add server configuration from bootstrap config

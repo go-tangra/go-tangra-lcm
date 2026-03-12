@@ -39,6 +39,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/event"
+	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
 	"github.com/go-tangra/go-tangra-lcm/pkg/client"
 	"github.com/go-tangra/go-tangra-lcm/pkg/dns/registry"
 )
@@ -55,6 +56,7 @@ type CertificateJobService struct {
 	issuedCertRepo        *data.IssuedCertificateRepo
 	dnsPropagationChecker *biz.DNSPropagationChecker
 	eventPublisher        *event.Publisher
+	metrics               *metrics.Collector
 }
 
 // NewCertificateJobService creates a new CertificateJobService
@@ -66,6 +68,7 @@ func NewCertificateJobService(
 	mtlsCertRepo *data.MtlsCertificateRepo,
 	issuedCertRepo *data.IssuedCertificateRepo,
 	eventPublisher *event.Publisher,
+	collector *metrics.Collector,
 ) *CertificateJobService {
 	var opts []biz.DNSPropagationCheckerOption
 	if lcmConfig != nil && len(lcmConfig.DnsResolvers) > 0 {
@@ -82,6 +85,7 @@ func NewCertificateJobService(
 		issuedCertRepo:        issuedCertRepo,
 		dnsPropagationChecker: dnsPropagationChecker,
 		eventPublisher:        eventPublisher,
+		metrics:               collector,
 	}
 }
 
@@ -262,6 +266,9 @@ func (s *CertificateJobService) RequestCertificate(ctx context.Context, req *lcm
 			s.log.Warnf("Failed to publish certificate requested event for job %s: %v", jobID, pubErr)
 		}
 	}
+
+	// Update metrics: new issued certificate in pending status
+	s.metrics.IssuedCertificateCreated("pending")
 
 	return &lcmV1.RequestCertificateResponse{
 		JobId:   jobID,
@@ -476,6 +483,9 @@ func (s *CertificateJobService) CancelJob(ctx context.Context, req *lcmV1.Cancel
 	}
 	s.log.Infof("Job cancelled: id=%s", req.GetJobId())
 
+	// Update metrics: status changed from pending to failed
+	s.metrics.IssuedCertificateStatusChanged("pending", "failed")
+
 	// Publish cancellation event
 	if s.eventPublisher != nil {
 		if pubErr := s.eventPublisher.PublishCertificateCancelled(ctx, &event.CertificateCancelledEvent{
@@ -549,6 +559,9 @@ func (s *CertificateJobService) RetryJob(ctx context.Context, req *lcmV1.RetryJo
 	// Start async processing
 	go s.processCertificateJob(req.GetJobId(), issuerEntity, certReq, cert.CsrPem, cert.PrivateKeyPem)
 
+	// Update metrics: status changed from failed to pending
+	s.metrics.IssuedCertificateStatusChanged("failed", "pending")
+
 	s.log.Infof("Job retry initiated: id=%s, issuer=%s, cn=%s", req.GetJobId(), cert.IssuerName, cert.CommonName)
 
 	return &lcmV1.RetryJobResponse{
@@ -564,6 +577,9 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 	if err := s.issuedCertRepo.UpdateStatus(context.Background(), jobID, issuedcertificate.StatusProcessing, ""); err != nil {
 		s.log.Errorf("Failed to update job status to processing: %v", err)
 	}
+
+	// Update metrics: status changed from pending to processing
+	s.metrics.IssuedCertificateStatusChanged("pending", "processing")
 
 	// Create a background context with appropriate timeout based on issuer type
 	var timeout time.Duration
@@ -618,6 +634,9 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 			s.log.Errorf("Failed to persist job failure: %v", dbErr)
 		}
 
+		// Update metrics: status changed from processing to failed
+		s.metrics.IssuedCertificateStatusChanged("processing", "failed")
+
 		// Publish failure event
 		if s.eventPublisher != nil {
 			if pubErr := s.eventPublisher.PublishCertificateFailed(ctx, &event.CertificateFailedEvent{
@@ -650,6 +669,9 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 		s.log.Errorf("Failed to persist job completion: %v", dbErr)
 	}
 	s.log.Infof("Certificate job completed: id=%s, serial=%s", jobID, issuedCert.SerialNumber)
+
+	// Update metrics: status changed from processing to issued
+	s.metrics.IssuedCertificateStatusChanged("processing", "issued")
 
 	// Publish success event
 	if s.eventPublisher != nil {

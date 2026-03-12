@@ -9,6 +9,7 @@ import (
 
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
+	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
 	"github.com/go-tangra/go-tangra-lcm/pkg/client"
 	"github.com/go-tangra/go-tangra-lcm/pkg/dns"
 )
@@ -21,6 +22,7 @@ type IssuerService struct {
 	issuerRepo   *data.IssuerRepo
 	clientRepo   *data.LcmClientRepo
 	mtlsCertRepo *data.MtlsCertificateRepo
+	metrics      *metrics.Collector
 }
 
 // NewIssuerService creates a new IssuerService
@@ -29,12 +31,14 @@ func NewIssuerService(
 	issuerRepo *data.IssuerRepo,
 	clientRepo *data.LcmClientRepo,
 	mtlsCertRepo *data.MtlsCertificateRepo,
+	collector *metrics.Collector,
 ) *IssuerService {
 	return &IssuerService{
 		log:          ctx.NewLoggerHelper("lcm/service/issuer"),
 		issuerRepo:   issuerRepo,
 		clientRepo:   clientRepo,
 		mtlsCertRepo: mtlsCertRepo,
+		metrics:      collector,
 	}
 }
 
@@ -202,6 +206,9 @@ func (s *IssuerService) CreateIssuer(ctx context.Context, req *lcmV1.CreateIssue
 
 	s.log.Infof("Created issuer: id=%d, name=%s, tenant_id=%d", issuer.ID, issuer.Name, tenantID)
 
+	// Update metrics
+	s.metrics.IssuerCreated("active")
+
 	return &lcmV1.CreateIssuerResponse{
 		Issuer: s.issuerRepo.ToProto(issuer),
 	}, nil
@@ -251,6 +258,9 @@ func (s *IssuerService) DeleteIssuer(ctx context.Context, req *lcmV1.DeleteIssue
 	}
 
 	s.log.Infof("Deleted issuer: name=%s, tenant_id=%d", req.GetName(), tenantID)
+
+	// Update metrics
+	s.metrics.IssuerDeleted("active")
 
 	return &emptypb.Empty{}, nil
 }

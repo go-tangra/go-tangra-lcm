@@ -12,6 +12,7 @@ package providers
 
 import (
 	"github.com/go-tangra/go-tangra-lcm/internal/event"
+	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
 	"github.com/go-tangra/go-tangra-lcm/internal/service"
 	"github.com/go-tangra/go-tangra-lcm/internal/webhook"
 
@@ -20,6 +21,7 @@ import (
 
 // ProviderSet is the Wire provider set for service layer.
 var ProviderSet = wire.NewSet(
+	metrics.NewCollector,
 	service.NewSystemService,
 	service.NewLcmClientService,
 	service.NewIssuerService,

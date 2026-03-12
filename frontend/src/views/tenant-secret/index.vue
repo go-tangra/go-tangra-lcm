@@ -301,8 +301,8 @@ async function handleDelete(row: TenantSecret) {
   <Page auto-content-height>
     <Grid :table-title="$t('lcm.menu.tenantSecret')">
       <template #toolbar-tools>
-        <a-button class="mr-2" type="primary" @click="handleCreate">
-          <template #icon><LucidePlus class="size-4" /></template>
+        <a-button class="mr-2" type="primary" :style="{ display: 'inline-flex', alignItems: 'center', gap: '6px' }" @click="handleCreate">
+          <LucidePlus :size="14" />
           {{ $t('ui.button.create', { moduleName: '' }) }}
         </a-button>
       </template>
