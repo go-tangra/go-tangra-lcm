@@ -2,9 +2,7 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
@@ -12,6 +10,7 @@ import (
 
 	entCrud "github.com/tx7do/go-crud/entgo"
 
+	"github.com/go-tangra/go-tangra-common/backup"
 	"github.com/go-tangra/go-tangra-common/grpcx"
 
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
@@ -27,9 +26,20 @@ import (
 )
 
 const (
-	backupModule  = "lcm"
-	backupVersion = "1.0"
+	backupModule        = "lcm"
+	backupSchemaVersion = 1
 )
+
+// Migrations registry — add entries here when schema changes.
+var migrations = backup.NewMigrationRegistry(backupModule)
+
+// Register migrations in init. Example for future use:
+//
+//	func init() {
+//	    migrations.Register(1, func(entities map[string]json.RawMessage) error {
+//	        return backup.MigrateAddField(entities, "issuers", "newField", "")
+//	    })
+//	}
 
 type BackupService struct {
 	lcmV1.UnimplementedBackupServiceServer
@@ -45,43 +55,7 @@ func NewBackupService(ctx *bootstrap.Context, entClient *entCrud.EntClient[*ent.
 	}
 }
 
-type backupData struct {
-	Module     string         `json:"module"`
-	Version    string         `json:"version"`
-	ExportedAt time.Time     `json:"exportedAt"`
-	TenantID   uint32        `json:"tenantId"`
-	FullBackup bool          `json:"fullBackup"`
-	Data       backupEntities `json:"data"`
-}
-
-type backupEntities struct {
-	LcmClients               []json.RawMessage `json:"lcmClients,omitempty"`
-	LcmCa                    []json.RawMessage `json:"lcmCa,omitempty"`
-	TenantSecrets            []json.RawMessage `json:"tenantSecrets,omitempty"`
-	Issuers                  []json.RawMessage `json:"issuers,omitempty"`
-	SelfSignedIssuers        []json.RawMessage `json:"selfSignedIssuers,omitempty"`
-	AcmeIssuers              []json.RawMessage `json:"acmeIssuers,omitempty"`
-	IssuedCertificates       []json.RawMessage `json:"issuedCertificates,omitempty"`
-	CertificateDetails       []json.RawMessage `json:"certificateDetails,omitempty"`
-	CertificateRequests      []json.RawMessage `json:"certificateRequests,omitempty"`
-	CertificatePermissions   []json.RawMessage `json:"certificatePermissions,omitempty"`
-	CertificateRenewals      []json.RawMessage `json:"certificateRenewals,omitempty"`
-	MtlsCertificates         []json.RawMessage `json:"mtlsCertificates,omitempty"`
-	MtlsCertificateRequests  []json.RawMessage `json:"mtlsCertificateRequests,omitempty"`
-}
-
-func marshalEntities[T any](entities []*T) ([]json.RawMessage, error) {
-	result := make([]json.RawMessage, 0, len(entities))
-	for _, e := range entities {
-		b, err := json.Marshal(e)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, b)
-	}
-	return result, nil
-}
-
+// ExportBackup exports all LCM entities as a gzipped archive.
 func (s *BackupService) ExportBackup(ctx context.Context, req *lcmV1.ExportBackupRequest) (*lcmV1.ExportBackupResponse, error) {
 	tenantID := grpcx.GetTenantIDFromContext(ctx)
 	full := false
@@ -89,380 +63,297 @@ func (s *BackupService) ExportBackup(ctx context.Context, req *lcmV1.ExportBacku
 	if grpcx.IsPlatformAdmin(ctx) && req.TenantId != nil && *req.TenantId == 0 {
 		full = true
 		tenantID = 0
-	} else if req.TenantId != nil && *req.TenantId != 0 {
-		if grpcx.IsPlatformAdmin(ctx) {
-			tenantID = *req.TenantId
-		}
+	} else if req.TenantId != nil && *req.TenantId != 0 && grpcx.IsPlatformAdmin(ctx) {
+		tenantID = *req.TenantId
 	}
 
 	client := s.entClient.Client()
-	now := time.Now()
+	a := backup.NewArchive(backupModule, backupSchemaVersion, tenantID, full)
 
-	lcmClients, err := s.exportLcmClients(ctx, client, tenantID, full)
-	if err != nil {
-		return nil, fmt.Errorf("export lcm clients: %w", err)
+	// Export lcmClients
+	lcmClientsQuery := client.LcmClient.Query()
+	if !full {
+		lcmClientsQuery = lcmClientsQuery.Where(lcmclient.TenantID(tenantID))
 	}
-	lcmCa, err := s.exportLcmCa(ctx, client, tenantID, full)
+	lcmClients, err := lcmClientsQuery.All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("export lcm ca: %w", err)
+		return nil, fmt.Errorf("export lcmClients: %w", err)
 	}
-	tenantSecrets, err := s.exportTenantSecrets(ctx, client, tenantID, full)
+	if err := backup.SetEntities(a, "lcmClients", lcmClients); err != nil {
+		return nil, fmt.Errorf("set lcmClients: %w", err)
+	}
+
+	// Export lcmCa
+	lcmCaQuery := client.LcmCa.Query()
+	if !full {
+		lcmCaQuery = lcmCaQuery.Where(lcmca.TenantID(tenantID))
+	}
+	lcmCas, err := lcmCaQuery.All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("export tenant secrets: %w", err)
+		return nil, fmt.Errorf("export lcmCa: %w", err)
 	}
-	issuers, err := s.exportIssuers(ctx, client, tenantID, full)
+	if err := backup.SetEntities(a, "lcmCa", lcmCas); err != nil {
+		return nil, fmt.Errorf("set lcmCa: %w", err)
+	}
+
+	// Export tenantSecrets
+	tenantSecretsQuery := client.TenantSecret.Query()
+	if !full {
+		tenantSecretsQuery = tenantSecretsQuery.Where(tenantsecret.TenantIDEQ(tenantID))
+	}
+	tenantSecrets, err := tenantSecretsQuery.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("export tenantSecrets: %w", err)
+	}
+	if err := backup.SetEntities(a, "tenantSecrets", tenantSecrets); err != nil {
+		return nil, fmt.Errorf("set tenantSecrets: %w", err)
+	}
+
+	// Export issuers
+	issuersQuery := client.Issuer.Query()
+	if !full {
+		issuersQuery = issuersQuery.Where(issuer.TenantID(tenantID))
+	}
+	issuers, err := issuersQuery.All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("export issuers: %w", err)
 	}
-	selfSignedIssuers, err := s.exportSelfSignedIssuers(ctx, client)
-	if err != nil {
-		return nil, fmt.Errorf("export self signed issuers: %w", err)
-	}
-	acmeIssuers, err := s.exportAcmeIssuers(ctx, client)
-	if err != nil {
-		return nil, fmt.Errorf("export acme issuers: %w", err)
-	}
-	issuedCertificates, err := s.exportIssuedCertificates(ctx, client, tenantID, full)
-	if err != nil {
-		return nil, fmt.Errorf("export issued certificates: %w", err)
-	}
-	certificateDetails, err := s.exportCertificateDetails(ctx, client)
-	if err != nil {
-		return nil, fmt.Errorf("export certificate details: %w", err)
-	}
-	certificateRequests, err := s.exportCertificateRequests(ctx, client)
-	if err != nil {
-		return nil, fmt.Errorf("export certificate requests: %w", err)
-	}
-	certificatePermissions, err := s.exportCertificatePermissions(ctx, client, tenantID, full)
-	if err != nil {
-		return nil, fmt.Errorf("export certificate permissions: %w", err)
-	}
-	certificateRenewals, err := s.exportCertificateRenewals(ctx, client)
-	if err != nil {
-		return nil, fmt.Errorf("export certificate renewals: %w", err)
-	}
-	mtlsCertificates, err := s.exportMtlsCertificates(ctx, client, tenantID, full)
-	if err != nil {
-		return nil, fmt.Errorf("export mtls certificates: %w", err)
-	}
-	mtlsCertificateRequests, err := s.exportMtlsCertificateRequests(ctx, client, tenantID, full)
-	if err != nil {
-		return nil, fmt.Errorf("export mtls certificate requests: %w", err)
+	if err := backup.SetEntities(a, "issuers", issuers); err != nil {
+		return nil, fmt.Errorf("set issuers: %w", err)
 	}
 
-	backup := backupData{
-		Module:     backupModule,
-		Version:    backupVersion,
-		ExportedAt: now,
-		TenantID:   tenantID,
-		FullBackup: full,
-		Data: backupEntities{
-			LcmClients:              lcmClients,
-			LcmCa:                   lcmCa,
-			TenantSecrets:           tenantSecrets,
-			Issuers:                 issuers,
-			SelfSignedIssuers:       selfSignedIssuers,
-			AcmeIssuers:             acmeIssuers,
-			IssuedCertificates:      issuedCertificates,
-			CertificateDetails:      certificateDetails,
-			CertificateRequests:     certificateRequests,
-			CertificatePermissions:  certificatePermissions,
-			CertificateRenewals:     certificateRenewals,
-			MtlsCertificates:        mtlsCertificates,
-			MtlsCertificateRequests: mtlsCertificateRequests,
-		},
-	}
-
-	data, err := json.Marshal(backup)
+	// Export selfSignedIssuers (no TenantID — always export all)
+	selfSignedIssuers, err := client.SelfSignedIssuer.Query().All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("marshal backup: %w", err)
+		return nil, fmt.Errorf("export selfSignedIssuers: %w", err)
+	}
+	if err := backup.SetEntities(a, "selfSignedIssuers", selfSignedIssuers); err != nil {
+		return nil, fmt.Errorf("set selfSignedIssuers: %w", err)
 	}
 
-	entityCounts := map[string]int64{
-		"lcmClients":              int64(len(lcmClients)),
-		"lcmCa":                   int64(len(lcmCa)),
-		"tenantSecrets":           int64(len(tenantSecrets)),
-		"issuers":                 int64(len(issuers)),
-		"selfSignedIssuers":       int64(len(selfSignedIssuers)),
-		"acmeIssuers":             int64(len(acmeIssuers)),
-		"issuedCertificates":      int64(len(issuedCertificates)),
-		"certificateDetails":      int64(len(certificateDetails)),
-		"certificateRequests":     int64(len(certificateRequests)),
-		"certificatePermissions":  int64(len(certificatePermissions)),
-		"certificateRenewals":     int64(len(certificateRenewals)),
-		"mtlsCertificates":        int64(len(mtlsCertificates)),
-		"mtlsCertificateRequests": int64(len(mtlsCertificateRequests)),
+	// Export acmeIssuers (no TenantID — always export all)
+	acmeIssuers, err := client.AcmeIssuer.Query().All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("export acmeIssuers: %w", err)
+	}
+	if err := backup.SetEntities(a, "acmeIssuers", acmeIssuers); err != nil {
+		return nil, fmt.Errorf("set acmeIssuers: %w", err)
 	}
 
-	s.log.Infof("exported backup: module=%s tenant=%d full=%v entities=%v", backupModule, tenantID, full, entityCounts)
+	// Export issuedCertificates
+	issuedCertsQuery := client.IssuedCertificate.Query()
+	if !full {
+		issuedCertsQuery = issuedCertsQuery.Where(issuedcertificate.TenantIDEQ(tenantID))
+	}
+	issuedCertificates, err := issuedCertsQuery.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("export issuedCertificates: %w", err)
+	}
+	if err := backup.SetEntities(a, "issuedCertificates", issuedCertificates); err != nil {
+		return nil, fmt.Errorf("set issuedCertificates: %w", err)
+	}
+
+	// Export certificateDetails (no TenantID — always export all)
+	certificateDetails, err := client.CertificateDetails.Query().All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("export certificateDetails: %w", err)
+	}
+	if err := backup.SetEntities(a, "certificateDetails", certificateDetails); err != nil {
+		return nil, fmt.Errorf("set certificateDetails: %w", err)
+	}
+
+	// Export certificateRequests (no TenantID — always export all)
+	certificateRequests, err := client.CertificateRequest.Query().All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("export certificateRequests: %w", err)
+	}
+	if err := backup.SetEntities(a, "certificateRequests", certificateRequests); err != nil {
+		return nil, fmt.Errorf("set certificateRequests: %w", err)
+	}
+
+	// Export certificatePermissions
+	certPermsQuery := client.CertificatePermission.Query()
+	if !full {
+		certPermsQuery = certPermsQuery.Where(certificatepermission.TenantID(tenantID))
+	}
+	certificatePermissions, err := certPermsQuery.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("export certificatePermissions: %w", err)
+	}
+	if err := backup.SetEntities(a, "certificatePermissions", certificatePermissions); err != nil {
+		return nil, fmt.Errorf("set certificatePermissions: %w", err)
+	}
+
+	// Export certificateRenewals (no TenantID — always export all)
+	certificateRenewals, err := client.CertificateRenewal.Query().All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("export certificateRenewals: %w", err)
+	}
+	if err := backup.SetEntities(a, "certificateRenewals", certificateRenewals); err != nil {
+		return nil, fmt.Errorf("set certificateRenewals: %w", err)
+	}
+
+	// Export mtlsCertificates
+	mtlsCertsQuery := client.MtlsCertificate.Query()
+	if !full {
+		mtlsCertsQuery = mtlsCertsQuery.Where(mtlscertificate.TenantID(tenantID))
+	}
+	mtlsCertificates, err := mtlsCertsQuery.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("export mtlsCertificates: %w", err)
+	}
+	if err := backup.SetEntities(a, "mtlsCertificates", mtlsCertificates); err != nil {
+		return nil, fmt.Errorf("set mtlsCertificates: %w", err)
+	}
+
+	// Export mtlsCertificateRequests
+	mtlsReqsQuery := client.MtlsCertificateRequest.Query()
+	if !full {
+		mtlsReqsQuery = mtlsReqsQuery.Where(mtlscertificaterequest.TenantID(tenantID))
+	}
+	mtlsCertificateRequests, err := mtlsReqsQuery.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("export mtlsCertificateRequests: %w", err)
+	}
+	if err := backup.SetEntities(a, "mtlsCertificateRequests", mtlsCertificateRequests); err != nil {
+		return nil, fmt.Errorf("set mtlsCertificateRequests: %w", err)
+	}
+
+	// Pack (JSON + gzip)
+	data, err := backup.Pack(a)
+	if err != nil {
+		return nil, fmt.Errorf("pack backup: %w", err)
+	}
+
+	s.log.Infof("exported backup: module=%s tenant=%d full=%v entities=%v", backupModule, tenantID, full, a.Manifest.EntityCounts)
 
 	return &lcmV1.ExportBackupResponse{
-		Data:         data,
-		Module:       backupModule,
-		Version:      backupVersion,
-		ExportedAt:   timestamppb.New(now),
-		TenantId:     tenantID,
-		EntityCounts: entityCounts,
+		Data:          data,
+		Module:        backupModule,
+		Version:       fmt.Sprintf("%d", backupSchemaVersion),
+		ExportedAt:    timestamppb.New(a.Manifest.ExportedAt),
+		TenantId:      tenantID,
+		EntityCounts:  a.Manifest.EntityCounts,
+		SchemaVersion: int32(backupSchemaVersion),
 	}, nil
 }
 
+// ImportBackup restores LCM entities from a gzipped archive.
 func (s *BackupService) ImportBackup(ctx context.Context, req *lcmV1.ImportBackupRequest) (*lcmV1.ImportBackupResponse, error) {
 	tenantID := grpcx.GetTenantIDFromContext(ctx)
 	isPlatformAdmin := grpcx.IsPlatformAdmin(ctx)
-	mode := req.GetMode()
+	mode := mapLcmRestoreMode(req.GetMode())
 
-	var backup backupData
-	if err := json.Unmarshal(req.GetData(), &backup); err != nil {
-		return nil, fmt.Errorf("invalid backup data: %w", err)
+	// Unpack
+	a, err := backup.Unpack(req.GetData())
+	if err != nil {
+		return nil, fmt.Errorf("unpack backup: %w", err)
 	}
 
-	if backup.Module != backupModule {
-		return nil, fmt.Errorf("backup module mismatch: expected %s, got %s", backupModule, backup.Module)
-	}
-	if backup.Version != backupVersion {
-		return nil, fmt.Errorf("backup version mismatch: expected %s, got %s", backupVersion, backup.Version)
+	// Validate
+	if err := backup.Validate(a, backupModule, backupSchemaVersion); err != nil {
+		return nil, err
 	}
 
-	// For full backups, only platform admins can restore
-	if backup.FullBackup && !isPlatformAdmin {
+	// Full backups require platform admin
+	if a.Manifest.FullBackup && !isPlatformAdmin {
 		return nil, fmt.Errorf("only platform admins can restore full backups")
 	}
 
-	// Non-platform admins always restore to their own tenant
-	if !isPlatformAdmin || !backup.FullBackup {
+	// Run migrations if needed
+	sourceVersion := a.Manifest.SchemaVersion
+	applied, err := migrations.RunMigrations(a, backupSchemaVersion)
+	if err != nil {
+		return nil, fmt.Errorf("migration failed: %w", err)
+	}
+
+	// Determine restore tenant
+	if !isPlatformAdmin || !a.Manifest.FullBackup {
 		tenantID = grpcx.GetTenantIDFromContext(ctx)
 	} else {
-		tenantID = 0 // Signal for full backup restore — each entity carries its own tenant_id
+		tenantID = 0
 	}
 
 	client := s.entClient.Client()
-	var results []*lcmV1.EntityImportResult
-	var warnings []string
+	result := backup.NewRestoreResult(sourceVersion, backupSchemaVersion, applied)
 
 	// Import in FK dependency order
-	importFuncs := []struct {
-		name string
-		fn   func(ctx context.Context, client *ent.Client, items []json.RawMessage, tenantID uint32, full bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string)
-	}{
-		{"lcmClients", s.importLcmClients},
-		{"lcmCa", s.importLcmCa},
-		{"tenantSecrets", s.importTenantSecrets},
-		{"issuers", s.importIssuers},
-		{"selfSignedIssuers", s.importSelfSignedIssuers},
-		{"acmeIssuers", s.importAcmeIssuers},
-		{"issuedCertificates", s.importIssuedCertificates},
-		{"certificateDetails", s.importCertificateDetails},
-		{"certificateRequests", s.importCertificateRequests},
-		{"certificatePermissions", s.importCertificatePermissions},
-		{"certificateRenewals", s.importCertificateRenewals},
-		{"mtlsCertificates", s.importMtlsCertificates},
-		{"mtlsCertificateRequests", s.importMtlsCertificateRequests},
-	}
+	s.importLcmClients(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
+	s.importLcmCa(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
+	s.importTenantSecrets(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
+	s.importIssuers(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
+	s.importSelfSignedIssuers(ctx, client, a, mode, result)
+	s.importAcmeIssuers(ctx, client, a, mode, result)
+	s.importIssuedCertificates(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
+	s.importCertificateDetails(ctx, client, a, mode, result)
+	s.importCertificateRequests(ctx, client, a, mode, result)
+	s.importCertificatePermissions(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
+	s.importCertificateRenewals(ctx, client, a, mode, result)
+	s.importMtlsCertificates(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
+	s.importMtlsCertificateRequests(ctx, client, a, tenantID, a.Manifest.FullBackup, mode, result)
 
-	dataMap := map[string][]json.RawMessage{
-		"lcmClients":              backup.Data.LcmClients,
-		"lcmCa":                   backup.Data.LcmCa,
-		"tenantSecrets":           backup.Data.TenantSecrets,
-		"issuers":                 backup.Data.Issuers,
-		"selfSignedIssuers":       backup.Data.SelfSignedIssuers,
-		"acmeIssuers":             backup.Data.AcmeIssuers,
-		"issuedCertificates":      backup.Data.IssuedCertificates,
-		"certificateDetails":      backup.Data.CertificateDetails,
-		"certificateRequests":     backup.Data.CertificateRequests,
-		"certificatePermissions":  backup.Data.CertificatePermissions,
-		"certificateRenewals":     backup.Data.CertificateRenewals,
-		"mtlsCertificates":        backup.Data.MtlsCertificates,
-		"mtlsCertificateRequests": backup.Data.MtlsCertificateRequests,
-	}
+	s.log.Infof("imported backup: module=%s tenant=%d mode=%v migrations=%d results=%d",
+		backupModule, tenantID, mode, applied, len(result.Results))
 
-	for _, imp := range importFuncs {
-		items := dataMap[imp.name]
-		if len(items) == 0 {
-			continue
+	// Convert to proto response
+	protoResults := make([]*lcmV1.EntityImportResult, len(result.Results))
+	for i, r := range result.Results {
+		protoResults[i] = &lcmV1.EntityImportResult{
+			EntityType: r.EntityType,
+			Total:      r.Total,
+			Created:    r.Created,
+			Updated:    r.Updated,
+			Skipped:    r.Skipped,
+			Failed:     r.Failed,
 		}
-		result, w := imp.fn(ctx, client, items, tenantID, backup.FullBackup, mode)
-		if result != nil {
-			results = append(results, result)
-		}
-		warnings = append(warnings, w...)
 	}
-
-	s.log.Infof("imported backup: module=%s tenant=%d mode=%v results=%d warnings=%d", backupModule, tenantID, mode, len(results), len(warnings))
 
 	return &lcmV1.ImportBackupResponse{
-		Success:  true,
-		Results:  results,
-		Warnings: warnings,
+		Success:           result.Success,
+		Results:           protoResults,
+		Warnings:          result.Warnings,
+		SourceVersion:     int32(result.SourceVersion),
+		TargetVersion:     int32(result.TargetVersion),
+		MigrationsApplied: int32(result.MigrationsApplied),
 	}, nil
 }
 
-// --- Export helpers ---
-
-func (s *BackupService) exportLcmClients(ctx context.Context, client *ent.Client, tenantID uint32, full bool) ([]json.RawMessage, error) {
-	query := client.LcmClient.Query()
-	if !full {
-		query = query.Where(lcmclient.TenantID(tenantID))
+func mapLcmRestoreMode(m lcmV1.RestoreMode) backup.RestoreMode {
+	if m == lcmV1.RestoreMode_RESTORE_MODE_OVERWRITE {
+		return backup.RestoreModeOverwrite
 	}
-	entities, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-func (s *BackupService) exportLcmCa(ctx context.Context, client *ent.Client, tenantID uint32, full bool) ([]json.RawMessage, error) {
-	query := client.LcmCa.Query()
-	if !full {
-		query = query.Where(lcmca.TenantID(tenantID))
-	}
-	entities, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-func (s *BackupService) exportTenantSecrets(ctx context.Context, client *ent.Client, tenantID uint32, full bool) ([]json.RawMessage, error) {
-	query := client.TenantSecret.Query()
-	if !full {
-		query = query.Where(tenantsecret.TenantIDEQ(tenantID))
-	}
-	entities, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-func (s *BackupService) exportIssuers(ctx context.Context, client *ent.Client, tenantID uint32, full bool) ([]json.RawMessage, error) {
-	query := client.Issuer.Query()
-	if !full {
-		query = query.Where(issuer.TenantID(tenantID))
-	}
-	entities, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-// SelfSignedIssuer has no TenantID — always export all
-func (s *BackupService) exportSelfSignedIssuers(ctx context.Context, client *ent.Client) ([]json.RawMessage, error) {
-	entities, err := client.SelfSignedIssuer.Query().All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-// AcmeIssuer has no TenantID — always export all
-func (s *BackupService) exportAcmeIssuers(ctx context.Context, client *ent.Client) ([]json.RawMessage, error) {
-	entities, err := client.AcmeIssuer.Query().All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-func (s *BackupService) exportIssuedCertificates(ctx context.Context, client *ent.Client, tenantID uint32, full bool) ([]json.RawMessage, error) {
-	query := client.IssuedCertificate.Query()
-	if !full {
-		query = query.Where(issuedcertificate.TenantIDEQ(tenantID))
-	}
-	entities, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-// CertificateDetails has no TenantID — always export all
-func (s *BackupService) exportCertificateDetails(ctx context.Context, client *ent.Client) ([]json.RawMessage, error) {
-	entities, err := client.CertificateDetails.Query().All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-// CertificateRequest has no TenantID — always export all
-func (s *BackupService) exportCertificateRequests(ctx context.Context, client *ent.Client) ([]json.RawMessage, error) {
-	entities, err := client.CertificateRequest.Query().All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-func (s *BackupService) exportCertificatePermissions(ctx context.Context, client *ent.Client, tenantID uint32, full bool) ([]json.RawMessage, error) {
-	query := client.CertificatePermission.Query()
-	if !full {
-		query = query.Where(certificatepermission.TenantID(tenantID))
-	}
-	entities, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-// CertificateRenewal has no TenantID — always export all
-func (s *BackupService) exportCertificateRenewals(ctx context.Context, client *ent.Client) ([]json.RawMessage, error) {
-	entities, err := client.CertificateRenewal.Query().All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-func (s *BackupService) exportMtlsCertificates(ctx context.Context, client *ent.Client, tenantID uint32, full bool) ([]json.RawMessage, error) {
-	query := client.MtlsCertificate.Query()
-	if !full {
-		query = query.Where(mtlscertificate.TenantID(tenantID))
-	}
-	entities, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
-}
-
-func (s *BackupService) exportMtlsCertificateRequests(ctx context.Context, client *ent.Client, tenantID uint32, full bool) ([]json.RawMessage, error) {
-	query := client.MtlsCertificateRequest.Query()
-	if !full {
-		query = query.Where(mtlscertificaterequest.TenantID(tenantID))
-	}
-	entities, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return marshalEntities(entities)
+	return backup.RestoreModeSkip
 }
 
 // --- Import helpers ---
 
-func (s *BackupService) importLcmClients(ctx context.Context, client *ent.Client, items []json.RawMessage, tenantID uint32, full bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "lcmClients", Total: int64(len(items))}
-	var warnings []string
+func (s *BackupService) importLcmClients(ctx context.Context, client *ent.Client, a *backup.Archive, tenantID uint32, full bool, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.LcmClient](a, "lcmClients")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("lcmClients: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.LcmClient
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("lcmClients: unmarshal error: %v", err))
-			result.Failed++
-			continue
-		}
+	er := backup.EntityResult{EntityType: "lcmClients", Total: int64(len(entities))}
 
+	for _, e := range entities {
 		tid := tenantID
 		if full && e.TenantID != nil {
 			tid = *e.TenantID
 		}
 
-		existing, _ := client.LcmClient.Get(ctx, e.ID)
+		existing, getErr := client.LcmClient.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("lcmClients: lookup %d: %v", e.ID, getErr))
+			er.Failed++
+			continue
+		}
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.LcmClient.UpdateOneID(e.ID).
@@ -476,11 +367,11 @@ func (s *BackupService) importLcmClients(ctx context.Context, client *ent.Client
 				SetNillableUpdateBy(e.UpdateBy).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("lcmClients: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("lcmClients: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.LcmClient.Create().
 				SetID(e.ID).
@@ -496,38 +387,44 @@ func (s *BackupService) importLcmClients(ctx context.Context, client *ent.Client
 				SetNillableCreateTime(e.CreateTime).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("lcmClients: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("lcmClients: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
-func (s *BackupService) importLcmCa(ctx context.Context, client *ent.Client, items []json.RawMessage, tenantID uint32, full bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "lcmCa", Total: int64(len(items))}
-	var warnings []string
+func (s *BackupService) importLcmCa(ctx context.Context, client *ent.Client, a *backup.Archive, tenantID uint32, full bool, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.LcmCa](a, "lcmCa")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("lcmCa: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.LcmCa
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("lcmCa: unmarshal error: %v", err))
-			result.Failed++
-			continue
-		}
+	er := backup.EntityResult{EntityType: "lcmCa", Total: int64(len(entities))}
 
+	for _, e := range entities {
 		tid := tenantID
 		if full && e.TenantID != nil {
 			tid = *e.TenantID
 		}
 
-		existing, _ := client.LcmCa.Get(ctx, e.ID)
+		existing, getErr := client.LcmCa.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("lcmCa: lookup %d: %v", e.ID, getErr))
+			er.Failed++
+			continue
+		}
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.LcmCa.UpdateOneID(e.ID).
@@ -542,11 +439,11 @@ func (s *BackupService) importLcmCa(ctx context.Context, client *ent.Client, ite
 				SetNillableUpdateBy(e.UpdateBy).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("lcmCa: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("lcmCa: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.LcmCa.Create().
 				SetID(e.ID).
@@ -563,38 +460,44 @@ func (s *BackupService) importLcmCa(ctx context.Context, client *ent.Client, ite
 				SetNillableCreateTime(e.CreateTime).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("lcmCa: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("lcmCa: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
-func (s *BackupService) importTenantSecrets(ctx context.Context, client *ent.Client, items []json.RawMessage, tenantID uint32, full bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "tenantSecrets", Total: int64(len(items))}
-	var warnings []string
+func (s *BackupService) importTenantSecrets(ctx context.Context, client *ent.Client, a *backup.Archive, tenantID uint32, full bool, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.TenantSecret](a, "tenantSecrets")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("tenantSecrets: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.TenantSecret
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("tenantSecrets: unmarshal error: %v", err))
-			result.Failed++
-			continue
-		}
+	er := backup.EntityResult{EntityType: "tenantSecrets", Total: int64(len(entities))}
 
+	for _, e := range entities {
 		tid := tenantID
 		if full {
 			tid = e.TenantID
 		}
 
-		existing, _ := client.TenantSecret.Get(ctx, e.ID)
+		existing, getErr := client.TenantSecret.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("tenantSecrets: lookup %d: %v", e.ID, getErr))
+			er.Failed++
+			continue
+		}
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.TenantSecret.UpdateOneID(e.ID).
@@ -606,11 +509,11 @@ func (s *BackupService) importTenantSecrets(ctx context.Context, client *ent.Cli
 				SetNillableUpdateBy(e.UpdateBy).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("tenantSecrets: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("tenantSecrets: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.TenantSecret.Create().
 				SetID(e.ID).
@@ -624,38 +527,44 @@ func (s *BackupService) importTenantSecrets(ctx context.Context, client *ent.Cli
 				SetNillableCreateTime(e.CreateTime).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("tenantSecrets: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("tenantSecrets: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
-func (s *BackupService) importIssuers(ctx context.Context, client *ent.Client, items []json.RawMessage, tenantID uint32, full bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "issuers", Total: int64(len(items))}
-	var warnings []string
+func (s *BackupService) importIssuers(ctx context.Context, client *ent.Client, a *backup.Archive, tenantID uint32, full bool, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.Issuer](a, "issuers")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("issuers: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.Issuer
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("issuers: unmarshal error: %v", err))
-			result.Failed++
-			continue
-		}
+	er := backup.EntityResult{EntityType: "issuers", Total: int64(len(entities))}
 
+	for _, e := range entities {
 		tid := tenantID
 		if full && e.TenantID != nil {
 			tid = *e.TenantID
 		}
 
-		existing, _ := client.Issuer.Get(ctx, e.ID)
+		existing, getErr := client.Issuer.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("issuers: lookup %d: %v", e.ID, getErr))
+			er.Failed++
+			continue
+		}
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.Issuer.UpdateOneID(e.ID).
@@ -669,11 +578,11 @@ func (s *BackupService) importIssuers(ctx context.Context, client *ent.Client, i
 				SetNillableUpdateBy(e.UpdateBy).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("issuers: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("issuers: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.Issuer.Create().
 				SetID(e.ID).
@@ -689,34 +598,40 @@ func (s *BackupService) importIssuers(ctx context.Context, client *ent.Client, i
 				SetNillableCreateTime(e.CreateTime).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("issuers: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("issuers: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
-// SelfSignedIssuer has no TenantID and no standard mixin fields
-func (s *BackupService) importSelfSignedIssuers(ctx context.Context, client *ent.Client, items []json.RawMessage, _ uint32, _ bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "selfSignedIssuers", Total: int64(len(items))}
-	var warnings []string
+// SelfSignedIssuer has no TenantID
+func (s *BackupService) importSelfSignedIssuers(ctx context.Context, client *ent.Client, a *backup.Archive, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.SelfSignedIssuer](a, "selfSignedIssuers")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("selfSignedIssuers: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.SelfSignedIssuer
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("selfSignedIssuers: unmarshal error: %v", err))
-			result.Failed++
+	er := backup.EntityResult{EntityType: "selfSignedIssuers", Total: int64(len(entities))}
+
+	for _, e := range entities {
+		existing, getErr := client.SelfSignedIssuer.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("selfSignedIssuers: lookup %d: %v", e.ID, getErr))
+			er.Failed++
 			continue
 		}
-
-		existing, _ := client.SelfSignedIssuer.Get(ctx, e.ID)
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.SelfSignedIssuer.UpdateOneID(e.ID).
@@ -736,11 +651,11 @@ func (s *BackupService) importSelfSignedIssuers(ctx context.Context, client *ent
 				SetCaExpiresAt(e.CaExpiresAt).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("selfSignedIssuers: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("selfSignedIssuers: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.SelfSignedIssuer.Create().
 				SetCommonName(e.CommonName).
@@ -760,34 +675,40 @@ func (s *BackupService) importSelfSignedIssuers(ctx context.Context, client *ent
 				SetCreatedAt(e.CreatedAt).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("selfSignedIssuers: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("selfSignedIssuers: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
-// AcmeIssuer has no TenantID and no standard mixin fields
-func (s *BackupService) importAcmeIssuers(ctx context.Context, client *ent.Client, items []json.RawMessage, _ uint32, _ bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "acmeIssuers", Total: int64(len(items))}
-	var warnings []string
+// AcmeIssuer has no TenantID
+func (s *BackupService) importAcmeIssuers(ctx context.Context, client *ent.Client, a *backup.Archive, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.AcmeIssuer](a, "acmeIssuers")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("acmeIssuers: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.AcmeIssuer
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("acmeIssuers: unmarshal error: %v", err))
-			result.Failed++
+	er := backup.EntityResult{EntityType: "acmeIssuers", Total: int64(len(entities))}
+
+	for _, e := range entities {
+		existing, getErr := client.AcmeIssuer.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("acmeIssuers: lookup %d: %v", e.ID, getErr))
+			er.Failed++
 			continue
 		}
-
-		existing, _ := client.AcmeIssuer.Get(ctx, e.ID)
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.AcmeIssuer.UpdateOneID(e.ID).
@@ -805,11 +726,11 @@ func (s *BackupService) importAcmeIssuers(ctx context.Context, client *ent.Clien
 				SetEabHmacKey(e.EabHmacKey).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("acmeIssuers: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("acmeIssuers: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.AcmeIssuer.Create().
 				SetEmail(e.Email).
@@ -827,39 +748,45 @@ func (s *BackupService) importAcmeIssuers(ctx context.Context, client *ent.Clien
 				SetCreatedAt(e.CreatedAt).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("acmeIssuers: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("acmeIssuers: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
 // IssuedCertificate has string ID and non-pointer TenantID
-func (s *BackupService) importIssuedCertificates(ctx context.Context, client *ent.Client, items []json.RawMessage, tenantID uint32, full bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "issuedCertificates", Total: int64(len(items))}
-	var warnings []string
+func (s *BackupService) importIssuedCertificates(ctx context.Context, client *ent.Client, a *backup.Archive, tenantID uint32, full bool, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.IssuedCertificate](a, "issuedCertificates")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("issuedCertificates: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.IssuedCertificate
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("issuedCertificates: unmarshal error: %v", err))
-			result.Failed++
-			continue
-		}
+	er := backup.EntityResult{EntityType: "issuedCertificates", Total: int64(len(entities))}
 
+	for _, e := range entities {
 		tid := tenantID
 		if full {
 			tid = e.TenantID
 		}
 
-		existing, _ := client.IssuedCertificate.Get(ctx, e.ID)
+		existing, getErr := client.IssuedCertificate.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("issuedCertificates: lookup %s: %v", e.ID, getErr))
+			er.Failed++
+			continue
+		}
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.IssuedCertificate.UpdateOneID(e.ID).
@@ -890,11 +817,11 @@ func (s *BackupService) importIssuedCertificates(ctx context.Context, client *en
 				SetRevokedReason(e.RevokedReason).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("issuedCertificates: update %s: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("issuedCertificates: update %s: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.IssuedCertificate.Create().
 				SetID(e.ID).
@@ -927,34 +854,40 @@ func (s *BackupService) importIssuedCertificates(ctx context.Context, client *en
 				SetCreatedAt(e.CreatedAt).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("issuedCertificates: create %s: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("issuedCertificates: create %s: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
 // CertificateDetails has no TenantID
-func (s *BackupService) importCertificateDetails(ctx context.Context, client *ent.Client, items []json.RawMessage, _ uint32, _ bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "certificateDetails", Total: int64(len(items))}
-	var warnings []string
+func (s *BackupService) importCertificateDetails(ctx context.Context, client *ent.Client, a *backup.Archive, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.CertificateDetails](a, "certificateDetails")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("certificateDetails: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.CertificateDetails
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("certificateDetails: unmarshal error: %v", err))
-			result.Failed++
+	er := backup.EntityResult{EntityType: "certificateDetails", Total: int64(len(entities))}
+
+	for _, e := range entities {
+		existing, getErr := client.CertificateDetails.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("certificateDetails: lookup %d: %v", e.ID, getErr))
+			er.Failed++
 			continue
 		}
-
-		existing, _ := client.CertificateDetails.Get(ctx, e.ID)
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.CertificateDetails.UpdateOneID(e.ID).
@@ -985,11 +918,11 @@ func (s *BackupService) importCertificateDetails(ctx context.Context, client *en
 				SetNillableUpdateBy(e.UpdateBy).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("certificateDetails: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("certificateDetails: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.CertificateDetails.Create().
 				SetID(e.ID).
@@ -1021,34 +954,40 @@ func (s *BackupService) importCertificateDetails(ctx context.Context, client *en
 				SetNillableCreateTime(e.CreateTime).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("certificateDetails: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("certificateDetails: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
-// CertificateRequest has no TenantID and no standard mixin fields
-func (s *BackupService) importCertificateRequests(ctx context.Context, client *ent.Client, items []json.RawMessage, _ uint32, _ bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "certificateRequests", Total: int64(len(items))}
-	var warnings []string
+// CertificateRequest has no TenantID
+func (s *BackupService) importCertificateRequests(ctx context.Context, client *ent.Client, a *backup.Archive, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.CertificateRequest](a, "certificateRequests")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("certificateRequests: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.CertificateRequest
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("certificateRequests: unmarshal error: %v", err))
-			result.Failed++
+	er := backup.EntityResult{EntityType: "certificateRequests", Total: int64(len(entities))}
+
+	for _, e := range entities {
+		existing, getErr := client.CertificateRequest.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("certificateRequests: lookup %d: %v", e.ID, getErr))
+			er.Failed++
 			continue
 		}
-
-		existing, _ := client.CertificateRequest.Get(ctx, e.ID)
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.CertificateRequest.UpdateOneID(e.ID).
@@ -1070,11 +1009,11 @@ func (s *BackupService) importCertificateRequests(ctx context.Context, client *e
 				SetApprovedAt(e.ApprovedAt).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("certificateRequests: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("certificateRequests: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.CertificateRequest.Create().
 				SetRequestID(e.RequestID).
@@ -1096,39 +1035,44 @@ func (s *BackupService) importCertificateRequests(ctx context.Context, client *e
 				SetCreatedAt(e.CreatedAt).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("certificateRequests: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("certificateRequests: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
-// CertificatePermission has TenantID *uint32 but no standard mixin (uses CreatedAt/UpdatedAt)
-func (s *BackupService) importCertificatePermissions(ctx context.Context, client *ent.Client, items []json.RawMessage, tenantID uint32, full bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "certificatePermissions", Total: int64(len(items))}
-	var warnings []string
+func (s *BackupService) importCertificatePermissions(ctx context.Context, client *ent.Client, a *backup.Archive, tenantID uint32, full bool, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.CertificatePermission](a, "certificatePermissions")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("certificatePermissions: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.CertificatePermission
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("certificatePermissions: unmarshal error: %v", err))
-			result.Failed++
-			continue
-		}
+	er := backup.EntityResult{EntityType: "certificatePermissions", Total: int64(len(entities))}
 
+	for _, e := range entities {
 		tid := tenantID
 		if full && e.TenantID != nil {
 			tid = *e.TenantID
 		}
 
-		existing, _ := client.CertificatePermission.Get(ctx, e.ID)
+		existing, getErr := client.CertificatePermission.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("certificatePermissions: lookup %d: %v", e.ID, getErr))
+			er.Failed++
+			continue
+		}
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.CertificatePermission.UpdateOneID(e.ID).
@@ -1139,11 +1083,11 @@ func (s *BackupService) importCertificatePermissions(ctx context.Context, client
 				SetNillableExpiresAt(e.ExpiresAt).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("certificatePermissions: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("certificatePermissions: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.CertificatePermission.Create().
 				SetID(e.ID).
@@ -1156,34 +1100,40 @@ func (s *BackupService) importCertificatePermissions(ctx context.Context, client
 				SetCreatedAt(e.CreatedAt).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("certificatePermissions: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("certificatePermissions: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
-// CertificateRenewal has no TenantID and no standard mixin fields
-func (s *BackupService) importCertificateRenewals(ctx context.Context, client *ent.Client, items []json.RawMessage, _ uint32, _ bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "certificateRenewals", Total: int64(len(items))}
-	var warnings []string
+// CertificateRenewal has no TenantID
+func (s *BackupService) importCertificateRenewals(ctx context.Context, client *ent.Client, a *backup.Archive, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.CertificateRenewal](a, "certificateRenewals")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("certificateRenewals: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.CertificateRenewal
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("certificateRenewals: unmarshal error: %v", err))
-			result.Failed++
+	er := backup.EntityResult{EntityType: "certificateRenewals", Total: int64(len(entities))}
+
+	for _, e := range entities {
+		existing, getErr := client.CertificateRenewal.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("certificateRenewals: lookup %d: %v", e.ID, getErr))
+			er.Failed++
 			continue
 		}
-
-		existing, _ := client.CertificateRenewal.Get(ctx, e.ID)
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.CertificateRenewal.UpdateOneID(e.ID).
@@ -1205,11 +1155,11 @@ func (s *BackupService) importCertificateRenewals(ctx context.Context, client *e
 				SetOriginalExpiresAt(e.OriginalExpiresAt).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("certificateRenewals: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("certificateRenewals: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.CertificateRenewal.Create().
 				SetCertificateID(e.CertificateID).
@@ -1231,38 +1181,44 @@ func (s *BackupService) importCertificateRenewals(ctx context.Context, client *e
 				SetCreatedAt(e.CreatedAt).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("certificateRenewals: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("certificateRenewals: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
-func (s *BackupService) importMtlsCertificates(ctx context.Context, client *ent.Client, items []json.RawMessage, tenantID uint32, full bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "mtlsCertificates", Total: int64(len(items))}
-	var warnings []string
+func (s *BackupService) importMtlsCertificates(ctx context.Context, client *ent.Client, a *backup.Archive, tenantID uint32, full bool, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.MtlsCertificate](a, "mtlsCertificates")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("mtlsCertificates: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.MtlsCertificate
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("mtlsCertificates: unmarshal error: %v", err))
-			result.Failed++
-			continue
-		}
+	er := backup.EntityResult{EntityType: "mtlsCertificates", Total: int64(len(entities))}
 
+	for _, e := range entities {
 		tid := tenantID
 		if full && e.TenantID != nil {
 			tid = *e.TenantID
 		}
 
-		existing, _ := client.MtlsCertificate.Get(ctx, e.ID)
+		existing, getErr := client.MtlsCertificate.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("mtlsCertificates: lookup %d: %v", e.ID, getErr))
+			er.Failed++
+			continue
+		}
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.MtlsCertificate.UpdateOneID(e.ID).
@@ -1283,11 +1239,11 @@ func (s *BackupService) importMtlsCertificates(ctx context.Context, client *ent.
 				SetNillableUpdateBy(e.UpdateBy).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("mtlsCertificates: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("mtlsCertificates: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.MtlsCertificate.Create().
 				SetID(e.ID).
@@ -1310,38 +1266,44 @@ func (s *BackupService) importMtlsCertificates(ctx context.Context, client *ent.
 				SetNillableCreateTime(e.CreateTime).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("mtlsCertificates: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("mtlsCertificates: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
 
-func (s *BackupService) importMtlsCertificateRequests(ctx context.Context, client *ent.Client, items []json.RawMessage, tenantID uint32, full bool, mode lcmV1.RestoreMode) (*lcmV1.EntityImportResult, []string) {
-	result := &lcmV1.EntityImportResult{EntityType: "mtlsCertificateRequests", Total: int64(len(items))}
-	var warnings []string
+func (s *BackupService) importMtlsCertificateRequests(ctx context.Context, client *ent.Client, a *backup.Archive, tenantID uint32, full bool, mode backup.RestoreMode, result *backup.RestoreResult) {
+	entities, err := backup.GetEntities[ent.MtlsCertificateRequest](a, "mtlsCertificateRequests")
+	if err != nil {
+		result.AddWarning(fmt.Sprintf("mtlsCertificateRequests: unmarshal error: %v", err))
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
 
-	for _, raw := range items {
-		var e ent.MtlsCertificateRequest
-		if err := json.Unmarshal(raw, &e); err != nil {
-			warnings = append(warnings, fmt.Sprintf("mtlsCertificateRequests: unmarshal error: %v", err))
-			result.Failed++
-			continue
-		}
+	er := backup.EntityResult{EntityType: "mtlsCertificateRequests", Total: int64(len(entities))}
 
+	for _, e := range entities {
 		tid := tenantID
 		if full && e.TenantID != nil {
 			tid = *e.TenantID
 		}
 
-		existing, _ := client.MtlsCertificateRequest.Get(ctx, e.ID)
+		existing, getErr := client.MtlsCertificateRequest.Get(ctx, e.ID)
+		if getErr != nil && !ent.IsNotFound(getErr) {
+			result.AddWarning(fmt.Sprintf("mtlsCertificateRequests: lookup %d: %v", e.ID, getErr))
+			er.Failed++
+			continue
+		}
 		if existing != nil {
-			if mode == lcmV1.RestoreMode_RESTORE_MODE_SKIP {
-				result.Skipped++
+			if mode == backup.RestoreModeSkip {
+				er.Skipped++
 				continue
 			}
 			_, err := client.MtlsCertificateRequest.UpdateOneID(e.ID).
@@ -1362,11 +1324,11 @@ func (s *BackupService) importMtlsCertificateRequests(ctx context.Context, clien
 				SetNillableUpdateBy(e.UpdateBy).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("mtlsCertificateRequests: update %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("mtlsCertificateRequests: update %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Updated++
+			er.Updated++
 		} else {
 			_, err := client.MtlsCertificateRequest.Create().
 				SetID(e.ID).
@@ -1389,13 +1351,13 @@ func (s *BackupService) importMtlsCertificateRequests(ctx context.Context, clien
 				SetNillableCreateTime(e.CreateTime).
 				Save(ctx)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("mtlsCertificateRequests: create %d: %v", e.ID, err))
-				result.Failed++
+				result.AddWarning(fmt.Sprintf("mtlsCertificateRequests: create %d: %v", e.ID, err))
+				er.Failed++
 				continue
 			}
-			result.Created++
+			er.Created++
 		}
 	}
 
-	return result, warnings
+	result.AddResult(er)
 }
