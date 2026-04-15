@@ -76,6 +76,10 @@ RUN apk --no-cache add ca-certificates tzdata
 # Set timezone
 ENV TZ=UTC
 
+# Downgrade proto registration conflict from panic to warning
+# (kratos v2 and buf.build/gen/go/kratos/apis both register errors/errors.proto)
+ENV GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn
+
 # Set working directory
 WORKDIR /app
 

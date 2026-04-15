@@ -32,6 +32,7 @@ import (
 
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
 	"github.com/go-tangra/go-tangra-lcm/internal/biz"
+	lcmClient "github.com/go-tangra/go-tangra-lcm/internal/client"
 	"github.com/go-tangra/go-tangra-lcm/internal/conf"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent"
@@ -57,6 +58,7 @@ type CertificateJobService struct {
 	dnsPropagationChecker *biz.DNSPropagationChecker
 	eventPublisher        *event.Publisher
 	metrics               *metrics.Collector
+	notifHelper           *NotificationHelper
 }
 
 // NewCertificateJobService creates a new CertificateJobService
@@ -69,12 +71,18 @@ func NewCertificateJobService(
 	issuedCertRepo *data.IssuedCertificateRepo,
 	eventPublisher *event.Publisher,
 	collector *metrics.Collector,
+	notifClient *lcmClient.NotificationClient,
 ) *CertificateJobService {
 	var opts []biz.DNSPropagationCheckerOption
 	if lcmConfig != nil && len(lcmConfig.DnsResolvers) > 0 {
 		opts = append(opts, biz.WithDNSServers(lcmConfig.DnsResolvers))
 	}
 	dnsPropagationChecker := biz.NewDNSPropagationChecker(ctx.GetLogger(), opts...)
+
+	notifHelper := NewNotificationHelper(
+		ctx.NewLoggerHelper("lcm/service/notification"),
+		notifClient,
+	)
 
 	return &CertificateJobService{
 		log:                   ctx.NewLoggerHelper("lcm/service/certificate-job"),
@@ -86,6 +94,7 @@ func NewCertificateJobService(
 		dnsPropagationChecker: dnsPropagationChecker,
 		eventPublisher:        eventPublisher,
 		metrics:               collector,
+		notifHelper:           notifHelper,
 	}
 }
 
@@ -651,6 +660,9 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 				s.log.Warnf("Failed to publish certificate failed event for job %s: %v", jobID, pubErr)
 			}
 		}
+
+		// Send notification for failed certificate
+		s.sendCertFailedNotification(ctx, certReq, "issuance", err.Error())
 		return
 	}
 
@@ -691,6 +703,71 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 			SubjectCountry:      issuedCert.SubjectCountry,
 		}); pubErr != nil {
 			s.log.Warnf("Failed to publish certificate issued event for job %s: %v", jobID, pubErr)
+		}
+	}
+
+	// Send notification for issued certificate
+	s.sendCertIssuedNotification(ctx, certReq, issuedCert)
+}
+
+// getAcmeEmailForIssuer looks up the ACME email address configured for an issuer.
+func (s *CertificateJobService) getAcmeEmailForIssuer(ctx context.Context, issuerName string, tenantID uint32) string {
+	issuerEntity, err := s.issuerRepo.GetByTenantAndName(ctx, tenantID, issuerName)
+	if err != nil || issuerEntity == nil {
+		return ""
+	}
+	if issuerEntity.Type != issuer.TypeAcme || len(issuerEntity.Edges.AcmeConfigs) == 0 {
+		return ""
+	}
+	return issuerEntity.Edges.AcmeConfigs[0].Email
+}
+
+// sendCertIssuedNotification sends a notification that a certificate has been issued.
+func (s *CertificateJobService) sendCertIssuedNotification(ctx context.Context, certReq *biz.CertificateRequest, issuedCert *biz.IssuedCertificate) {
+	if s.notifHelper == nil {
+		return
+	}
+
+	vars := map[string]string{
+		"CommonName": certReq.CommonName,
+		"Domains":    strings.Join(certReq.DNSNames, ", "),
+		"IssuerName": certReq.IssuerName,
+		"ExpiresAt":  issuedCert.ExpiresAt.Format(time.RFC3339),
+		"KeyType":    certReq.KeyType,
+	}
+
+	// Send to ACME issuer email if applicable
+	if certReq.IssuerType == "acme" {
+		acmeEmail := s.getAcmeEmailForIssuer(ctx, certReq.IssuerName, certReq.TenantID)
+		if acmeEmail != "" {
+			if err := s.notifHelper.SendCertificateIssued(ctx, acmeEmail, vars); err != nil {
+				s.log.Warnf("Failed to send cert-issued notification to ACME email %s: %v", acmeEmail, err)
+			}
+		}
+	}
+}
+
+// sendCertFailedNotification sends a notification that a certificate operation has failed.
+func (s *CertificateJobService) sendCertFailedNotification(ctx context.Context, certReq *biz.CertificateRequest, operation, errorMsg string) {
+	if s.notifHelper == nil {
+		return
+	}
+
+	vars := map[string]string{
+		"CommonName":   certReq.CommonName,
+		"Domains":      strings.Join(certReq.DNSNames, ", "),
+		"IssuerName":   certReq.IssuerName,
+		"Operation":    operation,
+		"ErrorMessage": errorMsg,
+	}
+
+	// Send to ACME issuer email if applicable
+	if certReq.IssuerType == "acme" {
+		acmeEmail := s.getAcmeEmailForIssuer(ctx, certReq.IssuerName, certReq.TenantID)
+		if acmeEmail != "" {
+			if err := s.notifHelper.SendCertificateFailed(ctx, acmeEmail, vars); err != nil {
+				s.log.Warnf("Failed to send cert-failed notification to ACME email %s: %v", acmeEmail, err)
+			}
 		}
 	}
 }

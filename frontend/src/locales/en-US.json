@@ -270,7 +270,10 @@
       "forceRenew": "Force Renew",
       "confirmForceRenew": "Are you sure you want to force renew this certificate?",
       "renewSuccess": "Certificate renewal scheduled successfully",
-      "renewFailed": "Failed to schedule certificate renewal"
+      "renewFailed": "Failed to schedule certificate renewal",
+      "editTitle": "Edit Certificate Settings",
+      "updateSuccess": "Certificate settings updated successfully",
+      "updateFailed": "Failed to update certificate settings"
     },
     "auditLog": {
       "moduleName": "LCM Audit Log",

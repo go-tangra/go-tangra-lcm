@@ -191,6 +191,28 @@ func (r *IssuedCertificateRepo) UpdateCertificate(ctx context.Context, id string
 	return nil
 }
 
+// UpdateAutoRenewSettings updates the auto-renew settings for an issued certificate
+func (r *IssuedCertificateRepo) UpdateAutoRenewSettings(ctx context.Context, id string, autoRenewEnabled *bool, daysBeforeExpiry *int32) (*ent.IssuedCertificate, error) {
+	builder := r.entClient.Client().IssuedCertificate.UpdateOneID(id)
+
+	if autoRenewEnabled != nil {
+		builder.SetAutoRenewEnabled(*autoRenewEnabled)
+	}
+	if daysBeforeExpiry != nil {
+		builder.SetAutoRenewDaysBeforeExpiry(*daysBeforeExpiry)
+	}
+
+	entity, err := builder.Save(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, lcmV1.ErrorNotFound("issued certificate not found")
+		}
+		r.log.Errorf("update issued certificate auto-renew settings failed: %s", err.Error())
+		return nil, lcmV1.ErrorInternalServerError("update issued certificate auto-renew settings failed")
+	}
+	return entity, nil
+}
+
 // FindCertificatesDueForRenewal finds certificates that are due for renewal
 // Returns certificates where:
 // - auto_renew_enabled = true

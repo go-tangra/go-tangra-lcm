@@ -4,7 +4,7 @@ import type { VxeGridProps } from 'shell/adapter/vxe-table';
 import { h, computed, ref } from 'vue';
 
 import { Page, useVbenDrawer, type VbenFormProps } from 'shell/vben/common-ui';
-import { LucideEye, LucideDownload, LucideKeyRound, LucideRefreshCw } from 'shell/vben/icons';
+import { LucideEye, LucideDownload, LucideKeyRound, LucideRefreshCw, LucidePencil } from 'shell/vben/icons';
 
 import { notification } from 'ant-design-vue';
 
@@ -16,6 +16,7 @@ import { useLcmIssuerStore } from '../../stores/lcm-issuer.state';
 import { downloadFile } from '../../utils';
 
 import IssuedCertificateDrawer from './issued-certificate-drawer.vue';
+import IssuedCertificateEditDrawer from './issued-certificate-edit-drawer.vue';
 
 const issuedCertStore = useLcmIssuedCertificateStore();
 const issuerStore = useLcmIssuerStore();
@@ -199,7 +200,7 @@ const gridOptions: VxeGridProps<IssuedCertificateInfo> = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 200,
+      width: 230,
     },
   ],
 };
@@ -216,9 +217,24 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
 });
 
+const [EditDrawer, editDrawerApi] = useVbenDrawer({
+  connectedComponent: IssuedCertificateEditDrawer,
+
+  onOpenChange(isOpen: boolean) {
+    if (!isOpen) {
+      gridApi.query();
+    }
+  },
+});
+
 function handleView(row: IssuedCertificateInfo) {
   drawerApi.setData({ row });
   drawerApi.open();
+}
+
+function handleEdit(row: IssuedCertificateInfo) {
+  editDrawerApi.setData({ row });
+  editDrawerApi.open();
 }
 
 async function handleDownloadCert(row: IssuedCertificateInfo) {
@@ -287,6 +303,12 @@ async function handleDownloadKey(row: IssuedCertificateInfo) {
           @click.stop="handleView(row)"
         />
         <a-button
+          type="link"
+          :icon="h(LucidePencil)"
+          :title="$t('ui.button.edit')"
+          @click.stop="handleEdit(row)"
+        />
+        <a-button
           v-if="isIssued(row)"
           type="link"
           :icon="h(LucideDownload)"
@@ -316,5 +338,6 @@ async function handleDownloadKey(row: IssuedCertificateInfo) {
       </template>
     </Grid>
     <Drawer />
+    <EditDrawer />
   </Page>
 </template>

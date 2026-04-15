@@ -5,6 +5,8 @@ import {
   type IssuedCertificateInfo,
   type GetIssuedCertificateResponse,
   type ForceRenewCertificateResponse,
+  type UpdateIssuedCertificateRequest,
+  type UpdateIssuedCertificateResponse,
 } from '../api/services';
 
 interface Paging { page: number; pageSize: number; }
@@ -54,6 +56,13 @@ export const useLcmIssuedCertificateStore = defineStore('lcm-issued-certificate'
     return await IssuedCertificateService.renew(id);
   }
 
+  /**
+   * Update a certificate's settings (e.g. auto-renew)
+   */
+  async function updateCertificate(id: string, data: UpdateIssuedCertificateRequest): Promise<UpdateIssuedCertificateResponse> {
+    return await IssuedCertificateService.update(id, data);
+  }
+
   function $reset() {}
 
   return {
@@ -61,5 +70,6 @@ export const useLcmIssuedCertificateStore = defineStore('lcm-issued-certificate'
     listCertificates,
     getCertificate,
     renewCertificate,
+    updateCertificate,
   };
 });

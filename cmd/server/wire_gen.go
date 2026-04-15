@@ -7,12 +7,10 @@
 package main
 
 import (
-	gocontext "context"
-
 	"github.com/go-kratos/kratos/v2"
-	"github.com/go-tangra/go-tangra-common/viewer"
 	bootstrap2 "github.com/go-tangra/go-tangra-lcm/internal/bootstrap"
 	"github.com/go-tangra/go-tangra-lcm/internal/cert"
+	"github.com/go-tangra/go-tangra-lcm/internal/client"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
 	"github.com/go-tangra/go-tangra-lcm/internal/event"
 	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
@@ -44,35 +42,49 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	collector := metrics.NewCollector(context)
 	entClient, cleanup, err := data.NewEntClient(context)
 	if err != nil {
 		return nil, nil, err
 	}
 	auditLogRepo := data.NewAuditLogRepo(context, entClient)
+	mtlsCertificateRepo := data.NewMtlsCertificateRepo(context, entClient)
 	systemService := service.NewSystemService(context)
 	lcmClientRepo := data.NewLcmClientRepo(context, entClient)
 	mtlsCertificateRequestRepo := data.NewMtlsCertificateRequestRepo(context, entClient)
-	mtlsCertificateRepo := data.NewMtlsCertificateRepo(context, entClient)
 	tenantSecretRepo := data.NewTenantSecretRepo(context, entClient)
-	client, cleanup2, err := data.NewRedisClient(context)
+	redisClient, cleanup2, err := data.NewRedisClient(context)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	collector := metrics.NewCollector(context)
-	lcmClientService := service.NewLcmClientService(context, certManager, lcmClientRepo, mtlsCertificateRequestRepo, mtlsCertificateRepo, tenantSecretRepo, client, collector)
+	lcmClientService := service.NewLcmClientService(context, certManager, lcmClientRepo, mtlsCertificateRequestRepo, mtlsCertificateRepo, tenantSecretRepo, redisClient, collector)
 	issuerRepo := data.NewIssuerRepo(context, entClient)
 	issuerService := service.NewIssuerService(context, issuerRepo, lcmClientRepo, mtlsCertificateRepo, collector)
 	lcm := providers.ProvideLCMConfig(context)
 	issuedCertificateRepo := data.NewIssuedCertificateRepo(context, entClient)
-	publisher := event.NewPublisher(context, client)
-	certificateJobService := service.NewCertificateJobService(context, lcm, issuerRepo, lcmClientRepo, mtlsCertificateRepo, issuedCertificateRepo, publisher, collector)
+	publisher := event.NewPublisher(context, redisClient)
+	registrationClient, err := client.NewRegistrationClient(context)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	moduleDialer := client.NewModuleDialer(context, registrationClient)
+	notificationClient, cleanup3, err := client.NewNotificationClient(context, moduleDialer)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	certificateJobService := service.NewCertificateJobService(context, lcm, issuerRepo, lcmClientRepo, mtlsCertificateRepo, issuedCertificateRepo, publisher, collector, notificationClient)
 	certificateRenewalRepo := data.NewCertificateRenewalRepo(context, entClient)
 	issuedCertificateService := service.NewIssuedCertificateService(context, issuedCertificateRepo, lcmClientRepo, mtlsCertificateRepo, certificateRenewalRepo)
 	tenantSecretService := service.NewTenantSecretService(context, tenantSecretRepo, lcmClientRepo)
 	auditLogService := service.NewAuditLogService(context, auditLogRepo, lcmClientRepo)
 	mtlsCertService, err := service.NewMtlsCertService(context, mtlsCertificateRepo, lcmClientRepo, collector)
 	if err != nil {
+		cleanup3()
 		cleanup2()
 		cleanup()
 		return nil, nil, err
@@ -81,6 +93,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	certificatePermissionService := service.NewCertificatePermissionService(context, certificatePermissionRepo, lcmClientRepo, issuedCertificateRepo)
 	mtlsCertificateRequestService, err := service.NewMtlsCertificateRequestService(context, mtlsCertificateRequestRepo, mtlsCertificateRepo, lcmClientRepo)
 	if err != nil {
+		cleanup3()
 		cleanup2()
 		cleanup()
 		return nil, nil, err
@@ -90,29 +103,26 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	backupService := service.NewBackupService(context, entClient)
 	bootstrapService := service.NewBootstrapService(context, lcm, mtlsCertificateRepo, lcmClientRepo)
 	grpcServer := server.NewGRPCServer(context, certManager, collector, auditLogRepo, mtlsCertificateRepo, systemService, lcmClientService, issuerService, certificateJobService, issuedCertificateService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService, backupService, bootstrapService)
+	httpServer := server.NewHTTPServer(context)
 	bootstrapBootstrapService, err := bootstrap2.NewBootstrapService(context, mtlsCertificateRepo, lcmClientRepo, issuedCertificateRepo, issuerRepo)
 	if err != nil {
+		cleanup3()
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	renewalConfig := providers.ProvideRenewalConfig(context)
 	renewalScheduler := service.NewRenewalScheduler(context, renewalConfig, lcm, issuedCertificateRepo, certificateRenewalRepo, issuerRepo, lcmClientRepo, certificateJobService, publisher)
-	webhookService, err := webhook.NewService(context, client)
+	webhookService, err := webhook.NewService(context, redisClient)
 	if err != nil {
+		cleanup3()
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	httpServer := server.NewHTTPServer(context)
-
-	// Seed Prometheus metrics from database
-	seedCtx := viewer.NewSystemViewerContext(gocontext.Background())
-	collector.Seed(seedCtx, statisticsRepo)
-
 	app := newApp(context, grpcServer, httpServer, bootstrapBootstrapService, renewalScheduler, webhookService)
 	return app, func() {
-		collector.Stop(gocontext.Background())
+		cleanup3()
 		cleanup2()
 		cleanup()
 	}, nil

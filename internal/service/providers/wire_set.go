@@ -11,6 +11,7 @@
 package providers
 
 import (
+	"github.com/go-tangra/go-tangra-lcm/internal/client"
 	"github.com/go-tangra/go-tangra-lcm/internal/event"
 	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
 	"github.com/go-tangra/go-tangra-lcm/internal/service"
@@ -41,4 +42,7 @@ var ProviderSet = wire.NewSet(
 	event.NewPublisher,
 	ProvidePrivateKeyEncryptor,
 	webhook.NewService,
+	client.NewRegistrationClient,
+	client.NewModuleDialer,
+	client.NewNotificationClient,
 )

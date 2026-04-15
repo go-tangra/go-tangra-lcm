@@ -273,6 +273,46 @@ func (s *IssuedCertificateService) ForceRenewCertificate(ctx context.Context, re
 	}, nil
 }
 
+// UpdateIssuedCertificate updates an issued certificate's settings (e.g. auto-renew)
+func (s *IssuedCertificateService) UpdateIssuedCertificate(ctx context.Context, req *lcmV1.UpdateIssuedCertificateRequest) (*lcmV1.UpdateIssuedCertificateResponse, error) {
+	tenantID, _, err := s.getClientInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Look up the certificate
+	cert, err := s.issuedCertRepo.GetByID(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	if cert == nil {
+		return nil, lcmV1.ErrorNotFound("issued certificate '%s' not found", req.GetId())
+	}
+
+	// Verify tenant access
+	if tenantID != 0 && cert.TenantID != tenantID {
+		return nil, lcmV1.ErrorNotFound("issued certificate '%s' not found", req.GetId())
+	}
+
+	// Check that at least one field is being updated
+	if req.AutoRenewEnabled == nil && req.AutoRenewDaysBeforeExpiry == nil {
+		return nil, lcmV1.ErrorBadRequest("at least one field must be provided for update")
+	}
+
+	// Perform the update
+	updated, err := s.issuedCertRepo.UpdateAutoRenewSettings(ctx, req.GetId(), req.AutoRenewEnabled, req.AutoRenewDaysBeforeExpiry)
+	if err != nil {
+		return nil, err
+	}
+
+	s.log.Infof("Updated issued certificate %s auto-renew settings (enabled=%v, days=%v)",
+		req.GetId(), req.AutoRenewEnabled, req.AutoRenewDaysBeforeExpiry)
+
+	return &lcmV1.UpdateIssuedCertificateResponse{
+		Certificate: mapIssuedCertToProto(updated),
+	}, nil
+}
+
 // mapIssuedCertToProto maps a database entity to a proto message
 func mapIssuedCertToProto(cert *ent.IssuedCertificate) *lcmV1.IssuedCertificateInfo {
 	info := &lcmV1.IssuedCertificateInfo{

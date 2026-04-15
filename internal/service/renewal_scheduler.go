@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -448,6 +449,27 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 			}
 			newExpiresAt = cert.ExpiresAt
 		}
+		// Send renewal notification
+		if cert != nil && s.certificateJobService.notifHelper != nil {
+			vars := map[string]string{
+				"CommonName":       cert.CommonName,
+				"Domains":          strings.Join(renewal.Domains, ", "),
+				"IssuerName":       renewal.IssuerName,
+				"ExpiresAt":        cert.ExpiresAt.Format(time.RFC3339),
+				"PreviousExpiresAt": renewal.OriginalExpiresAt.Format(time.RFC3339),
+			}
+
+			// Send to ACME issuer email if applicable
+			if cert.IssuerType == "acme" {
+				acmeEmail := s.certificateJobService.getAcmeEmailForIssuer(ctx, renewal.IssuerName, tenantID)
+				if acmeEmail != "" {
+					if notifErr := s.certificateJobService.notifHelper.SendCertificateRenewed(ctx, acmeEmail, vars); notifErr != nil {
+						s.log.Warnf("Failed to send cert-renewed notification: %v", notifErr)
+					}
+				}
+			}
+		}
+
 		if pubErr := s.eventPublisher.PublishRenewalCompleted(ctx, &event.RenewalCompletedEvent{
 			RenewalID:       renewal.ID,
 			CertificateID:   renewal.CertificateID,
@@ -487,6 +509,26 @@ func (s *RenewalScheduler) handleRenewalFailure(ctx context.Context, renewal *en
 	}
 	if cert != nil && cert.Edges.LcmClient != nil && cert.Edges.LcmClient.TenantID != nil {
 		tenantID = *cert.Edges.LcmClient.TenantID
+	}
+
+	// Send failure notification (only on final failure, not retries)
+	if !willRetry && cert != nil && s.certificateJobService.notifHelper != nil {
+		vars := map[string]string{
+			"CommonName":   cert.CommonName,
+			"Domains":      strings.Join(renewal.Domains, ", "),
+			"IssuerName":   renewal.IssuerName,
+			"Operation":    "renewal",
+			"ErrorMessage": renewalErr.Error(),
+		}
+
+		if cert.IssuerType == "acme" {
+			acmeEmail := s.certificateJobService.getAcmeEmailForIssuer(ctx, renewal.IssuerName, tenantID)
+			if acmeEmail != "" {
+				if notifErr := s.certificateJobService.notifHelper.SendCertificateFailed(ctx, acmeEmail, vars); notifErr != nil {
+					s.log.Warnf("Failed to send cert-failed notification: %v", notifErr)
+				}
+			}
+		}
 	}
 
 	// Publish failure event

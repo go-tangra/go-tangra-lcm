@@ -22,6 +22,7 @@ const _ = http.SupportPackageIsVersion1
 const OperationLcmIssuedCertificateServiceForceRenewCertificate = "/lcm.service.v1.LcmIssuedCertificateService/ForceRenewCertificate"
 const OperationLcmIssuedCertificateServiceGetIssuedCertificate = "/lcm.service.v1.LcmIssuedCertificateService/GetIssuedCertificate"
 const OperationLcmIssuedCertificateServiceListIssuedCertificates = "/lcm.service.v1.LcmIssuedCertificateService/ListIssuedCertificates"
+const OperationLcmIssuedCertificateServiceUpdateIssuedCertificate = "/lcm.service.v1.LcmIssuedCertificateService/UpdateIssuedCertificate"
 
 type LcmIssuedCertificateServiceHTTPServer interface {
 	// ForceRenewCertificate Force renew an issued certificate
@@ -30,12 +31,15 @@ type LcmIssuedCertificateServiceHTTPServer interface {
 	GetIssuedCertificate(context.Context, *GetIssuedCertificateRequest) (*GetIssuedCertificateResponse, error)
 	// ListIssuedCertificates List issued certificates with optional filters
 	ListIssuedCertificates(context.Context, *ListIssuedCertificatesRequest) (*ListIssuedCertificatesResponse, error)
+	// UpdateIssuedCertificate Update an issued certificate (e.g. auto-renew settings)
+	UpdateIssuedCertificate(context.Context, *UpdateIssuedCertificateRequest) (*UpdateIssuedCertificateResponse, error)
 }
 
 func RegisterLcmIssuedCertificateServiceHTTPServer(s *http.Server, srv LcmIssuedCertificateServiceHTTPServer) {
 	r := s.Route("/")
 	r.GET("/v1/issued-certificates", _LcmIssuedCertificateService_ListIssuedCertificates0_HTTP_Handler(srv))
 	r.GET("/v1/issued-certificates/{id}", _LcmIssuedCertificateService_GetIssuedCertificate0_HTTP_Handler(srv))
+	r.PATCH("/v1/issued-certificates/{id}", _LcmIssuedCertificateService_UpdateIssuedCertificate0_HTTP_Handler(srv))
 	r.POST("/v1/issued-certificates/{id}/renew", _LcmIssuedCertificateService_ForceRenewCertificate0_HTTP_Handler(srv))
 }
 
@@ -80,6 +84,31 @@ func _LcmIssuedCertificateService_GetIssuedCertificate0_HTTP_Handler(srv LcmIssu
 	}
 }
 
+func _LcmIssuedCertificateService_UpdateIssuedCertificate0_HTTP_Handler(srv LcmIssuedCertificateServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in UpdateIssuedCertificateRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationLcmIssuedCertificateServiceUpdateIssuedCertificate)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.UpdateIssuedCertificate(ctx, req.(*UpdateIssuedCertificateRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*UpdateIssuedCertificateResponse)
+		return ctx.Result(200, reply)
+	}
+}
+
 func _LcmIssuedCertificateService_ForceRenewCertificate0_HTTP_Handler(srv LcmIssuedCertificateServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in ForceRenewCertificateRequest
@@ -112,6 +141,8 @@ type LcmIssuedCertificateServiceHTTPClient interface {
 	GetIssuedCertificate(ctx context.Context, req *GetIssuedCertificateRequest, opts ...http.CallOption) (rsp *GetIssuedCertificateResponse, err error)
 	// ListIssuedCertificates List issued certificates with optional filters
 	ListIssuedCertificates(ctx context.Context, req *ListIssuedCertificatesRequest, opts ...http.CallOption) (rsp *ListIssuedCertificatesResponse, err error)
+	// UpdateIssuedCertificate Update an issued certificate (e.g. auto-renew settings)
+	UpdateIssuedCertificate(ctx context.Context, req *UpdateIssuedCertificateRequest, opts ...http.CallOption) (rsp *UpdateIssuedCertificateResponse, err error)
 }
 
 type LcmIssuedCertificateServiceHTTPClientImpl struct {
@@ -158,6 +189,20 @@ func (c *LcmIssuedCertificateServiceHTTPClientImpl) ListIssuedCertificates(ctx c
 	opts = append(opts, http.Operation(OperationLcmIssuedCertificateServiceListIssuedCertificates))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// UpdateIssuedCertificate Update an issued certificate (e.g. auto-renew settings)
+func (c *LcmIssuedCertificateServiceHTTPClientImpl) UpdateIssuedCertificate(ctx context.Context, in *UpdateIssuedCertificateRequest, opts ...http.CallOption) (*UpdateIssuedCertificateResponse, error) {
+	var out UpdateIssuedCertificateResponse
+	pattern := "/v1/issued-certificates/{id}"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationLcmIssuedCertificateServiceUpdateIssuedCertificate))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "PATCH", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

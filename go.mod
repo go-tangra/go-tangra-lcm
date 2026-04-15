@@ -3,7 +3,9 @@ module github.com/go-tangra/go-tangra-lcm
 go 1.25.4
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1
+	buf.build/gen/go/go-tangra/notification/grpc/go v1.6.1-20260328103302-5cea3986f469.1
+	buf.build/gen/go/go-tangra/notification/protocolbuffers/go v1.36.11-20260328103302-5cea3986f469.1
 	entgo.io/ent v0.14.5
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/go-acme/lego/v4 v4.31.0
@@ -39,6 +41,9 @@ require (
 
 require (
 	ariga.io/atlas v1.0.0 // indirect
+	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.11-20230414000709-087bc8072ce4.1 // indirect
+	buf.build/gen/go/kratos/apis/protocolbuffers/go v1.36.11-20230105082401-c2de25f14fa4.1 // indirect
+	buf.build/gen/go/tx7do/pagination/protocolbuffers/go v1.36.11-20260118135817-7e34dd27013f.1 // indirect
 	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go/auth v0.18.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect

@@ -980,3 +980,248 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ForceRenewCertificateResponseValidationError{}
+
+// Validate checks the field values on UpdateIssuedCertificateRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *UpdateIssuedCertificateRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UpdateIssuedCertificateRequest with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// UpdateIssuedCertificateRequestMultiError, or nil if none found.
+func (m *UpdateIssuedCertificateRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UpdateIssuedCertificateRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Id
+
+	if m.AutoRenewEnabled != nil {
+		// no validation rules for AutoRenewEnabled
+	}
+
+	if m.AutoRenewDaysBeforeExpiry != nil {
+		// no validation rules for AutoRenewDaysBeforeExpiry
+	}
+
+	if len(errors) > 0 {
+		return UpdateIssuedCertificateRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// UpdateIssuedCertificateRequestMultiError is an error wrapping multiple
+// validation errors returned by UpdateIssuedCertificateRequest.ValidateAll()
+// if the designated constraints aren't met.
+type UpdateIssuedCertificateRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UpdateIssuedCertificateRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UpdateIssuedCertificateRequestMultiError) AllErrors() []error { return m }
+
+// UpdateIssuedCertificateRequestValidationError is the validation error
+// returned by UpdateIssuedCertificateRequest.Validate if the designated
+// constraints aren't met.
+type UpdateIssuedCertificateRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e UpdateIssuedCertificateRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e UpdateIssuedCertificateRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e UpdateIssuedCertificateRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e UpdateIssuedCertificateRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e UpdateIssuedCertificateRequestValidationError) ErrorName() string {
+	return "UpdateIssuedCertificateRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e UpdateIssuedCertificateRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sUpdateIssuedCertificateRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = UpdateIssuedCertificateRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = UpdateIssuedCertificateRequestValidationError{}
+
+// Validate checks the field values on UpdateIssuedCertificateResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *UpdateIssuedCertificateResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on UpdateIssuedCertificateResponse with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// UpdateIssuedCertificateResponseMultiError, or nil if none found.
+func (m *UpdateIssuedCertificateResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *UpdateIssuedCertificateResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetCertificate()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, UpdateIssuedCertificateResponseValidationError{
+					field:  "Certificate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, UpdateIssuedCertificateResponseValidationError{
+					field:  "Certificate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCertificate()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return UpdateIssuedCertificateResponseValidationError{
+				field:  "Certificate",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return UpdateIssuedCertificateResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// UpdateIssuedCertificateResponseMultiError is an error wrapping multiple
+// validation errors returned by UpdateIssuedCertificateResponse.ValidateAll()
+// if the designated constraints aren't met.
+type UpdateIssuedCertificateResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m UpdateIssuedCertificateResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m UpdateIssuedCertificateResponseMultiError) AllErrors() []error { return m }
+
+// UpdateIssuedCertificateResponseValidationError is the validation error
+// returned by UpdateIssuedCertificateResponse.Validate if the designated
+// constraints aren't met.
+type UpdateIssuedCertificateResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e UpdateIssuedCertificateResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e UpdateIssuedCertificateResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e UpdateIssuedCertificateResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e UpdateIssuedCertificateResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e UpdateIssuedCertificateResponseValidationError) ErrorName() string {
+	return "UpdateIssuedCertificateResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e UpdateIssuedCertificateResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sUpdateIssuedCertificateResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = UpdateIssuedCertificateResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = UpdateIssuedCertificateResponseValidationError{}

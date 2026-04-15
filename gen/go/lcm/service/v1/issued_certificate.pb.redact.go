@@ -67,6 +67,17 @@ func (s *redactedLcmIssuedCertificateServiceServer) GetIssuedCertificate(ctx con
 	return res, err
 }
 
+// UpdateIssuedCertificate is the redacted wrapper for the actual LcmIssuedCertificateServiceServer.UpdateIssuedCertificate method
+// Unary RPC
+func (s *redactedLcmIssuedCertificateServiceServer) UpdateIssuedCertificate(ctx context.Context, in *UpdateIssuedCertificateRequest) (*UpdateIssuedCertificateResponse, error) {
+	res, err := s.srv.UpdateIssuedCertificate(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
 // ForceRenewCertificate is the redacted wrapper for the actual LcmIssuedCertificateServiceServer.ForceRenewCertificate method
 // Unary RPC
 func (s *redactedLcmIssuedCertificateServiceServer) ForceRenewCertificate(ctx context.Context, in *ForceRenewCertificateRequest) (*ForceRenewCertificateResponse, error) {
@@ -199,5 +210,29 @@ func (x *ForceRenewCertificateResponse) Redact() string {
 	// Safe field: RenewalId
 
 	// Safe field: Message
+	return x.String()
+}
+
+// Redact method implementation for UpdateIssuedCertificateRequest
+func (x *UpdateIssuedCertificateRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Id
+
+	// Safe field: AutoRenewEnabled
+
+	// Safe field: AutoRenewDaysBeforeExpiry
+	return x.String()
+}
+
+// Redact method implementation for UpdateIssuedCertificateResponse
+func (x *UpdateIssuedCertificateResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Certificate
 	return x.String()
 }

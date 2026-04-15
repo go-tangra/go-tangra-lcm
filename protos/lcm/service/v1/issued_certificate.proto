@@ -24,6 +24,14 @@ service LcmIssuedCertificateService {
     };
   }
 
+  // Update an issued certificate (e.g. auto-renew settings)
+  rpc UpdateIssuedCertificate(UpdateIssuedCertificateRequest) returns (UpdateIssuedCertificateResponse) {
+    option (google.api.http) = {
+      patch: "/v1/issued-certificates/{id}"
+      body: "*"
+    };
+  }
+
   // Force renew an issued certificate
   rpc ForceRenewCertificate(ForceRenewCertificateRequest) returns (ForceRenewCertificateResponse) {
     option (google.api.http) = {
@@ -122,4 +130,32 @@ message ForceRenewCertificateRequest {
 message ForceRenewCertificateResponse {
   string renewal_id = 1 [json_name = "renewalId"];
   string message = 2 [json_name = "message"];
+}
+
+// Request to update an issued certificate
+message UpdateIssuedCertificateRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+  // Enable or disable auto-renewal
+  optional bool auto_renew_enabled = 2 [json_name = "autoRenewEnabled"];
+  // Number of days before expiry to trigger renewal
+  optional int32 auto_renew_days_before_expiry = 3 [
+    json_name = "autoRenewDaysBeforeExpiry",
+    (buf.validate.field).int32 = {
+      gte: 1
+      lte: 90
+    }
+  ];
+}
+
+// Response for updating an issued certificate
+message UpdateIssuedCertificateResponse {
+  IssuedCertificateInfo certificate = 1 [json_name = "certificate"];
 }

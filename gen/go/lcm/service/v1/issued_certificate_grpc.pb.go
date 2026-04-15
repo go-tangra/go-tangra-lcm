@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	LcmIssuedCertificateService_ListIssuedCertificates_FullMethodName = "/lcm.service.v1.LcmIssuedCertificateService/ListIssuedCertificates"
-	LcmIssuedCertificateService_GetIssuedCertificate_FullMethodName   = "/lcm.service.v1.LcmIssuedCertificateService/GetIssuedCertificate"
-	LcmIssuedCertificateService_ForceRenewCertificate_FullMethodName  = "/lcm.service.v1.LcmIssuedCertificateService/ForceRenewCertificate"
+	LcmIssuedCertificateService_ListIssuedCertificates_FullMethodName  = "/lcm.service.v1.LcmIssuedCertificateService/ListIssuedCertificates"
+	LcmIssuedCertificateService_GetIssuedCertificate_FullMethodName    = "/lcm.service.v1.LcmIssuedCertificateService/GetIssuedCertificate"
+	LcmIssuedCertificateService_UpdateIssuedCertificate_FullMethodName = "/lcm.service.v1.LcmIssuedCertificateService/UpdateIssuedCertificate"
+	LcmIssuedCertificateService_ForceRenewCertificate_FullMethodName   = "/lcm.service.v1.LcmIssuedCertificateService/ForceRenewCertificate"
 )
 
 // LcmIssuedCertificateServiceClient is the client API for LcmIssuedCertificateService service.
@@ -34,6 +35,8 @@ type LcmIssuedCertificateServiceClient interface {
 	ListIssuedCertificates(ctx context.Context, in *ListIssuedCertificatesRequest, opts ...grpc.CallOption) (*ListIssuedCertificatesResponse, error)
 	// Get a single issued certificate by ID
 	GetIssuedCertificate(ctx context.Context, in *GetIssuedCertificateRequest, opts ...grpc.CallOption) (*GetIssuedCertificateResponse, error)
+	// Update an issued certificate (e.g. auto-renew settings)
+	UpdateIssuedCertificate(ctx context.Context, in *UpdateIssuedCertificateRequest, opts ...grpc.CallOption) (*UpdateIssuedCertificateResponse, error)
 	// Force renew an issued certificate
 	ForceRenewCertificate(ctx context.Context, in *ForceRenewCertificateRequest, opts ...grpc.CallOption) (*ForceRenewCertificateResponse, error)
 }
@@ -66,6 +69,16 @@ func (c *lcmIssuedCertificateServiceClient) GetIssuedCertificate(ctx context.Con
 	return out, nil
 }
 
+func (c *lcmIssuedCertificateServiceClient) UpdateIssuedCertificate(ctx context.Context, in *UpdateIssuedCertificateRequest, opts ...grpc.CallOption) (*UpdateIssuedCertificateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateIssuedCertificateResponse)
+	err := c.cc.Invoke(ctx, LcmIssuedCertificateService_UpdateIssuedCertificate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *lcmIssuedCertificateServiceClient) ForceRenewCertificate(ctx context.Context, in *ForceRenewCertificateRequest, opts ...grpc.CallOption) (*ForceRenewCertificateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ForceRenewCertificateResponse)
@@ -86,6 +99,8 @@ type LcmIssuedCertificateServiceServer interface {
 	ListIssuedCertificates(context.Context, *ListIssuedCertificatesRequest) (*ListIssuedCertificatesResponse, error)
 	// Get a single issued certificate by ID
 	GetIssuedCertificate(context.Context, *GetIssuedCertificateRequest) (*GetIssuedCertificateResponse, error)
+	// Update an issued certificate (e.g. auto-renew settings)
+	UpdateIssuedCertificate(context.Context, *UpdateIssuedCertificateRequest) (*UpdateIssuedCertificateResponse, error)
 	// Force renew an issued certificate
 	ForceRenewCertificate(context.Context, *ForceRenewCertificateRequest) (*ForceRenewCertificateResponse, error)
 	mustEmbedUnimplementedLcmIssuedCertificateServiceServer()
@@ -103,6 +118,9 @@ func (UnimplementedLcmIssuedCertificateServiceServer) ListIssuedCertificates(con
 }
 func (UnimplementedLcmIssuedCertificateServiceServer) GetIssuedCertificate(context.Context, *GetIssuedCertificateRequest) (*GetIssuedCertificateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetIssuedCertificate not implemented")
+}
+func (UnimplementedLcmIssuedCertificateServiceServer) UpdateIssuedCertificate(context.Context, *UpdateIssuedCertificateRequest) (*UpdateIssuedCertificateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateIssuedCertificate not implemented")
 }
 func (UnimplementedLcmIssuedCertificateServiceServer) ForceRenewCertificate(context.Context, *ForceRenewCertificateRequest) (*ForceRenewCertificateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ForceRenewCertificate not implemented")
@@ -165,6 +183,24 @@ func _LcmIssuedCertificateService_GetIssuedCertificate_Handler(srv interface{}, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LcmIssuedCertificateService_UpdateIssuedCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateIssuedCertificateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LcmIssuedCertificateServiceServer).UpdateIssuedCertificate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LcmIssuedCertificateService_UpdateIssuedCertificate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LcmIssuedCertificateServiceServer).UpdateIssuedCertificate(ctx, req.(*UpdateIssuedCertificateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LcmIssuedCertificateService_ForceRenewCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ForceRenewCertificateRequest)
 	if err := dec(in); err != nil {
@@ -197,6 +233,10 @@ var LcmIssuedCertificateService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetIssuedCertificate",
 			Handler:    _LcmIssuedCertificateService_GetIssuedCertificate_Handler,
+		},
+		{
+			MethodName: "UpdateIssuedCertificate",
+			Handler:    _LcmIssuedCertificateService_UpdateIssuedCertificate_Handler,
 		},
 		{
 			MethodName: "ForceRenewCertificate",

@@ -330,6 +330,15 @@ export interface ForceRenewCertificateResponse {
   message?: string;
 }
 
+export interface UpdateIssuedCertificateRequest {
+  autoRenewEnabled?: boolean;
+  autoRenewDaysBeforeExpiry?: number;
+}
+
+export interface UpdateIssuedCertificateResponse {
+  certificate?: IssuedCertificateInfo;
+}
+
 export const IssuedCertificateService = {
   list: async (
     params?: {
@@ -354,6 +363,18 @@ export const IssuedCertificateService = {
   ): Promise<GetIssuedCertificateResponse> => {
     return lcmApi.get<GetIssuedCertificateResponse>(
       `/issued-certificates/${id}${buildQuery(params || {})}`,
+      options
+    );
+  },
+
+  update: async (
+    id: string,
+    data: UpdateIssuedCertificateRequest,
+    options?: RequestOptions
+  ): Promise<UpdateIssuedCertificateResponse> => {
+    return lcmApi.patch<UpdateIssuedCertificateResponse>(
+      `/issued-certificates/${id}`,
+      data,
       options
     );
   },
