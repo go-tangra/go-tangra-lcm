@@ -7,6 +7,9 @@ import {
   type ForceRenewCertificateResponse,
   type UpdateIssuedCertificateRequest,
   type UpdateIssuedCertificateResponse,
+  type DeployCertificateRequest,
+  type DeployCertificateResponse,
+  type ListDeploymentTargetsResponse,
 } from '../api/services';
 
 interface Paging { page: number; pageSize: number; }
@@ -63,6 +66,20 @@ export const useLcmIssuedCertificateStore = defineStore('lcm-issued-certificate'
     return await IssuedCertificateService.update(id, data);
   }
 
+  /**
+   * Deploy a certificate to a target
+   */
+  async function deployCertificate(id: string, data: DeployCertificateRequest): Promise<DeployCertificateResponse> {
+    return await IssuedCertificateService.deploy(id, data);
+  }
+
+  /**
+   * List available deployment targets
+   */
+  async function listDeploymentTargets(): Promise<ListDeploymentTargetsResponse> {
+    return await IssuedCertificateService.listDeploymentTargets();
+  }
+
   function $reset() {}
 
   return {
@@ -71,5 +88,7 @@ export const useLcmIssuedCertificateStore = defineStore('lcm-issued-certificate'
     getCertificate,
     renewCertificate,
     updateCertificate,
+    deployCertificate,
+    listDeploymentTargets,
   };
 });

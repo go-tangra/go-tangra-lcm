@@ -79,11 +79,19 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	}
 	certificateJobService := service.NewCertificateJobService(context, lcm, issuerRepo, lcmClientRepo, mtlsCertificateRepo, issuedCertificateRepo, publisher, collector, notificationClient)
 	certificateRenewalRepo := data.NewCertificateRenewalRepo(context, entClient)
-	issuedCertificateService := service.NewIssuedCertificateService(context, issuedCertificateRepo, lcmClientRepo, mtlsCertificateRepo, certificateRenewalRepo)
+	deployerClient, cleanup4, err := client.NewDeployerClient(context, moduleDialer)
+	if err != nil {
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	issuedCertificateService := service.NewIssuedCertificateService(context, issuedCertificateRepo, lcmClientRepo, mtlsCertificateRepo, certificateRenewalRepo, deployerClient)
 	tenantSecretService := service.NewTenantSecretService(context, tenantSecretRepo, lcmClientRepo)
 	auditLogService := service.NewAuditLogService(context, auditLogRepo, lcmClientRepo)
 	mtlsCertService, err := service.NewMtlsCertService(context, mtlsCertificateRepo, lcmClientRepo, collector)
 	if err != nil {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
@@ -93,6 +101,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	certificatePermissionService := service.NewCertificatePermissionService(context, certificatePermissionRepo, lcmClientRepo, issuedCertificateRepo)
 	mtlsCertificateRequestService, err := service.NewMtlsCertificateRequestService(context, mtlsCertificateRequestRepo, mtlsCertificateRepo, lcmClientRepo)
 	if err != nil {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
@@ -106,6 +115,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	httpServer := server.NewHTTPServer(context)
 	bootstrapBootstrapService, err := bootstrap2.NewBootstrapService(context, mtlsCertificateRepo, lcmClientRepo, issuedCertificateRepo, issuerRepo)
 	if err != nil {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
@@ -115,6 +125,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	renewalScheduler := service.NewRenewalScheduler(context, renewalConfig, lcm, issuedCertificateRepo, certificateRenewalRepo, issuerRepo, lcmClientRepo, certificateJobService, publisher)
 	webhookService, err := webhook.NewService(context, redisClient)
 	if err != nil {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
@@ -122,6 +133,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	}
 	app := newApp(context, grpcServer, httpServer, bootstrapBootstrapService, renewalScheduler, webhookService)
 	return app, func() {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()

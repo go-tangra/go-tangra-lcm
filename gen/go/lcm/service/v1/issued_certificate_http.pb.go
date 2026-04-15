@@ -19,16 +19,22 @@ var _ = binding.EncodeURL
 
 const _ = http.SupportPackageIsVersion1
 
+const OperationLcmIssuedCertificateServiceDeployCertificate = "/lcm.service.v1.LcmIssuedCertificateService/DeployCertificate"
 const OperationLcmIssuedCertificateServiceForceRenewCertificate = "/lcm.service.v1.LcmIssuedCertificateService/ForceRenewCertificate"
 const OperationLcmIssuedCertificateServiceGetIssuedCertificate = "/lcm.service.v1.LcmIssuedCertificateService/GetIssuedCertificate"
+const OperationLcmIssuedCertificateServiceListDeploymentTargets = "/lcm.service.v1.LcmIssuedCertificateService/ListDeploymentTargets"
 const OperationLcmIssuedCertificateServiceListIssuedCertificates = "/lcm.service.v1.LcmIssuedCertificateService/ListIssuedCertificates"
 const OperationLcmIssuedCertificateServiceUpdateIssuedCertificate = "/lcm.service.v1.LcmIssuedCertificateService/UpdateIssuedCertificate"
 
 type LcmIssuedCertificateServiceHTTPServer interface {
+	// DeployCertificate Deploy a certificate via the deployer module
+	DeployCertificate(context.Context, *DeployCertificateRequest) (*DeployCertificateResponse, error)
 	// ForceRenewCertificate Force renew an issued certificate
 	ForceRenewCertificate(context.Context, *ForceRenewCertificateRequest) (*ForceRenewCertificateResponse, error)
 	// GetIssuedCertificate Get a single issued certificate by ID
 	GetIssuedCertificate(context.Context, *GetIssuedCertificateRequest) (*GetIssuedCertificateResponse, error)
+	// ListDeploymentTargets List available deployment targets from the deployer module
+	ListDeploymentTargets(context.Context, *ListDeploymentTargetsRequest) (*ListDeploymentTargetsResponse, error)
 	// ListIssuedCertificates List issued certificates with optional filters
 	ListIssuedCertificates(context.Context, *ListIssuedCertificatesRequest) (*ListIssuedCertificatesResponse, error)
 	// UpdateIssuedCertificate Update an issued certificate (e.g. auto-renew settings)
@@ -41,6 +47,8 @@ func RegisterLcmIssuedCertificateServiceHTTPServer(s *http.Server, srv LcmIssued
 	r.GET("/v1/issued-certificates/{id}", _LcmIssuedCertificateService_GetIssuedCertificate0_HTTP_Handler(srv))
 	r.PATCH("/v1/issued-certificates/{id}", _LcmIssuedCertificateService_UpdateIssuedCertificate0_HTTP_Handler(srv))
 	r.POST("/v1/issued-certificates/{id}/renew", _LcmIssuedCertificateService_ForceRenewCertificate0_HTTP_Handler(srv))
+	r.POST("/v1/issued-certificates/{id}/deploy", _LcmIssuedCertificateService_DeployCertificate0_HTTP_Handler(srv))
+	r.GET("/v1/deployment-targets", _LcmIssuedCertificateService_ListDeploymentTargets0_HTTP_Handler(srv))
 }
 
 func _LcmIssuedCertificateService_ListIssuedCertificates0_HTTP_Handler(srv LcmIssuedCertificateServiceHTTPServer) func(ctx http.Context) error {
@@ -134,11 +142,59 @@ func _LcmIssuedCertificateService_ForceRenewCertificate0_HTTP_Handler(srv LcmIss
 	}
 }
 
+func _LcmIssuedCertificateService_DeployCertificate0_HTTP_Handler(srv LcmIssuedCertificateServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in DeployCertificateRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationLcmIssuedCertificateServiceDeployCertificate)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.DeployCertificate(ctx, req.(*DeployCertificateRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*DeployCertificateResponse)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _LcmIssuedCertificateService_ListDeploymentTargets0_HTTP_Handler(srv LcmIssuedCertificateServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in ListDeploymentTargetsRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationLcmIssuedCertificateServiceListDeploymentTargets)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.ListDeploymentTargets(ctx, req.(*ListDeploymentTargetsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ListDeploymentTargetsResponse)
+		return ctx.Result(200, reply)
+	}
+}
+
 type LcmIssuedCertificateServiceHTTPClient interface {
+	// DeployCertificate Deploy a certificate via the deployer module
+	DeployCertificate(ctx context.Context, req *DeployCertificateRequest, opts ...http.CallOption) (rsp *DeployCertificateResponse, err error)
 	// ForceRenewCertificate Force renew an issued certificate
 	ForceRenewCertificate(ctx context.Context, req *ForceRenewCertificateRequest, opts ...http.CallOption) (rsp *ForceRenewCertificateResponse, err error)
 	// GetIssuedCertificate Get a single issued certificate by ID
 	GetIssuedCertificate(ctx context.Context, req *GetIssuedCertificateRequest, opts ...http.CallOption) (rsp *GetIssuedCertificateResponse, err error)
+	// ListDeploymentTargets List available deployment targets from the deployer module
+	ListDeploymentTargets(ctx context.Context, req *ListDeploymentTargetsRequest, opts ...http.CallOption) (rsp *ListDeploymentTargetsResponse, err error)
 	// ListIssuedCertificates List issued certificates with optional filters
 	ListIssuedCertificates(ctx context.Context, req *ListIssuedCertificatesRequest, opts ...http.CallOption) (rsp *ListIssuedCertificatesResponse, err error)
 	// UpdateIssuedCertificate Update an issued certificate (e.g. auto-renew settings)
@@ -151,6 +207,20 @@ type LcmIssuedCertificateServiceHTTPClientImpl struct {
 
 func NewLcmIssuedCertificateServiceHTTPClient(client *http.Client) LcmIssuedCertificateServiceHTTPClient {
 	return &LcmIssuedCertificateServiceHTTPClientImpl{client}
+}
+
+// DeployCertificate Deploy a certificate via the deployer module
+func (c *LcmIssuedCertificateServiceHTTPClientImpl) DeployCertificate(ctx context.Context, in *DeployCertificateRequest, opts ...http.CallOption) (*DeployCertificateResponse, error) {
+	var out DeployCertificateResponse
+	pattern := "/v1/issued-certificates/{id}/deploy"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationLcmIssuedCertificateServiceDeployCertificate))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // ForceRenewCertificate Force renew an issued certificate
@@ -173,6 +243,20 @@ func (c *LcmIssuedCertificateServiceHTTPClientImpl) GetIssuedCertificate(ctx con
 	pattern := "/v1/issued-certificates/{id}"
 	path := binding.EncodeURL(pattern, in, true)
 	opts = append(opts, http.Operation(OperationLcmIssuedCertificateServiceGetIssuedCertificate))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// ListDeploymentTargets List available deployment targets from the deployer module
+func (c *LcmIssuedCertificateServiceHTTPClientImpl) ListDeploymentTargets(ctx context.Context, in *ListDeploymentTargetsRequest, opts ...http.CallOption) (*ListDeploymentTargetsResponse, error) {
+	var out ListDeploymentTargetsResponse
+	pattern := "/v1/deployment-targets"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationLcmIssuedCertificateServiceListDeploymentTargets))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {

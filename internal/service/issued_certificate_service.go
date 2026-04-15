@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
+	lcmClient "github.com/go-tangra/go-tangra-lcm/internal/client"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterenewal"
@@ -26,6 +27,7 @@ type IssuedCertificateService struct {
 	clientRepo     *data.LcmClientRepo
 	mtlsCertRepo   *data.MtlsCertificateRepo
 	renewalRepo    *data.CertificateRenewalRepo
+	deployerClient *lcmClient.DeployerClient
 }
 
 // NewIssuedCertificateService creates a new IssuedCertificateService
@@ -35,6 +37,7 @@ func NewIssuedCertificateService(
 	clientRepo *data.LcmClientRepo,
 	mtlsCertRepo *data.MtlsCertificateRepo,
 	renewalRepo *data.CertificateRenewalRepo,
+	deployerClient *lcmClient.DeployerClient,
 ) *IssuedCertificateService {
 	return &IssuedCertificateService{
 		log:            ctx.NewLoggerHelper("lcm/service/issued-certificate"),
@@ -42,6 +45,7 @@ func NewIssuedCertificateService(
 		clientRepo:     clientRepo,
 		mtlsCertRepo:   mtlsCertRepo,
 		renewalRepo:    renewalRepo,
+		deployerClient: deployerClient,
 	}
 }
 
@@ -311,6 +315,104 @@ func (s *IssuedCertificateService) UpdateIssuedCertificate(ctx context.Context, 
 	return &lcmV1.UpdateIssuedCertificateResponse{
 		Certificate: mapIssuedCertToProto(updated),
 	}, nil
+}
+
+// DeployCertificate deploys a certificate via the deployer module
+func (s *IssuedCertificateService) DeployCertificate(ctx context.Context, req *lcmV1.DeployCertificateRequest) (*lcmV1.DeployCertificateResponse, error) {
+	tenantID, _, err := s.getClientInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Look up the certificate
+	cert, err := s.issuedCertRepo.GetByID(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	if cert == nil {
+		return nil, lcmV1.ErrorNotFound("issued certificate '%s' not found", req.GetId())
+	}
+
+	// Verify tenant access
+	if tenantID != 0 && cert.TenantID != tenantID {
+		return nil, lcmV1.ErrorNotFound("issued certificate '%s' not found", req.GetId())
+	}
+
+	// Only allow deployment for issued certificates
+	if cert.Status != issuedcertificate.StatusIssued {
+		return nil, lcmV1.ErrorBadRequest("certificate must be in ISSUED status to deploy")
+	}
+
+	if s.deployerClient == nil {
+		return nil, lcmV1.ErrorInternalServerError("deployer module is not available")
+	}
+
+	// Must provide either target or configuration
+	if req.DeploymentTargetId == nil && req.TargetConfigurationId == nil {
+		return nil, lcmV1.ErrorBadRequest("either deployment_target_id or target_configuration_id must be provided")
+	}
+
+	// Use platform context for cross-module call
+	deployCtx := lcmClient.DetachedMetadataContext(ctx, tenantID)
+
+	if req.DeploymentTargetId != nil {
+		resp, err := s.deployerClient.DeployToTarget(deployCtx, *req.DeploymentTargetId, req.GetId())
+		if err != nil {
+			s.log.Errorf("Failed to deploy certificate %s to target %s: %v", req.GetId(), *req.DeploymentTargetId, err)
+			return nil, lcmV1.ErrorInternalServerError("deployment failed: %v", err)
+		}
+		s.log.Infof("Deployed certificate %s to target %s, job=%s", req.GetId(), *req.DeploymentTargetId, resp.GetJob().GetId())
+		return &lcmV1.DeployCertificateResponse{
+			JobId:   resp.GetJob().GetId(),
+			Message: "Deployment job created successfully",
+		}, nil
+	}
+
+	resp, err := s.deployerClient.Deploy(deployCtx, *req.TargetConfigurationId, req.GetId())
+	if err != nil {
+		s.log.Errorf("Failed to deploy certificate %s to config %s: %v", req.GetId(), *req.TargetConfigurationId, err)
+		return nil, lcmV1.ErrorInternalServerError("deployment failed: %v", err)
+	}
+	s.log.Infof("Deployed certificate %s to config %s, job=%s", req.GetId(), *req.TargetConfigurationId, resp.GetJob().GetId())
+	return &lcmV1.DeployCertificateResponse{
+		JobId:   resp.GetJob().GetId(),
+		Message: "Deployment job created successfully",
+	}, nil
+}
+
+// ListDeploymentTargets lists available deployment targets from the deployer module
+func (s *IssuedCertificateService) ListDeploymentTargets(ctx context.Context, _ *lcmV1.ListDeploymentTargetsRequest) (*lcmV1.ListDeploymentTargetsResponse, error) {
+	tenantID, _, err := s.getClientInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.deployerClient == nil {
+		return &lcmV1.ListDeploymentTargetsResponse{
+			Targets: []*lcmV1.DeploymentTargetInfo{},
+		}, nil
+	}
+
+	deployCtx := lcmClient.DetachedMetadataContext(ctx, tenantID)
+	resp, err := s.deployerClient.ListTargets(deployCtx)
+	if err != nil {
+		s.log.Warnf("Failed to list deployment targets: %v", err)
+		return &lcmV1.ListDeploymentTargetsResponse{
+			Targets: []*lcmV1.DeploymentTargetInfo{},
+		}, nil
+	}
+
+	targets := make([]*lcmV1.DeploymentTargetInfo, 0, len(resp.GetItems()))
+	for _, t := range resp.GetItems() {
+		targets = append(targets, &lcmV1.DeploymentTargetInfo{
+			Id:                 t.GetId(),
+			Name:               t.GetName(),
+			Description:        t.GetDescription(),
+			ConfigurationCount: t.GetConfigurationCount(),
+		})
+	}
+
+	return &lcmV1.ListDeploymentTargetsResponse{Targets: targets}, nil
 }
 
 // mapIssuedCertToProto maps a database entity to a proto message

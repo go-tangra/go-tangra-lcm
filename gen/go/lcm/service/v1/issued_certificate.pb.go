@@ -708,6 +708,273 @@ func (x *UpdateIssuedCertificateResponse) GetCertificate() *IssuedCertificateInf
 	return nil
 }
 
+// Request to deploy a certificate
+type DeployCertificateRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Deploy to a target group (creates parent + child jobs)
+	DeploymentTargetId *string `protobuf:"bytes,2,opt,name=deployment_target_id,json=deploymentTargetId,proto3,oneof" json:"deployment_target_id,omitempty"`
+	// Deploy to a single target configuration
+	TargetConfigurationId *string `protobuf:"bytes,3,opt,name=target_configuration_id,json=targetConfigurationId,proto3,oneof" json:"target_configuration_id,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *DeployCertificateRequest) Reset() {
+	*x = DeployCertificateRequest{}
+	mi := &file_lcm_service_v1_issued_certificate_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeployCertificateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeployCertificateRequest) ProtoMessage() {}
+
+func (x *DeployCertificateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_issued_certificate_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeployCertificateRequest.ProtoReflect.Descriptor instead.
+func (*DeployCertificateRequest) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_issued_certificate_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *DeployCertificateRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DeployCertificateRequest) GetDeploymentTargetId() string {
+	if x != nil && x.DeploymentTargetId != nil {
+		return *x.DeploymentTargetId
+	}
+	return ""
+}
+
+func (x *DeployCertificateRequest) GetTargetConfigurationId() string {
+	if x != nil && x.TargetConfigurationId != nil {
+		return *x.TargetConfigurationId
+	}
+	return ""
+}
+
+// Response for deploying a certificate
+type DeployCertificateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeployCertificateResponse) Reset() {
+	*x = DeployCertificateResponse{}
+	mi := &file_lcm_service_v1_issued_certificate_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeployCertificateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeployCertificateResponse) ProtoMessage() {}
+
+func (x *DeployCertificateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_issued_certificate_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeployCertificateResponse.ProtoReflect.Descriptor instead.
+func (*DeployCertificateResponse) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_issued_certificate_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *DeployCertificateResponse) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *DeployCertificateResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// Request to list deployment targets
+type ListDeploymentTargetsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDeploymentTargetsRequest) Reset() {
+	*x = ListDeploymentTargetsRequest{}
+	mi := &file_lcm_service_v1_issued_certificate_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDeploymentTargetsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDeploymentTargetsRequest) ProtoMessage() {}
+
+func (x *ListDeploymentTargetsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_issued_certificate_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDeploymentTargetsRequest.ProtoReflect.Descriptor instead.
+func (*ListDeploymentTargetsRequest) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_issued_certificate_proto_rawDescGZIP(), []int{11}
+}
+
+// Deployment target info
+type DeploymentTargetInfo struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name               string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description        string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	ConfigurationCount int32                  `protobuf:"varint,4,opt,name=configuration_count,json=configurationCount,proto3" json:"configuration_count,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *DeploymentTargetInfo) Reset() {
+	*x = DeploymentTargetInfo{}
+	mi := &file_lcm_service_v1_issued_certificate_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeploymentTargetInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeploymentTargetInfo) ProtoMessage() {}
+
+func (x *DeploymentTargetInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_issued_certificate_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeploymentTargetInfo.ProtoReflect.Descriptor instead.
+func (*DeploymentTargetInfo) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_issued_certificate_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *DeploymentTargetInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DeploymentTargetInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DeploymentTargetInfo) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *DeploymentTargetInfo) GetConfigurationCount() int32 {
+	if x != nil {
+		return x.ConfigurationCount
+	}
+	return 0
+}
+
+// Response for listing deployment targets
+type ListDeploymentTargetsResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Targets       []*DeploymentTargetInfo `protobuf:"bytes,1,rep,name=targets,proto3" json:"targets,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDeploymentTargetsResponse) Reset() {
+	*x = ListDeploymentTargetsResponse{}
+	mi := &file_lcm_service_v1_issued_certificate_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDeploymentTargetsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDeploymentTargetsResponse) ProtoMessage() {}
+
+func (x *ListDeploymentTargetsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_issued_certificate_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDeploymentTargetsResponse.ProtoReflect.Descriptor instead.
+func (*ListDeploymentTargetsResponse) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_issued_certificate_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ListDeploymentTargetsResponse) GetTargets() []*DeploymentTargetInfo {
+	if x != nil {
+		return x.Targets
+	}
+	return nil
+}
+
 var File_lcm_service_v1_issued_certificate_proto protoreflect.FileDescriptor
 
 const file_lcm_service_v1_issued_certificate_proto_rawDesc = "" +
@@ -780,7 +1047,24 @@ const file_lcm_service_v1_issued_certificate_proto_rawDesc = "" +
 	"\x13_auto_renew_enabledB \n" +
 	"\x1e_auto_renew_days_before_expiry\"j\n" +
 	"\x1fUpdateIssuedCertificateResponse\x12G\n" +
-	"\vcertificate\x18\x01 \x01(\v2%.lcm.service.v1.IssuedCertificateInfoR\vcertificate*\xd6\x02\n" +
+	"\vcertificate\x18\x01 \x01(\v2%.lcm.service.v1.IssuedCertificateInfoR\vcertificate\"\xf3\x01\n" +
+	"\x18DeployCertificateRequest\x12.\n" +
+	"\x02id\x18\x01 \x01(\tB\x1e\xe0A\x02\xbaH\x18r\x16\x10\x01\x18$2\x10^[a-fA-F0-9\\-]+$R\x02id\x125\n" +
+	"\x14deployment_target_id\x18\x02 \x01(\tH\x00R\x12deploymentTargetId\x88\x01\x01\x12;\n" +
+	"\x17target_configuration_id\x18\x03 \x01(\tH\x01R\x15targetConfigurationId\x88\x01\x01B\x17\n" +
+	"\x15_deployment_target_idB\x1a\n" +
+	"\x18_target_configuration_id\"L\n" +
+	"\x19DeployCertificateResponse\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\x1e\n" +
+	"\x1cListDeploymentTargetsRequest\"\x8d\x01\n" +
+	"\x14DeploymentTargetInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12/\n" +
+	"\x13configuration_count\x18\x04 \x01(\x05R\x12configurationCount\"_\n" +
+	"\x1dListDeploymentTargetsResponse\x12>\n" +
+	"\atargets\x18\x01 \x03(\v2$.lcm.service.v1.DeploymentTargetInfoR\atargets*\xd6\x02\n" +
 	"\x17IssuedCertificateStatus\x12)\n" +
 	"%ISSUED_CERTIFICATE_STATUS_UNSPECIFIED\x10\x00\x12%\n" +
 	"!ISSUED_CERTIFICATE_STATUS_PENDING\x10\x01\x12(\n" +
@@ -789,12 +1073,14 @@ const file_lcm_service_v1_issued_certificate_proto_rawDesc = "" +
 	"!ISSUED_CERTIFICATE_STATUS_EXPIRED\x10\x04\x12%\n" +
 	"!ISSUED_CERTIFICATE_STATUS_REVOKED\x10\x05\x12$\n" +
 	" ISSUED_CERTIFICATE_STATUS_FAILED\x10\x06\x12%\n" +
-	"!ISSUED_CERTIFICATE_STATUS_RENEWED\x10\a2\x9e\x05\n" +
+	"!ISSUED_CERTIFICATE_STATUS_RENEWED\x10\a2\xd0\a\n" +
 	"\x1bLcmIssuedCertificateService\x12\x98\x01\n" +
 	"\x16ListIssuedCertificates\x12-.lcm.service.v1.ListIssuedCertificatesRequest\x1a..lcm.service.v1.ListIssuedCertificatesResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/v1/issued-certificates\x12\x97\x01\n" +
 	"\x14GetIssuedCertificate\x12+.lcm.service.v1.GetIssuedCertificateRequest\x1a,.lcm.service.v1.GetIssuedCertificateResponse\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/v1/issued-certificates/{id}\x12\xa3\x01\n" +
 	"\x17UpdateIssuedCertificate\x12..lcm.service.v1.UpdateIssuedCertificateRequest\x1a/.lcm.service.v1.UpdateIssuedCertificateResponse\"'\x82\xd3\xe4\x93\x02!:\x01*2\x1c/v1/issued-certificates/{id}\x12\xa3\x01\n" +
-	"\x15ForceRenewCertificate\x12,.lcm.service.v1.ForceRenewCertificateRequest\x1a-.lcm.service.v1.ForceRenewCertificateResponse\"-\x82\xd3\xe4\x93\x02':\x01*\"\"/v1/issued-certificates/{id}/renewB\xca\x01\n" +
+	"\x15ForceRenewCertificate\x12,.lcm.service.v1.ForceRenewCertificateRequest\x1a-.lcm.service.v1.ForceRenewCertificateResponse\"-\x82\xd3\xe4\x93\x02':\x01*\"\"/v1/issued-certificates/{id}/renew\x12\x98\x01\n" +
+	"\x11DeployCertificate\x12(.lcm.service.v1.DeployCertificateRequest\x1a).lcm.service.v1.DeployCertificateResponse\".\x82\xd3\xe4\x93\x02(:\x01*\"#/v1/issued-certificates/{id}/deploy\x12\x94\x01\n" +
+	"\x15ListDeploymentTargets\x12,.lcm.service.v1.ListDeploymentTargetsRequest\x1a-.lcm.service.v1.ListDeploymentTargetsResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/v1/deployment-targetsB\xca\x01\n" +
 	"\x12com.lcm.service.v1B\x16IssuedCertificateProtoP\x01ZBgithub.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1;servicev1\xa2\x02\x03LSX\xaa\x02\x0eLcm.Service.V1\xca\x02\x0eLcm\\Service\\V1\xe2\x02\x1aLcm\\Service\\V1\\GPBMetadata\xea\x02\x10Lcm::Service::V1b\x06proto3"
 
 var (
@@ -810,7 +1096,7 @@ func file_lcm_service_v1_issued_certificate_proto_rawDescGZIP() []byte {
 }
 
 var file_lcm_service_v1_issued_certificate_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_lcm_service_v1_issued_certificate_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_lcm_service_v1_issued_certificate_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_lcm_service_v1_issued_certificate_proto_goTypes = []any{
 	(IssuedCertificateStatus)(0),            // 0: lcm.service.v1.IssuedCertificateStatus
 	(*ListIssuedCertificatesRequest)(nil),   // 1: lcm.service.v1.ListIssuedCertificatesRequest
@@ -822,30 +1108,40 @@ var file_lcm_service_v1_issued_certificate_proto_goTypes = []any{
 	(*ForceRenewCertificateResponse)(nil),   // 7: lcm.service.v1.ForceRenewCertificateResponse
 	(*UpdateIssuedCertificateRequest)(nil),  // 8: lcm.service.v1.UpdateIssuedCertificateRequest
 	(*UpdateIssuedCertificateResponse)(nil), // 9: lcm.service.v1.UpdateIssuedCertificateResponse
-	(*timestamppb.Timestamp)(nil),           // 10: google.protobuf.Timestamp
+	(*DeployCertificateRequest)(nil),        // 10: lcm.service.v1.DeployCertificateRequest
+	(*DeployCertificateResponse)(nil),       // 11: lcm.service.v1.DeployCertificateResponse
+	(*ListDeploymentTargetsRequest)(nil),    // 12: lcm.service.v1.ListDeploymentTargetsRequest
+	(*DeploymentTargetInfo)(nil),            // 13: lcm.service.v1.DeploymentTargetInfo
+	(*ListDeploymentTargetsResponse)(nil),   // 14: lcm.service.v1.ListDeploymentTargetsResponse
+	(*timestamppb.Timestamp)(nil),           // 15: google.protobuf.Timestamp
 }
 var file_lcm_service_v1_issued_certificate_proto_depIdxs = []int32{
 	0,  // 0: lcm.service.v1.ListIssuedCertificatesRequest.status:type_name -> lcm.service.v1.IssuedCertificateStatus
 	5,  // 1: lcm.service.v1.ListIssuedCertificatesResponse.certificates:type_name -> lcm.service.v1.IssuedCertificateInfo
 	5,  // 2: lcm.service.v1.GetIssuedCertificateResponse.certificate:type_name -> lcm.service.v1.IssuedCertificateInfo
 	0,  // 3: lcm.service.v1.IssuedCertificateInfo.status:type_name -> lcm.service.v1.IssuedCertificateStatus
-	10, // 4: lcm.service.v1.IssuedCertificateInfo.expires_at:type_name -> google.protobuf.Timestamp
-	10, // 5: lcm.service.v1.IssuedCertificateInfo.created_at:type_name -> google.protobuf.Timestamp
-	10, // 6: lcm.service.v1.IssuedCertificateInfo.updated_at:type_name -> google.protobuf.Timestamp
+	15, // 4: lcm.service.v1.IssuedCertificateInfo.expires_at:type_name -> google.protobuf.Timestamp
+	15, // 5: lcm.service.v1.IssuedCertificateInfo.created_at:type_name -> google.protobuf.Timestamp
+	15, // 6: lcm.service.v1.IssuedCertificateInfo.updated_at:type_name -> google.protobuf.Timestamp
 	5,  // 7: lcm.service.v1.UpdateIssuedCertificateResponse.certificate:type_name -> lcm.service.v1.IssuedCertificateInfo
-	1,  // 8: lcm.service.v1.LcmIssuedCertificateService.ListIssuedCertificates:input_type -> lcm.service.v1.ListIssuedCertificatesRequest
-	3,  // 9: lcm.service.v1.LcmIssuedCertificateService.GetIssuedCertificate:input_type -> lcm.service.v1.GetIssuedCertificateRequest
-	8,  // 10: lcm.service.v1.LcmIssuedCertificateService.UpdateIssuedCertificate:input_type -> lcm.service.v1.UpdateIssuedCertificateRequest
-	6,  // 11: lcm.service.v1.LcmIssuedCertificateService.ForceRenewCertificate:input_type -> lcm.service.v1.ForceRenewCertificateRequest
-	2,  // 12: lcm.service.v1.LcmIssuedCertificateService.ListIssuedCertificates:output_type -> lcm.service.v1.ListIssuedCertificatesResponse
-	4,  // 13: lcm.service.v1.LcmIssuedCertificateService.GetIssuedCertificate:output_type -> lcm.service.v1.GetIssuedCertificateResponse
-	9,  // 14: lcm.service.v1.LcmIssuedCertificateService.UpdateIssuedCertificate:output_type -> lcm.service.v1.UpdateIssuedCertificateResponse
-	7,  // 15: lcm.service.v1.LcmIssuedCertificateService.ForceRenewCertificate:output_type -> lcm.service.v1.ForceRenewCertificateResponse
-	12, // [12:16] is the sub-list for method output_type
-	8,  // [8:12] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	13, // 8: lcm.service.v1.ListDeploymentTargetsResponse.targets:type_name -> lcm.service.v1.DeploymentTargetInfo
+	1,  // 9: lcm.service.v1.LcmIssuedCertificateService.ListIssuedCertificates:input_type -> lcm.service.v1.ListIssuedCertificatesRequest
+	3,  // 10: lcm.service.v1.LcmIssuedCertificateService.GetIssuedCertificate:input_type -> lcm.service.v1.GetIssuedCertificateRequest
+	8,  // 11: lcm.service.v1.LcmIssuedCertificateService.UpdateIssuedCertificate:input_type -> lcm.service.v1.UpdateIssuedCertificateRequest
+	6,  // 12: lcm.service.v1.LcmIssuedCertificateService.ForceRenewCertificate:input_type -> lcm.service.v1.ForceRenewCertificateRequest
+	10, // 13: lcm.service.v1.LcmIssuedCertificateService.DeployCertificate:input_type -> lcm.service.v1.DeployCertificateRequest
+	12, // 14: lcm.service.v1.LcmIssuedCertificateService.ListDeploymentTargets:input_type -> lcm.service.v1.ListDeploymentTargetsRequest
+	2,  // 15: lcm.service.v1.LcmIssuedCertificateService.ListIssuedCertificates:output_type -> lcm.service.v1.ListIssuedCertificatesResponse
+	4,  // 16: lcm.service.v1.LcmIssuedCertificateService.GetIssuedCertificate:output_type -> lcm.service.v1.GetIssuedCertificateResponse
+	9,  // 17: lcm.service.v1.LcmIssuedCertificateService.UpdateIssuedCertificate:output_type -> lcm.service.v1.UpdateIssuedCertificateResponse
+	7,  // 18: lcm.service.v1.LcmIssuedCertificateService.ForceRenewCertificate:output_type -> lcm.service.v1.ForceRenewCertificateResponse
+	11, // 19: lcm.service.v1.LcmIssuedCertificateService.DeployCertificate:output_type -> lcm.service.v1.DeployCertificateResponse
+	14, // 20: lcm.service.v1.LcmIssuedCertificateService.ListDeploymentTargets:output_type -> lcm.service.v1.ListDeploymentTargetsResponse
+	15, // [15:21] is the sub-list for method output_type
+	9,  // [9:15] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_lcm_service_v1_issued_certificate_proto_init() }
@@ -858,13 +1154,14 @@ func file_lcm_service_v1_issued_certificate_proto_init() {
 	file_lcm_service_v1_issued_certificate_proto_msgTypes[3].OneofWrappers = []any{}
 	file_lcm_service_v1_issued_certificate_proto_msgTypes[4].OneofWrappers = []any{}
 	file_lcm_service_v1_issued_certificate_proto_msgTypes[7].OneofWrappers = []any{}
+	file_lcm_service_v1_issued_certificate_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_lcm_service_v1_issued_certificate_proto_rawDesc), len(file_lcm_service_v1_issued_certificate_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   9,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -273,7 +273,14 @@
       "renewFailed": "Failed to schedule certificate renewal",
       "editTitle": "Edit Certificate Settings",
       "updateSuccess": "Certificate settings updated successfully",
-      "updateFailed": "Failed to update certificate settings"
+      "updateFailed": "Failed to update certificate settings",
+      "deploy": "Deploy",
+      "deployTitle": "Deploy Certificate",
+      "deployButton": "Deploy",
+      "deploymentTarget": "Deployment Target",
+      "selectTarget": "Please select a deployment target",
+      "deploySuccess": "Deployment job created successfully",
+      "deployFailed": "Failed to create deployment job"
     },
     "auditLog": {
       "moduleName": "LCM Audit Log",

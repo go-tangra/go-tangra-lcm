@@ -89,6 +89,28 @@ func (s *redactedLcmIssuedCertificateServiceServer) ForceRenewCertificate(ctx co
 	return res, err
 }
 
+// DeployCertificate is the redacted wrapper for the actual LcmIssuedCertificateServiceServer.DeployCertificate method
+// Unary RPC
+func (s *redactedLcmIssuedCertificateServiceServer) DeployCertificate(ctx context.Context, in *DeployCertificateRequest) (*DeployCertificateResponse, error) {
+	res, err := s.srv.DeployCertificate(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
+// ListDeploymentTargets is the redacted wrapper for the actual LcmIssuedCertificateServiceServer.ListDeploymentTargets method
+// Unary RPC
+func (s *redactedLcmIssuedCertificateServiceServer) ListDeploymentTargets(ctx context.Context, in *ListDeploymentTargetsRequest) (*ListDeploymentTargetsResponse, error) {
+	res, err := s.srv.ListDeploymentTargets(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
 // Redact method implementation for ListIssuedCertificatesRequest
 func (x *ListIssuedCertificatesRequest) Redact() string {
 	if x == nil {
@@ -234,5 +256,65 @@ func (x *UpdateIssuedCertificateResponse) Redact() string {
 	}
 
 	// Safe field: Certificate
+	return x.String()
+}
+
+// Redact method implementation for DeployCertificateRequest
+func (x *DeployCertificateRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Id
+
+	// Safe field: DeploymentTargetId
+
+	// Safe field: TargetConfigurationId
+	return x.String()
+}
+
+// Redact method implementation for DeployCertificateResponse
+func (x *DeployCertificateResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: JobId
+
+	// Safe field: Message
+	return x.String()
+}
+
+// Redact method implementation for ListDeploymentTargetsRequest
+func (x *ListDeploymentTargetsRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+	return x.String()
+}
+
+// Redact method implementation for DeploymentTargetInfo
+func (x *DeploymentTargetInfo) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Id
+
+	// Safe field: Name
+
+	// Safe field: Description
+
+	// Safe field: ConfigurationCount
+	return x.String()
+}
+
+// Redact method implementation for ListDeploymentTargetsResponse
+func (x *ListDeploymentTargetsResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Targets
 	return x.String()
 }

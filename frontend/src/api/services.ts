@@ -339,6 +339,27 @@ export interface UpdateIssuedCertificateResponse {
   certificate?: IssuedCertificateInfo;
 }
 
+export interface DeployCertificateRequest {
+  deploymentTargetId?: string;
+  targetConfigurationId?: string;
+}
+
+export interface DeployCertificateResponse {
+  jobId?: string;
+  message?: string;
+}
+
+export interface DeploymentTargetInfo {
+  id?: string;
+  name?: string;
+  description?: string;
+  configurationCount?: number;
+}
+
+export interface ListDeploymentTargetsResponse {
+  targets?: DeploymentTargetInfo[];
+}
+
 export const IssuedCertificateService = {
   list: async (
     params?: {
@@ -386,6 +407,27 @@ export const IssuedCertificateService = {
     return lcmApi.post<ForceRenewCertificateResponse>(
       `/issued-certificates/${id}/renew`,
       undefined,
+      options
+    );
+  },
+
+  deploy: async (
+    id: string,
+    data: DeployCertificateRequest,
+    options?: RequestOptions
+  ): Promise<DeployCertificateResponse> => {
+    return lcmApi.post<DeployCertificateResponse>(
+      `/issued-certificates/${id}/deploy`,
+      data,
+      options
+    );
+  },
+
+  listDeploymentTargets: async (
+    options?: RequestOptions
+  ): Promise<ListDeploymentTargetsResponse> => {
+    return lcmApi.get<ListDeploymentTargetsResponse>(
+      `/deployment-targets`,
       options
     );
   },

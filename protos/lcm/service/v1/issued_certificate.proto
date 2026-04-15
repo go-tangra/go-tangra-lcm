@@ -39,6 +39,21 @@ service LcmIssuedCertificateService {
       body: "*"
     };
   }
+
+  // Deploy a certificate via the deployer module
+  rpc DeployCertificate(DeployCertificateRequest) returns (DeployCertificateResponse) {
+    option (google.api.http) = {
+      post: "/v1/issued-certificates/{id}/deploy"
+      body: "*"
+    };
+  }
+
+  // List available deployment targets from the deployer module
+  rpc ListDeploymentTargets(ListDeploymentTargetsRequest) returns (ListDeploymentTargetsResponse) {
+    option (google.api.http) = {
+      get: "/v1/deployment-targets"
+    };
+  }
 }
 
 // Issued certificate status enumeration
@@ -158,4 +173,43 @@ message UpdateIssuedCertificateRequest {
 // Response for updating an issued certificate
 message UpdateIssuedCertificateResponse {
   IssuedCertificateInfo certificate = 1 [json_name = "certificate"];
+}
+
+// Request to deploy a certificate
+message DeployCertificateRequest {
+  string id = 1 [
+    json_name = "id",
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 36
+      pattern: "^[a-fA-F0-9\\-]+$"
+    }
+  ];
+  // Deploy to a target group (creates parent + child jobs)
+  optional string deployment_target_id = 2 [json_name = "deploymentTargetId"];
+  // Deploy to a single target configuration
+  optional string target_configuration_id = 3 [json_name = "targetConfigurationId"];
+}
+
+// Response for deploying a certificate
+message DeployCertificateResponse {
+  string job_id = 1 [json_name = "jobId"];
+  string message = 2 [json_name = "message"];
+}
+
+// Request to list deployment targets
+message ListDeploymentTargetsRequest {}
+
+// Deployment target info
+message DeploymentTargetInfo {
+  string id = 1 [json_name = "id"];
+  string name = 2 [json_name = "name"];
+  string description = 3 [json_name = "description"];
+  int32 configuration_count = 4 [json_name = "configurationCount"];
+}
+
+// Response for listing deployment targets
+message ListDeploymentTargetsResponse {
+  repeated DeploymentTargetInfo targets = 1 [json_name = "targets"];
 }

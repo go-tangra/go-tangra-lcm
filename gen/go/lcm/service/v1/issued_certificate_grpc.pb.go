@@ -23,6 +23,8 @@ const (
 	LcmIssuedCertificateService_GetIssuedCertificate_FullMethodName    = "/lcm.service.v1.LcmIssuedCertificateService/GetIssuedCertificate"
 	LcmIssuedCertificateService_UpdateIssuedCertificate_FullMethodName = "/lcm.service.v1.LcmIssuedCertificateService/UpdateIssuedCertificate"
 	LcmIssuedCertificateService_ForceRenewCertificate_FullMethodName   = "/lcm.service.v1.LcmIssuedCertificateService/ForceRenewCertificate"
+	LcmIssuedCertificateService_DeployCertificate_FullMethodName       = "/lcm.service.v1.LcmIssuedCertificateService/DeployCertificate"
+	LcmIssuedCertificateService_ListDeploymentTargets_FullMethodName   = "/lcm.service.v1.LcmIssuedCertificateService/ListDeploymentTargets"
 )
 
 // LcmIssuedCertificateServiceClient is the client API for LcmIssuedCertificateService service.
@@ -39,6 +41,10 @@ type LcmIssuedCertificateServiceClient interface {
 	UpdateIssuedCertificate(ctx context.Context, in *UpdateIssuedCertificateRequest, opts ...grpc.CallOption) (*UpdateIssuedCertificateResponse, error)
 	// Force renew an issued certificate
 	ForceRenewCertificate(ctx context.Context, in *ForceRenewCertificateRequest, opts ...grpc.CallOption) (*ForceRenewCertificateResponse, error)
+	// Deploy a certificate via the deployer module
+	DeployCertificate(ctx context.Context, in *DeployCertificateRequest, opts ...grpc.CallOption) (*DeployCertificateResponse, error)
+	// List available deployment targets from the deployer module
+	ListDeploymentTargets(ctx context.Context, in *ListDeploymentTargetsRequest, opts ...grpc.CallOption) (*ListDeploymentTargetsResponse, error)
 }
 
 type lcmIssuedCertificateServiceClient struct {
@@ -89,6 +95,26 @@ func (c *lcmIssuedCertificateServiceClient) ForceRenewCertificate(ctx context.Co
 	return out, nil
 }
 
+func (c *lcmIssuedCertificateServiceClient) DeployCertificate(ctx context.Context, in *DeployCertificateRequest, opts ...grpc.CallOption) (*DeployCertificateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeployCertificateResponse)
+	err := c.cc.Invoke(ctx, LcmIssuedCertificateService_DeployCertificate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *lcmIssuedCertificateServiceClient) ListDeploymentTargets(ctx context.Context, in *ListDeploymentTargetsRequest, opts ...grpc.CallOption) (*ListDeploymentTargetsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDeploymentTargetsResponse)
+	err := c.cc.Invoke(ctx, LcmIssuedCertificateService_ListDeploymentTargets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LcmIssuedCertificateServiceServer is the server API for LcmIssuedCertificateService service.
 // All implementations must embed UnimplementedLcmIssuedCertificateServiceServer
 // for forward compatibility.
@@ -103,6 +129,10 @@ type LcmIssuedCertificateServiceServer interface {
 	UpdateIssuedCertificate(context.Context, *UpdateIssuedCertificateRequest) (*UpdateIssuedCertificateResponse, error)
 	// Force renew an issued certificate
 	ForceRenewCertificate(context.Context, *ForceRenewCertificateRequest) (*ForceRenewCertificateResponse, error)
+	// Deploy a certificate via the deployer module
+	DeployCertificate(context.Context, *DeployCertificateRequest) (*DeployCertificateResponse, error)
+	// List available deployment targets from the deployer module
+	ListDeploymentTargets(context.Context, *ListDeploymentTargetsRequest) (*ListDeploymentTargetsResponse, error)
 	mustEmbedUnimplementedLcmIssuedCertificateServiceServer()
 }
 
@@ -124,6 +154,12 @@ func (UnimplementedLcmIssuedCertificateServiceServer) UpdateIssuedCertificate(co
 }
 func (UnimplementedLcmIssuedCertificateServiceServer) ForceRenewCertificate(context.Context, *ForceRenewCertificateRequest) (*ForceRenewCertificateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ForceRenewCertificate not implemented")
+}
+func (UnimplementedLcmIssuedCertificateServiceServer) DeployCertificate(context.Context, *DeployCertificateRequest) (*DeployCertificateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeployCertificate not implemented")
+}
+func (UnimplementedLcmIssuedCertificateServiceServer) ListDeploymentTargets(context.Context, *ListDeploymentTargetsRequest) (*ListDeploymentTargetsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDeploymentTargets not implemented")
 }
 func (UnimplementedLcmIssuedCertificateServiceServer) mustEmbedUnimplementedLcmIssuedCertificateServiceServer() {
 }
@@ -219,6 +255,42 @@ func _LcmIssuedCertificateService_ForceRenewCertificate_Handler(srv interface{},
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LcmIssuedCertificateService_DeployCertificate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeployCertificateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LcmIssuedCertificateServiceServer).DeployCertificate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LcmIssuedCertificateService_DeployCertificate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LcmIssuedCertificateServiceServer).DeployCertificate(ctx, req.(*DeployCertificateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LcmIssuedCertificateService_ListDeploymentTargets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDeploymentTargetsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LcmIssuedCertificateServiceServer).ListDeploymentTargets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LcmIssuedCertificateService_ListDeploymentTargets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LcmIssuedCertificateServiceServer).ListDeploymentTargets(ctx, req.(*ListDeploymentTargetsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LcmIssuedCertificateService_ServiceDesc is the grpc.ServiceDesc for LcmIssuedCertificateService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -241,6 +313,14 @@ var LcmIssuedCertificateService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ForceRenewCertificate",
 			Handler:    _LcmIssuedCertificateService_ForceRenewCertificate_Handler,
+		},
+		{
+			MethodName: "DeployCertificate",
+			Handler:    _LcmIssuedCertificateService_DeployCertificate_Handler,
+		},
+		{
+			MethodName: "ListDeploymentTargets",
+			Handler:    _LcmIssuedCertificateService_ListDeploymentTargets_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

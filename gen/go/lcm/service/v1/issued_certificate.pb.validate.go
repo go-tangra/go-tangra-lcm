@@ -1225,3 +1225,571 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = UpdateIssuedCertificateResponseValidationError{}
+
+// Validate checks the field values on DeployCertificateRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *DeployCertificateRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DeployCertificateRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DeployCertificateRequestMultiError, or nil if none found.
+func (m *DeployCertificateRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DeployCertificateRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Id
+
+	if m.DeploymentTargetId != nil {
+		// no validation rules for DeploymentTargetId
+	}
+
+	if m.TargetConfigurationId != nil {
+		// no validation rules for TargetConfigurationId
+	}
+
+	if len(errors) > 0 {
+		return DeployCertificateRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// DeployCertificateRequestMultiError is an error wrapping multiple validation
+// errors returned by DeployCertificateRequest.ValidateAll() if the designated
+// constraints aren't met.
+type DeployCertificateRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DeployCertificateRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DeployCertificateRequestMultiError) AllErrors() []error { return m }
+
+// DeployCertificateRequestValidationError is the validation error returned by
+// DeployCertificateRequest.Validate if the designated constraints aren't met.
+type DeployCertificateRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DeployCertificateRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DeployCertificateRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DeployCertificateRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DeployCertificateRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DeployCertificateRequestValidationError) ErrorName() string {
+	return "DeployCertificateRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DeployCertificateRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDeployCertificateRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DeployCertificateRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DeployCertificateRequestValidationError{}
+
+// Validate checks the field values on DeployCertificateResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *DeployCertificateResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DeployCertificateResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DeployCertificateResponseMultiError, or nil if none found.
+func (m *DeployCertificateResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DeployCertificateResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for JobId
+
+	// no validation rules for Message
+
+	if len(errors) > 0 {
+		return DeployCertificateResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// DeployCertificateResponseMultiError is an error wrapping multiple validation
+// errors returned by DeployCertificateResponse.ValidateAll() if the
+// designated constraints aren't met.
+type DeployCertificateResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DeployCertificateResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DeployCertificateResponseMultiError) AllErrors() []error { return m }
+
+// DeployCertificateResponseValidationError is the validation error returned by
+// DeployCertificateResponse.Validate if the designated constraints aren't met.
+type DeployCertificateResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DeployCertificateResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DeployCertificateResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DeployCertificateResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DeployCertificateResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DeployCertificateResponseValidationError) ErrorName() string {
+	return "DeployCertificateResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DeployCertificateResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDeployCertificateResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DeployCertificateResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DeployCertificateResponseValidationError{}
+
+// Validate checks the field values on ListDeploymentTargetsRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ListDeploymentTargetsRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListDeploymentTargetsRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ListDeploymentTargetsRequestMultiError, or nil if none found.
+func (m *ListDeploymentTargetsRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListDeploymentTargetsRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return ListDeploymentTargetsRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// ListDeploymentTargetsRequestMultiError is an error wrapping multiple
+// validation errors returned by ListDeploymentTargetsRequest.ValidateAll() if
+// the designated constraints aren't met.
+type ListDeploymentTargetsRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListDeploymentTargetsRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListDeploymentTargetsRequestMultiError) AllErrors() []error { return m }
+
+// ListDeploymentTargetsRequestValidationError is the validation error returned
+// by ListDeploymentTargetsRequest.Validate if the designated constraints
+// aren't met.
+type ListDeploymentTargetsRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListDeploymentTargetsRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListDeploymentTargetsRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListDeploymentTargetsRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListDeploymentTargetsRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListDeploymentTargetsRequestValidationError) ErrorName() string {
+	return "ListDeploymentTargetsRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListDeploymentTargetsRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListDeploymentTargetsRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListDeploymentTargetsRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListDeploymentTargetsRequestValidationError{}
+
+// Validate checks the field values on DeploymentTargetInfo with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *DeploymentTargetInfo) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DeploymentTargetInfo with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DeploymentTargetInfoMultiError, or nil if none found.
+func (m *DeploymentTargetInfo) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DeploymentTargetInfo) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Id
+
+	// no validation rules for Name
+
+	// no validation rules for Description
+
+	// no validation rules for ConfigurationCount
+
+	if len(errors) > 0 {
+		return DeploymentTargetInfoMultiError(errors)
+	}
+
+	return nil
+}
+
+// DeploymentTargetInfoMultiError is an error wrapping multiple validation
+// errors returned by DeploymentTargetInfo.ValidateAll() if the designated
+// constraints aren't met.
+type DeploymentTargetInfoMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DeploymentTargetInfoMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DeploymentTargetInfoMultiError) AllErrors() []error { return m }
+
+// DeploymentTargetInfoValidationError is the validation error returned by
+// DeploymentTargetInfo.Validate if the designated constraints aren't met.
+type DeploymentTargetInfoValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DeploymentTargetInfoValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DeploymentTargetInfoValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DeploymentTargetInfoValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DeploymentTargetInfoValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DeploymentTargetInfoValidationError) ErrorName() string {
+	return "DeploymentTargetInfoValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DeploymentTargetInfoValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDeploymentTargetInfo.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DeploymentTargetInfoValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DeploymentTargetInfoValidationError{}
+
+// Validate checks the field values on ListDeploymentTargetsResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ListDeploymentTargetsResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListDeploymentTargetsResponse with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// ListDeploymentTargetsResponseMultiError, or nil if none found.
+func (m *ListDeploymentTargetsResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListDeploymentTargetsResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetTargets() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListDeploymentTargetsResponseValidationError{
+						field:  fmt.Sprintf("Targets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListDeploymentTargetsResponseValidationError{
+						field:  fmt.Sprintf("Targets[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListDeploymentTargetsResponseValidationError{
+					field:  fmt.Sprintf("Targets[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return ListDeploymentTargetsResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// ListDeploymentTargetsResponseMultiError is an error wrapping multiple
+// validation errors returned by ListDeploymentTargetsResponse.ValidateAll()
+// if the designated constraints aren't met.
+type ListDeploymentTargetsResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListDeploymentTargetsResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListDeploymentTargetsResponseMultiError) AllErrors() []error { return m }
+
+// ListDeploymentTargetsResponseValidationError is the validation error
+// returned by ListDeploymentTargetsResponse.Validate if the designated
+// constraints aren't met.
+type ListDeploymentTargetsResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListDeploymentTargetsResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListDeploymentTargetsResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListDeploymentTargetsResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListDeploymentTargetsResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListDeploymentTargetsResponseValidationError) ErrorName() string {
+	return "ListDeploymentTargetsResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListDeploymentTargetsResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListDeploymentTargetsResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListDeploymentTargetsResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListDeploymentTargetsResponseValidationError{}

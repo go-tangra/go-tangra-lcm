@@ -4,7 +4,7 @@ import type { VxeGridProps } from 'shell/adapter/vxe-table';
 import { h, computed, ref } from 'vue';
 
 import { Page, useVbenDrawer, type VbenFormProps } from 'shell/vben/common-ui';
-import { LucideEye, LucideDownload, LucideKeyRound, LucideRefreshCw, LucidePencil } from 'shell/vben/icons';
+import { LucideEye, LucideDownload, LucideKeyRound, LucideRefreshCw, LucidePencil, LucideRocket } from 'shell/vben/icons';
 
 import { notification } from 'ant-design-vue';
 
@@ -17,6 +17,7 @@ import { downloadFile } from '../../utils';
 
 import IssuedCertificateDrawer from './issued-certificate-drawer.vue';
 import IssuedCertificateEditDrawer from './issued-certificate-edit-drawer.vue';
+import IssuedCertificateDeployDrawer from './issued-certificate-deploy-drawer.vue';
 
 const issuedCertStore = useLcmIssuedCertificateStore();
 const issuerStore = useLcmIssuerStore();
@@ -200,7 +201,7 @@ const gridOptions: VxeGridProps<IssuedCertificateInfo> = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 230,
+      width: 260,
     },
   ],
 };
@@ -227,6 +228,10 @@ const [EditDrawer, editDrawerApi] = useVbenDrawer({
   },
 });
 
+const [DeployDrawer, deployDrawerApi] = useVbenDrawer({
+  connectedComponent: IssuedCertificateDeployDrawer,
+});
+
 function handleView(row: IssuedCertificateInfo) {
   drawerApi.setData({ row });
   drawerApi.open();
@@ -235,6 +240,11 @@ function handleView(row: IssuedCertificateInfo) {
 function handleEdit(row: IssuedCertificateInfo) {
   editDrawerApi.setData({ row });
   editDrawerApi.open();
+}
+
+function handleDeploy(row: IssuedCertificateInfo) {
+  deployDrawerApi.setData({ row });
+  deployDrawerApi.open();
 }
 
 async function handleDownloadCert(row: IssuedCertificateInfo) {
@@ -311,6 +321,13 @@ async function handleDownloadKey(row: IssuedCertificateInfo) {
         <a-button
           v-if="isIssued(row)"
           type="link"
+          :icon="h(LucideRocket)"
+          :title="$t('lcm.page.issuedCertificate.deploy')"
+          @click.stop="handleDeploy(row)"
+        />
+        <a-button
+          v-if="isIssued(row)"
+          type="link"
           :icon="h(LucideDownload)"
           :title="$t('lcm.page.issuedCertificate.downloadCert')"
           @click.stop="handleDownloadCert(row)"
@@ -339,5 +356,6 @@ async function handleDownloadKey(row: IssuedCertificateInfo) {
     </Grid>
     <Drawer />
     <EditDrawer />
+    <DeployDrawer />
   </Page>
 </template>

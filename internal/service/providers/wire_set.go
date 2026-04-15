@@ -45,4 +45,5 @@ var ProviderSet = wire.NewSet(
 	client.NewRegistrationClient,
 	client.NewModuleDialer,
 	client.NewNotificationClient,
+	client.NewDeployerClient,
 )

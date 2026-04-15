@@ -4,6 +4,8 @@ go 1.25.4
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1
+	buf.build/gen/go/go-tangra/deployer/grpc/go v1.6.1-20260327215907-fef748a31956.1
+	buf.build/gen/go/go-tangra/deployer/protocolbuffers/go v1.36.11-20260327215907-fef748a31956.1
 	buf.build/gen/go/go-tangra/notification/grpc/go v1.6.1-20260328103302-5cea3986f469.1
 	buf.build/gen/go/go-tangra/notification/protocolbuffers/go v1.36.11-20260328103302-5cea3986f469.1
 	entgo.io/ent v0.14.5
@@ -43,6 +45,7 @@ require (
 	ariga.io/atlas v1.0.0 // indirect
 	buf.build/gen/go/gnostic/gnostic/protocolbuffers/go v1.36.11-20230414000709-087bc8072ce4.1 // indirect
 	buf.build/gen/go/kratos/apis/protocolbuffers/go v1.36.11-20230105082401-c2de25f14fa4.1 // indirect
+	buf.build/gen/go/menta2k-org/redact/protocolbuffers/go v1.36.11-20251106144841-73f00ca72edd.1 // indirect
 	buf.build/gen/go/tx7do/pagination/protocolbuffers/go v1.36.11-20260118135817-7e34dd27013f.1 // indirect
 	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go/auth v0.18.0 // indirect
