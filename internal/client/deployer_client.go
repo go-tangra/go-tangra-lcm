@@ -9,6 +9,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 
 	"github.com/go-tangra/go-tangra-common/grpcx"
 
@@ -63,10 +64,20 @@ func (c *DeployerClient) resolve() error {
 	}
 
 	c.log.Info("Resolving deployer module endpoint...")
-	conn, err := c.dialer.DialModule(context.Background(), "deployer", 5, 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	conn, err := c.dialer.DialModule(ctx, "deployer", 2, 3*time.Second)
 	if err != nil {
 		c.log.Errorf("Failed to resolve deployer: %v", err)
 		return fmt.Errorf("resolve deployer: %w", err)
+	}
+
+	// Verify the connection is usable by waiting for it to become ready
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer waitCancel()
+	conn.Connect()
+	if !conn.WaitForStateChange(waitCtx, connectivity.Idle) {
+		c.log.Warnf("Deployer connection did not leave IDLE state, current: %s", conn.GetState())
 	}
 
 	c.conn = conn
@@ -75,7 +86,7 @@ func (c *DeployerClient) resolve() error {
 	c.ConfigurationService = deployergrpc.NewTargetConfigurationServiceClient(conn)
 	c.JobService = deployergrpc.NewDeploymentJobServiceClient(conn)
 	c.resolved = true
-	c.log.Info("Deployer client connected via ModuleDialer")
+	c.log.Infof("Deployer client connected via ModuleDialer (state: %s)", conn.GetState())
 	return nil
 }
 
@@ -84,7 +95,9 @@ func (c *DeployerClient) ListTargets(ctx context.Context) (*deployerv1.ListTarge
 	if err := c.resolve(); err != nil {
 		return nil, err
 	}
-	return c.TargetService.ListTargets(ctx, &deployerv1.ListTargetsRequest{})
+	rpcCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	return c.TargetService.ListTargets(rpcCtx, &deployerv1.ListTargetsRequest{})
 }
 
 // ListConfigurations lists target configurations.
@@ -92,7 +105,9 @@ func (c *DeployerClient) ListConfigurations(ctx context.Context) (*deployerv1.Li
 	if err := c.resolve(); err != nil {
 		return nil, err
 	}
-	return c.ConfigurationService.ListConfigurations(ctx, &deployerv1.ListConfigurationsRequest{})
+	rpcCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	return c.ConfigurationService.ListConfigurations(rpcCtx, &deployerv1.ListConfigurationsRequest{})
 }
 
 // Deploy deploys a certificate to a single target configuration.
@@ -100,7 +115,9 @@ func (c *DeployerClient) Deploy(ctx context.Context, configID, certID string) (*
 	if err := c.resolve(); err != nil {
 		return nil, err
 	}
-	return c.DeploymentService.Deploy(ctx, &deployerv1.DeployRequest{
+	rpcCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	return c.DeploymentService.Deploy(rpcCtx, &deployerv1.DeployRequest{
 		TargetConfigurationId: configID,
 		CertificateId:        certID,
 	})
@@ -112,7 +129,9 @@ func (c *DeployerClient) DeployToTarget(ctx context.Context, targetID, certID st
 		return nil, err
 	}
 	triggerType := deployerv1.TriggerType_TRIGGER_TYPE_MANUAL
-	return c.DeploymentService.DeployToTarget(ctx, &deployerv1.DeployToTargetRequest{
+	rpcCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	return c.DeploymentService.DeployToTarget(rpcCtx, &deployerv1.DeployToTargetRequest{
 		DeploymentTargetId: targetID,
 		CertificateId:      certID,
 		TriggeredBy:        &triggerType,
