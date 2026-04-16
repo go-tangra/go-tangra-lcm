@@ -234,7 +234,7 @@ function handleDownloadKey() {
           </div>
           <Paragraph
             :copyable="{ text: certResponse.privateKeyPem }"
-            style="margin-bottom: 0; font-family: monospace; font-size: 11px; max-height: 150px; overflow: auto; background: #fff7e6;"
+            style="margin-bottom: 0; font-family: monospace; font-size: 11px; max-height: 150px; overflow: auto; background: var(--ant-color-warning-bg, rgba(250, 173, 20, 0.1)); border: 1px solid var(--ant-color-warning-border, rgba(250, 173, 20, 0.2)); border-radius: 4px; padding: 8px;"
           >
             <pre style="margin: 0; white-space: pre-wrap; word-break: break-all;">{{ certResponse.privateKeyPem }}</pre>
           </Paragraph>
