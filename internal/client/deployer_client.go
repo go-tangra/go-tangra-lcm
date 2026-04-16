@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -12,13 +13,15 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"github.com/go-tangra/go-tangra-common/grpcx"
+	"github.com/go-tangra/go-tangra-common/registration"
 
 	deployerv1 "buf.build/gen/go/go-tangra/deployer/protocolbuffers/go/deployer/service/v1"
 	deployergrpc "buf.build/gen/go/go-tangra/deployer/grpc/go/deployer/service/v1/servicev1grpc"
 )
 
 // DeployerClient wraps gRPC clients for the Deployer service.
-// It resolves the deployer endpoint lazily via ModuleDialer on first use.
+// It uses a dedicated ModuleDialer with callerModuleID="deployer" so that
+// mTLS cert paths match LCM's bootstrap convention: {dataDir}/deployer/deployer.{crt,key}.
 type DeployerClient struct {
 	dialer *grpcx.ModuleDialer
 	log    *log.Helper
@@ -33,9 +36,21 @@ type DeployerClient struct {
 	JobService           deployergrpc.DeploymentJobServiceClient
 }
 
-// NewDeployerClient creates a new Deployer gRPC client that resolves via ModuleDialer.
-func NewDeployerClient(ctx *bootstrap.Context, dialer *grpcx.ModuleDialer) (*DeployerClient, func(), error) {
+// NewDeployerClient creates a new Deployer gRPC client with a dedicated ModuleDialer.
+// The dialer uses callerModuleID="deployer" to match LCM's bootstrap cert layout
+// where deployer certs are at {certsDir}/deployer/deployer.crt.
+func NewDeployerClient(ctx *bootstrap.Context, regClient *registration.Client) (*DeployerClient, func(), error) {
 	l := ctx.NewLoggerHelper("deployer/client/lcm-service")
+
+	if regClient == nil {
+		l.Warn("No registration client, deployer client will be unavailable")
+		return nil, func() {}, nil
+	}
+
+	// Create a dedicated ModuleDialer with callerModuleID="deployer"
+	// so it loads certs from {certsDir}/deployer/deployer.{crt,key}
+	certsDir := os.Getenv("CERTS_DIR")
+	dialer := grpcx.NewModuleDialer(ctx.GetLogger(), "deployer", regClient.AdminConn(), certsDir)
 
 	dc := &DeployerClient{
 		dialer: dialer,
@@ -72,7 +87,7 @@ func (c *DeployerClient) resolve() error {
 		return fmt.Errorf("resolve deployer: %w", err)
 	}
 
-	// Verify the connection is usable by waiting for it to become ready
+	// Verify the connection is usable
 	waitCtx, waitCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer waitCancel()
 	conn.Connect()

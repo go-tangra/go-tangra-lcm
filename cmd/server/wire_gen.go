@@ -79,7 +79,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	}
 	certificateJobService := service.NewCertificateJobService(context, lcm, issuerRepo, lcmClientRepo, mtlsCertificateRepo, issuedCertificateRepo, publisher, collector, notificationClient)
 	certificateRenewalRepo := data.NewCertificateRenewalRepo(context, entClient)
-	deployerClient, cleanup4, err := client.NewDeployerClient(context, moduleDialer)
+	deployerClient, cleanup4, err := client.NewDeployerClient(context, registrationClient)
 	if err != nil {
 		cleanup3()
 		cleanup2()
