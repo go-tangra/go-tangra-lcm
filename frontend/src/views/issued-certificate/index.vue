@@ -4,7 +4,7 @@ import type { VxeGridProps } from 'shell/adapter/vxe-table';
 import { h, computed, ref } from 'vue';
 
 import { Page, useVbenDrawer, type VbenFormProps } from 'shell/vben/common-ui';
-import { LucideEye, LucideDownload, LucideKeyRound, LucideRefreshCw, LucidePencil, LucideRocket } from 'shell/vben/icons';
+import { LucideEye, LucideDownload, LucideKeyRound, LucideRefreshCw, LucidePencil, LucideUpload } from 'shell/vben/icons';
 
 import { notification } from 'ant-design-vue';
 
@@ -321,7 +321,7 @@ async function handleDownloadKey(row: IssuedCertificateInfo) {
         <a-button
           v-if="isIssued(row)"
           type="link"
-          :icon="h(LucideRocket)"
+          :icon="h(LucideUpload)"
           :title="$t('lcm.page.issuedCertificate.deploy')"
           @click.stop="handleDeploy(row)"
         />
