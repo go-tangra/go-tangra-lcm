@@ -348,14 +348,29 @@ func (s *RenewalScheduler) processRenewal(ctx context.Context, renewal *ent.Cert
 	// Get common name from domains
 	commonName := getCommonNameFromDomains(renewal.Domains)
 
-	// Generate new key and CSR for renewal
+	// Generate new key and CSR for renewal. Prefer the existing cert's SPKI
+	// as the source of truth — the stored key_type/key_size columns may lie
+	// (historical rows persisted the caller's requested type, not the type
+	// the issuer actually produced).
 	keyType := "ecdsa"
 	keySize := 256
-	if cert.KeyType != "" {
-		keyType = string(cert.KeyType)
+	derived := false
+	if cert.CertPem != "" {
+		if parsed, pErr := parseCertificatePEM(cert.CertPem); pErr == nil {
+			if kt, ks := extractSPKIInfo(parsed); kt != "" {
+				keyType = kt
+				keySize = int(ks)
+				derived = true
+			}
+		}
 	}
-	if cert.KeySize > 0 {
-		keySize = int(cert.KeySize)
+	if !derived {
+		if cert.KeyType != "" {
+			keyType = string(cert.KeyType)
+		}
+		if cert.KeySize > 0 {
+			keySize = int(cert.KeySize)
+		}
 	}
 
 	privateKeyPEM, csrPEM, err := generateKeyAndCSR(commonName, renewal.Domains, nil, keyType, keySize)
