@@ -392,7 +392,7 @@ func (s *RenewalScheduler) processRenewal(ctx context.Context, renewal *ent.Cert
 	}
 
 	// Update the issued certificate with new data
-	err = s.issuedCertRepo.UpdateCertificate(ctx, cert.ID, issuedCert.Certificate, privateKeyPEM, issuedCert.CACertificate, "", issuedCert.ExpiresAt)
+	err = s.issuedCertRepo.UpdateCertificate(ctx, cert.ID, issuedCert.Certificate, privateKeyPEM, issuedCert.CACertificate, "", issuedCert.ExpiresAt, issuedCert.KeyType, issuedCert.KeySize)
 	if err != nil {
 		return &renewalError{message: "failed to update certificate: " + err.Error(), permanent: false}
 	}

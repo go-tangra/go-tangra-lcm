@@ -174,16 +174,27 @@ func (r *IssuedCertificateRepo) UpdateStatus(ctx context.Context, id string, sta
 	return nil
 }
 
-// UpdateCertificate updates the certificate data after issuance
-func (r *IssuedCertificateRepo) UpdateCertificate(ctx context.Context, id string, certPEM, keyPEM, caPEM, fingerprint string, expiresAt time.Time) error {
-	_, err := r.entClient.Client().IssuedCertificate.UpdateOneID(id).
+// UpdateCertificate updates the certificate data after issuance.
+// keyType and keySize are optional — pass empty/zero to leave the existing
+// values unchanged. Callers that parse the issued cert's SPKI should always
+// pass them so the record reflects the actual key.
+func (r *IssuedCertificateRepo) UpdateCertificate(ctx context.Context, id string, certPEM, keyPEM, caPEM, fingerprint string, expiresAt time.Time, keyType string, keySize int32) error {
+	builder := r.entClient.Client().IssuedCertificate.UpdateOneID(id).
 		SetCertPem(certPEM).
 		SetPrivateKeyPem(keyPEM).
 		SetCaCertPem(caPEM).
 		SetCertificateFingerprint(fingerprint).
 		SetExpiresAt(expiresAt).
-		SetStatus(issuedcertificate.StatusIssued).
-		Save(ctx)
+		SetStatus(issuedcertificate.StatusIssued)
+
+	if keyType != "" {
+		builder.SetKeyType(issuedcertificate.KeyType(strings.ToLower(keyType)))
+	}
+	if keySize > 0 {
+		builder.SetKeySize(keySize)
+	}
+
+	_, err := builder.Save(ctx)
 	if err != nil {
 		r.log.Errorf("update issued certificate failed: %s", err.Error())
 		return lcmV1.ErrorInternalServerError("update issued certificate failed")
@@ -399,21 +410,34 @@ func (r *IssuedCertificateRepo) CreateJob(ctx context.Context, req *CreateJobReq
 
 // CompleteJobRequest contains data for completing a certificate job
 type CompleteJobRequest struct {
-	Certificate     string
-	CACertificate   string
-	SerialNumber    string
-	ExpiresAt       time.Time
+	Certificate   string
+	CACertificate string
+	SerialNumber  string
+	ExpiresAt     time.Time
+	// KeyType and KeySize derived from the issued cert's SPKI. Overwrite the
+	// values set at job-creation time because the issuer may have used a
+	// different key type than the caller requested.
+	KeyType string
+	KeySize int32
 }
 
 // CompleteJob updates a job to completed status with certificate data
 func (r *IssuedCertificateRepo) CompleteJob(ctx context.Context, id string, req *CompleteJobRequest) error {
-	_, err := r.entClient.Client().IssuedCertificate.UpdateOneID(id).
+	builder := r.entClient.Client().IssuedCertificate.UpdateOneID(id).
 		SetStatus(issuedcertificate.StatusIssued).
 		SetCertPem(req.Certificate).
 		SetCaCertPem(req.CACertificate).
 		SetCertificateFingerprint(req.SerialNumber).
-		SetExpiresAt(req.ExpiresAt).
-		Save(ctx)
+		SetExpiresAt(req.ExpiresAt)
+
+	if req.KeyType != "" {
+		builder.SetKeyType(issuedcertificate.KeyType(strings.ToLower(req.KeyType)))
+	}
+	if req.KeySize > 0 {
+		builder.SetKeySize(req.KeySize)
+	}
+
+	_, err := builder.Save(ctx)
 	if err != nil {
 		r.log.Errorf("complete certificate job failed: %s", err.Error())
 		return lcmV1.ErrorInternalServerError("complete certificate job failed")

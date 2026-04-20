@@ -48,6 +48,11 @@ type IssuedCertificate struct {
 	ExpiresAt     time.Time // Expiration time
 	IssuedAt      time.Time // Issue time
 
+	// Actual public-key algorithm and size, derived from the issued cert's SPKI.
+	// May diverge from the caller's request (e.g. ACME issuer key-type overrides).
+	KeyType string // "rsa", "ecdsa", or "ed25519"
+	KeySize int32  // Key size in bits
+
 	// Subject fields for certificate matching
 	SubjectOrganization string // Certificate Subject Organization
 	SubjectOrgUnit      string // Certificate Subject Organizational Unit

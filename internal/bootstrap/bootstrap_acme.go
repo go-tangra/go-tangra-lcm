@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -413,18 +415,20 @@ func (bs *BootstrapService) registerFrontendCertificate(ctx context.Context, cfg
 		}
 	}
 
-	// Parse expiry from the certificate PEM
-	expiresAt, err := parseCertExpiry(certData.Certificate)
+	// Parse the issued cert once and derive expiry + actual key info from its SPKI.
+	issuedCert, err := parseLeafCert(certData.Certificate)
 	if err != nil {
-		return fmt.Errorf("failed to parse certificate expiry: %w", err)
+		return fmt.Errorf("failed to parse issued certificate: %w", err)
 	}
+	expiresAt := issuedCert.NotAfter
+	actualKeyType, actualKeySize := extractSPKIInfo(issuedCert)
 
 	renewBeforeDays := cfg.GetRenewBeforeDays()
 	if renewBeforeDays <= 0 {
 		renewBeforeDays = 30
 	}
 
-	keyType := mapKeyType(cfg.GetKeyType())
+	keyTypeEnum := mapKeyType(actualKeyType)
 
 	// Check if record already exists
 	existing, err := bs.issuedCertRepo.GetByID(ctx, certID)
@@ -440,6 +444,8 @@ func (bs *BootstrapService) registerFrontendCertificate(ctx context.Context, cfg
 			string(certData.IssuerCertificate),
 			"",
 			expiresAt,
+			actualKeyType,
+			actualKeySize,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to update certificate record: %w", err)
@@ -461,8 +467,8 @@ func (bs *BootstrapService) registerFrontendCertificate(ctx context.Context, cfg
 			AutoRenewEnabled:          true,
 			AutoRenewDaysBeforeExpiry: renewBeforeDays,
 			ServerGeneratedKey:        true,
-			KeyType:                   keyType,
-			KeySize:                   cfg.GetKeySize(),
+			KeyType:                   keyTypeEnum,
+			KeySize:                   actualKeySize,
 		}
 
 		if _, err := bs.issuedCertRepo.Create(ctx, cert); err != nil {
@@ -543,17 +549,32 @@ func (bs *BootstrapService) ensureFrontendClientEntry(ctx context.Context) {
 	}
 }
 
-// parseCertExpiry parses the expiration time from a PEM-encoded certificate.
-func parseCertExpiry(certPEM []byte) (time.Time, error) {
+// parseLeafCert parses the leaf (first) PEM-encoded certificate.
+func parseLeafCert(certPEM []byte) (*x509.Certificate, error) {
 	block, _ := pem.Decode(certPEM)
 	if block == nil {
-		return time.Time{}, fmt.Errorf("failed to decode certificate PEM")
+		return nil, fmt.Errorf("failed to decode certificate PEM")
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to parse certificate: %w", err)
+		return nil, fmt.Errorf("failed to parse certificate: %w", err)
 	}
-	return cert.NotAfter, nil
+	return cert, nil
+}
+
+// extractSPKIInfo returns the public-key algorithm ("rsa"/"ecdsa"/"ed25519")
+// and key size in bits for the given certificate's SubjectPublicKeyInfo.
+func extractSPKIInfo(cert *x509.Certificate) (string, int32) {
+	switch pk := cert.PublicKey.(type) {
+	case *rsa.PublicKey:
+		return "rsa", int32(pk.N.BitLen())
+	case *ecdsa.PublicKey:
+		return "ecdsa", int32(pk.Curve.Params().BitSize)
+	case ed25519.PublicKey:
+		return "ed25519", 256
+	default:
+		return "", 0
+	}
 }
 
 // mapKeyType maps config key type strings to the ent KeyType enum.

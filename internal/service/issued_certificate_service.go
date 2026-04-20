@@ -415,21 +415,36 @@ func (s *IssuedCertificateService) ListDeploymentTargets(ctx context.Context, _ 
 	return &lcmV1.ListDeploymentTargetsResponse{Targets: targets}, nil
 }
 
-// mapIssuedCertToProto maps a database entity to a proto message
+// mapIssuedCertToProto maps a database entity to a proto message.
+// When a certificate PEM is present we derive keyType/keySize from its SPKI
+// instead of trusting the stored columns — historical records persisted the
+// caller's requested values, which can diverge from what the issuer actually
+// produced.
 func mapIssuedCertToProto(cert *ent.IssuedCertificate) *lcmV1.IssuedCertificateInfo {
+	keyType := string(cert.KeyType)
+	keySize := cert.KeySize
+	if cert.CertPem != "" {
+		if parsed, err := parseCertificatePEM(cert.CertPem); err == nil {
+			if kt, ks := extractSPKIInfo(parsed); kt != "" {
+				keyType = kt
+				keySize = ks
+			}
+		}
+	}
+
 	info := &lcmV1.IssuedCertificateInfo{
-		Id:                       cert.ID,
-		CommonName:               cert.CommonName,
-		Domains:                  cert.Domains,
-		IssuerName:               cert.IssuerName,
-		IssuerType:               cert.IssuerType,
-		Status:                   mapIssuedCertDBStatusToProto(cert.Status),
-		AutoRenewEnabled:         cert.AutoRenewEnabled,
+		Id:                        cert.ID,
+		CommonName:                cert.CommonName,
+		Domains:                   cert.Domains,
+		IssuerName:                cert.IssuerName,
+		IssuerType:                cert.IssuerType,
+		Status:                    mapIssuedCertDBStatusToProto(cert.Status),
+		AutoRenewEnabled:          cert.AutoRenewEnabled,
 		AutoRenewDaysBeforeExpiry: cert.AutoRenewDaysBeforeExpiry,
-		KeyType:                  string(cert.KeyType),
-		KeySize:                  cert.KeySize,
-		CreatedAt:                timestamppb.New(cert.CreatedAt),
-		UpdatedAt:                timestamppb.New(cert.UpdatedAt),
+		KeyType:                   keyType,
+		KeySize:                   keySize,
+		CreatedAt:                 timestamppb.New(cert.CreatedAt),
+		UpdatedAt:                 timestamppb.New(cert.UpdatedAt),
 	}
 
 	if !cert.ExpiresAt.IsZero() {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
@@ -677,6 +678,8 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 		CACertificate: issuedCert.CACertificate,
 		SerialNumber:  issuedCert.SerialNumber,
 		ExpiresAt:     issuedCert.ExpiresAt,
+		KeyType:       issuedCert.KeyType,
+		KeySize:       issuedCert.KeySize,
 	}); dbErr != nil {
 		s.log.Errorf("Failed to persist job completion: %v", dbErr)
 	}
@@ -856,12 +859,20 @@ func (s *CertificateJobService) issueSelfSignedCertificate(ctx context.Context, 
 		Bytes: caCert.Raw,
 	})
 
+	issuedCert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse issued certificate: %w", err)
+	}
+	keyType, keySize := extractSPKIInfo(issuedCert)
+
 	return &biz.IssuedCertificate{
 		Certificate:         string(certPEM),
 		CACertificate:       string(caCertPEM),
 		SerialNumber:        serialNumber.String(),
 		IssuedAt:            notBefore,
 		ExpiresAt:           notAfter,
+		KeyType:             keyType,
+		KeySize:             keySize,
 		SubjectOrganization: selfSignedConfig.CaOrganization,
 		SubjectOrgUnit:      selfSignedConfig.CaOrganizationalUnit,
 		SubjectCountry:      selfSignedConfig.CaCountry,
@@ -966,6 +977,23 @@ func (s *CertificateJobService) getOrCreateCA(ctx context.Context, config *ent.S
 	s.log.Infof("Generated new CA: CN=%s, expires=%s", config.CaCommonName, notAfter)
 
 	return caCert, caKey, nil
+}
+
+// extractSPKIInfo derives the public-key algorithm ("rsa"/"ecdsa"/"ed25519")
+// and key size in bits from a certificate's SubjectPublicKeyInfo. This is the
+// source of truth — the caller's requested key type may differ from what the
+// issuer actually produced.
+func extractSPKIInfo(cert *x509.Certificate) (string, int32) {
+	switch pk := cert.PublicKey.(type) {
+	case *rsa.PublicKey:
+		return "rsa", int32(pk.N.BitLen())
+	case *ecdsa.PublicKey:
+		return "ecdsa", int32(pk.Curve.Params().BitSize)
+	case ed25519.PublicKey:
+		return "ed25519", 256
+	default:
+		return "", 0
+	}
 }
 
 // parseCertificatePEM parses a PEM-encoded certificate
@@ -1205,6 +1233,8 @@ func (s *CertificateJobService) issueACMECertificate(ctx context.Context, issuer
 		subjectCountry = cert.Subject.Country[0]
 	}
 
+	keyType, keySize := extractSPKIInfo(cert)
+
 	return &biz.IssuedCertificate{
 		Certificate:         string(certificates.Certificate),
 		CACertificate:       caCertPEM,
@@ -1212,6 +1242,8 @@ func (s *CertificateJobService) issueACMECertificate(ctx context.Context, issuer
 		SerialNumber:        cert.SerialNumber.String(),
 		IssuedAt:            cert.NotBefore,
 		ExpiresAt:           cert.NotAfter,
+		KeyType:             keyType,
+		KeySize:             keySize,
 		SubjectOrganization: subjectOrg,
 		SubjectOrgUnit:      subjectOrgUnit,
 		SubjectCountry:      subjectCountry,
