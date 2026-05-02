@@ -17,6 +17,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/cmd/server/assets"
 	lcmBootstrap "github.com/go-tangra/go-tangra-lcm/internal/bootstrap"
 	lcmCnf "github.com/go-tangra/go-tangra-lcm/internal/conf"
+	lcmServer "github.com/go-tangra/go-tangra-lcm/internal/server"
 	lcmService "github.com/go-tangra/go-tangra-lcm/internal/service"
 	lcmWebhook "github.com/go-tangra/go-tangra-lcm/internal/webhook"
 
@@ -43,6 +44,7 @@ var globalRegHelper *registration.RegistrationHelper
 func newApp(
 	ctx *bootstrap.Context,
 	gs *grpc.Server,
+	bootstrapGrpcSrv *lcmServer.BootstrapGRPCServer,
 	hs *kratosHttp.Server,
 	bootstrapSvc *lcmBootstrap.BootstrapService,
 	renewalScheduler *lcmService.RenewalScheduler,
@@ -86,7 +88,11 @@ func newApp(
 		MaxRetries:        60,
 	})
 
-	return bootstrap.NewApp(ctx, gs, hs)
+	// Register the bootstrap gRPC server (:9101) alongside the main
+	// mTLS server. NewApp accepts a variadic list of transport
+	// servers; passing the embedded *grpc.Server makes kratos start
+	// it on app launch and stop it on shutdown.
+	return bootstrap.NewApp(ctx, gs, bootstrapGrpcSrv.Server, hs)
 }
 
 // stopServices stops background services (called from wire cleanup)
