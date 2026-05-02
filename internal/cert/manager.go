@@ -93,6 +93,37 @@ func (cm *CertManager) GetServerTLSConfig() (*tls.Config, error) {
 	}, nil
 }
 
+// GetServerTLSConfigNoClientAuth returns a TLS config for the
+// bootstrap port (:9101). Modules dial it WITHOUT a client cert (the
+// whole point — they're asking for one), so ClientAuth is
+// NoClientCert. The presented server certificate chain is rebuilt to
+// include the CA cert as well as the leaf — pinning clients walk the
+// chain looking for their pinned fingerprint, and they typically pin
+// the CA (so the leaf can rotate independently). Without this the
+// chain is just [leaf] and the CA-pin check fails.
+func (cm *CertManager) GetServerTLSConfigNoClientAuth() (*tls.Config, error) {
+	cfg, err := cm.GetServerTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+	cfg.ClientAuth = tls.NoClientCert
+	cfg.ClientCAs = nil
+
+	// Append the CA's DER bytes to every loaded cert so clients
+	// pinning on the CA fingerprint see it in the chain.
+	caCert, _, err := cm.loadCA()
+	if err != nil {
+		return nil, fmt.Errorf("load CA for chain bundling: %w", err)
+	}
+	for i := range cfg.Certificates {
+		cfg.Certificates[i].Certificate = append(
+			cfg.Certificates[i].Certificate,
+			caCert.Raw,
+		)
+	}
+	return cfg, nil
+}
+
 // ensureCA ensures CA certificates exist, generating them if auto_generate_ca is enabled
 func (cm *CertManager) ensureCA() error {
 	caCertPath := cm.config.GetCaCertPath()

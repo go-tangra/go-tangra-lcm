@@ -112,6 +112,8 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	backupService := service.NewBackupService(context, entClient)
 	bootstrapService := service.NewBootstrapService(context, lcm, mtlsCertificateRepo, lcmClientRepo)
 	grpcServer := server.NewGRPCServer(context, certManager, collector, auditLogRepo, mtlsCertificateRepo, systemService, lcmClientService, issuerService, certificateJobService, issuedCertificateService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService, backupService, bootstrapService)
+	signCertificateService := service.NewSignCertificateService(context, lcm, mtlsCertificateRepo, lcmClientRepo, bootstrapService)
+	bootstrapGRPCServer := server.NewBootstrapGRPCServer(context, certManager, signCertificateService)
 	httpServer := server.NewHTTPServer(context)
 	bootstrapBootstrapService, err := bootstrap2.NewBootstrapService(context, mtlsCertificateRepo, lcmClientRepo, issuedCertificateRepo, issuerRepo)
 	if err != nil {
@@ -131,7 +133,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	app := newApp(context, grpcServer, httpServer, bootstrapBootstrapService, renewalScheduler, webhookService)
+	app := newApp(context, grpcServer, bootstrapGRPCServer, httpServer, bootstrapBootstrapService, renewalScheduler, webhookService)
 	return app, func() {
 		cleanup4()
 		cleanup3()
