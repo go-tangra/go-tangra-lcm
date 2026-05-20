@@ -12,6 +12,8 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
 
+	appViewer "github.com/go-tangra/go-tangra-common/viewer"
+
 	"github.com/go-tangra/go-tangra-lcm/internal/biz"
 	"github.com/go-tangra/go-tangra-lcm/internal/conf"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
@@ -153,7 +155,10 @@ func (s *RenewalScheduler) runScanner(interval time.Duration) {
 
 // scanAndScheduleRenewals scans for certificates due for renewal and creates renewal jobs
 func (s *RenewalScheduler) scanAndScheduleRenewals() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	// Inject system viewer so ent privacy policies allow the cross-tenant
+	// query for due certificates; the renewal scheduler is a background
+	// worker outside the request-scoped middleware chain.
+	ctx, cancel := context.WithTimeout(appViewer.NewSystemViewerContext(context.Background()), 5*time.Minute)
 	defer cancel()
 
 	s.log.Info("Scanning for certificates due for renewal...")
@@ -276,7 +281,10 @@ func (s *RenewalScheduler) runWorker(workerNum int) {
 
 // processNextRenewal attempts to process the next pending renewal
 func (s *RenewalScheduler) processNextRenewal(workerID string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	// Same rationale as scanAndScheduleRenewals: every repo call below
+	// hits ent privacy and would fail with "missing ViewerContext" if we
+	// passed a bare Background context.
+	ctx, cancel := context.WithTimeout(appViewer.NewSystemViewerContext(context.Background()), 15*time.Minute)
 	defer cancel()
 
 	// Find pending renewals
@@ -598,7 +606,7 @@ func (s *RenewalScheduler) runCleanup() {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			ctx, cancel := context.WithTimeout(appViewer.NewSystemViewerContext(context.Background()), time.Minute)
 			cleaned, err := s.renewalRepo.CleanupExpiredLocks(ctx)
 			if err != nil {
 				s.log.Errorf("Failed to cleanup expired locks: %v", err)
