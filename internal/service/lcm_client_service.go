@@ -513,10 +513,29 @@ func (s *LcmClientService) ListClientCertificates(ctx context.Context, req *lcmV
 func (s *LcmClientService) StreamCertificateUpdates(req *lcmV1.StreamCertificateUpdatesRequest, stream grpc.ServerStreamingServer[lcmV1.CertificateUpdateEvent]) error {
 	ctx := stream.Context()
 
-	// Get client ID from mTLS certificate or request
-	clientID := client.GetClientID(ctx)
+	// Get the cert CN from mTLS — that's how the agent authenticated, but it
+	// is NOT necessarily the same as the registered LCM client_id. Agents
+	// pick a client_id at registration (default: first 12 chars of
+	// /etc/machine-id) and LCM signs their mTLS cert with hostname as CN.
+	// Without the lookup below, the stream would filter by hostname while
+	// deployer-published events use the registered client_id, and the
+	// match silently fails → no event reaches the agent.
+	certCN := client.GetClientID(ctx)
+	clientID := certCN
+	if certCN != "" && s.certRepo != nil {
+		if actual, err := s.certRepo.GetClientIDByCommonName(ctx, certCN); err != nil {
+			s.log.Warnf("CN→client_id lookup failed for %q: %v", certCN, err)
+		} else if actual != "" {
+			clientID = actual
+			s.log.Infof("Resolved CN '%s' to client_id '%s'", certCN, clientID)
+		}
+	}
+
+	// Allow the agent to explicitly assert its client_id. Both the resolved
+	// value and the cert CN are accepted as authoritative — the override is
+	// only rejected if it matches neither.
 	if req.GetClientId() != "" {
-		if clientID != "" && clientID != req.GetClientId() {
+		if clientID != "" && req.GetClientId() != clientID && req.GetClientId() != certCN {
 			return lcmV1.ErrorForbidden("client ID does not match authenticated certificate")
 		}
 		clientID = req.GetClientId()
@@ -526,7 +545,7 @@ func (s *LcmClientService) StreamCertificateUpdates(req *lcmV1.StreamCertificate
 		return lcmV1.ErrorUnauthorized("client authentication required")
 	}
 
-	s.log.Infof("StreamCertificateUpdates: client_id=%s connected", clientID)
+	s.log.Infof("StreamCertificateUpdates: client_id=%s (cert_cn=%s) connected", clientID, certCN)
 
 	if s.redisClient == nil {
 		return lcmV1.ErrorInternalServerError("event streaming not available")
