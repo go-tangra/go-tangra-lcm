@@ -457,42 +457,28 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 		}
 	}
 
-	// Publish renewal completed event
+	// Compute event payload up front so the publish and notification paths
+	// see the same values.
+	var tenantID uint32 = 0
+	var newSerial string
+	var newExpiresAt time.Time
+	if cert != nil {
+		if cert.Edges.LcmClient != nil && cert.Edges.LcmClient.TenantID != nil {
+			tenantID = *cert.Edges.LcmClient.TenantID
+		}
+		if cert.Edges.CertificateDetails != nil {
+			newSerial = cert.Edges.CertificateDetails.SerialNumber
+		}
+		newExpiresAt = cert.ExpiresAt
+	}
+
+	// Publish renewal completed event FIRST, before the notification
+	// fan-out. Previously the email notification ran inline and a slow or
+	// unreachable notification-service blocked PublishRenewalCompleted
+	// from ever firing, so downstream consumers (e.g. the deployer's
+	// auto-deploy-on-renewal subscriber) never received the event. The
+	// event is the load-bearing path; notifications are a side effect.
 	if s.eventPublisher != nil {
-		var tenantID uint32 = 0
-		var newSerial string
-		var newExpiresAt time.Time
-		if cert != nil {
-			if cert.Edges.LcmClient != nil && cert.Edges.LcmClient.TenantID != nil {
-				tenantID = *cert.Edges.LcmClient.TenantID
-			}
-			// Get serial number from certificate details
-			if cert.Edges.CertificateDetails != nil {
-				newSerial = cert.Edges.CertificateDetails.SerialNumber
-			}
-			newExpiresAt = cert.ExpiresAt
-		}
-		// Send renewal notification
-		if cert != nil && s.certificateJobService.notifHelper != nil {
-			vars := map[string]string{
-				"CommonName":       cert.CommonName,
-				"Domains":          strings.Join(renewal.Domains, ", "),
-				"IssuerName":       renewal.IssuerName,
-				"ExpiresAt":        cert.ExpiresAt.Format(time.RFC3339),
-				"PreviousExpiresAt": renewal.OriginalExpiresAt.Format(time.RFC3339),
-			}
-
-			// Send to ACME issuer email if applicable
-			if cert.IssuerType == "acme" {
-				acmeEmail := s.certificateJobService.getAcmeEmailForIssuer(ctx, renewal.IssuerName, tenantID)
-				if acmeEmail != "" {
-					if notifErr := s.certificateJobService.notifHelper.SendCertificateRenewed(ctx, acmeEmail, vars); notifErr != nil {
-						s.log.Warnf("Failed to send cert-renewed notification: %v", notifErr)
-					}
-				}
-			}
-		}
-
 		if pubErr := s.eventPublisher.PublishRenewalCompleted(ctx, &event.RenewalCompletedEvent{
 			RenewalID:       renewal.ID,
 			CertificateID:   renewal.CertificateID,
@@ -504,6 +490,34 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 		}); pubErr != nil {
 			s.log.Warnf("Failed to publish renewal completed event for cert %s: %v", renewal.CertificateID, pubErr)
 		}
+	}
+
+	// Fire the email notification asynchronously — it's best-effort and
+	// must not gate the renewal completion. Uses a detached background
+	// context with its own timeout since the worker's ctx may be cancelled
+	// shortly after we return.
+	if cert != nil && s.certificateJobService != nil && s.certificateJobService.notifHelper != nil && cert.IssuerType == "acme" {
+		certSnapshot := cert
+		renewalSnapshot := renewal
+		tenantIDSnapshot := tenantID
+		go func() {
+			notifCtx, cancel := context.WithTimeout(appViewer.NewSystemViewerContext(context.Background()), 30*time.Second)
+			defer cancel()
+			vars := map[string]string{
+				"CommonName":        certSnapshot.CommonName,
+				"Domains":           strings.Join(renewalSnapshot.Domains, ", "),
+				"IssuerName":        renewalSnapshot.IssuerName,
+				"ExpiresAt":         certSnapshot.ExpiresAt.Format(time.RFC3339),
+				"PreviousExpiresAt": renewalSnapshot.OriginalExpiresAt.Format(time.RFC3339),
+			}
+			acmeEmail := s.certificateJobService.getAcmeEmailForIssuer(notifCtx, renewalSnapshot.IssuerName, tenantIDSnapshot)
+			if acmeEmail == "" {
+				return
+			}
+			if notifErr := s.certificateJobService.notifHelper.SendCertificateRenewed(notifCtx, acmeEmail, vars); notifErr != nil {
+				s.log.Warnf("Failed to send cert-renewed notification: %v", notifErr)
+			}
+		}()
 	}
 }
 
