@@ -272,22 +272,20 @@ export const TenantSecretService = {
 // ==================== Statistics Service ====================
 
 export const StatisticsService = {
-  get: async (
+  getStatistics: async (
     params?: operations['LcmStatisticsService_GetStatistics']['parameters']['query'],
     options?: RequestOptions
   ): Promise<GetStatisticsResponse> => {
-    // Note: This endpoint uses /api/v1/lcm path prefix instead of module routing
-    return lcmApi.get<GetStatisticsResponse>(`/api/v1/lcm/statistics${buildQuery(params || {})}`, options);
+    return lcmApi.get<GetStatisticsResponse>(`/statistics${buildQuery(params || {})}`, options);
   },
 
-  getTenant: async (
+  getTenantStatistics: async (
     tenantId: number,
     params?: operations['LcmStatisticsService_GetTenantStatistics']['parameters']['query'],
     options?: RequestOptions
   ): Promise<TenantStatistics> => {
-    // Note: This endpoint uses /api/v1/lcm path prefix instead of module routing
     return lcmApi.get<TenantStatistics>(
-      `/api/v1/lcm/statistics/tenant/${tenantId}${buildQuery(params || {})}`,
+      `/statistics/tenant/${tenantId}${buildQuery(params || {})}`,
       options
     );
   },
