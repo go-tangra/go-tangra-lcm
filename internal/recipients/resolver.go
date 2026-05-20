@@ -145,7 +145,7 @@ func (r *Resolver) fetch(ctx context.Context) ([]string, error) {
 		 WHERE r.code = ANY($1::text[])
 		   AND u.email IS NOT NULL
 		   AND u.email <> ''
-		   AND (u.delete_time IS NULL OR u.delete_time = '0001-01-01 00:00:00')
+		   AND u.deleted_at IS NULL
 		 ORDER BY email
 	`
 	// $1 needs to be a Postgres text[] literal. Build it as
