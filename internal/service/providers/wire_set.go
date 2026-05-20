@@ -14,6 +14,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/client"
 	"github.com/go-tangra/go-tangra-lcm/internal/event"
 	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
+	"github.com/go-tangra/go-tangra-lcm/internal/recipients"
 	"github.com/go-tangra/go-tangra-lcm/internal/service"
 	"github.com/go-tangra/go-tangra-lcm/internal/webhook"
 
@@ -47,4 +48,5 @@ var ProviderSet = wire.NewSet(
 	client.NewModuleDialer,
 	client.NewNotificationClient,
 	client.NewDeployerClient,
+	recipients.NewResolver,
 )

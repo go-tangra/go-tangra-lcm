@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 
 	"github.com/go-kratos/kratos/v2/log"
 
 	"github.com/go-tangra/go-tangra-lcm/internal/client"
+	"github.com/go-tangra/go-tangra-lcm/internal/recipients"
 
 	notificationv1 "buf.build/gen/go/go-tangra/notification/protocolbuffers/go/notification/service/v1"
 )
@@ -128,15 +128,16 @@ type NotificationHelper struct {
 	mu          sync.Mutex
 	templateIDs map[string]string // template name -> resolved ID
 
-	// defaultRecipients is the platform-wide fallback mailing list for
-	// every cert event (issued, renewed, failed, rejected). Loaded once
-	// from LCM_NOTIFICATION_RECIPIENTS at construction time. Combined
-	// with issuer-scoped recipients (e.g. ACME email) per send.
-	defaultRecipients []string
+	// recipientResolver returns the platform-wide mailing list for
+	// every cert event by querying portal's sys_users joined with
+	// sys_user_roles + sys_roles for users holding platform:admin or
+	// lcm.admin. Per-call (cached 5min internally). Combined with
+	// issuer-scoped recipients (e.g. the ACME account email) per send.
+	recipientResolver *recipients.Resolver
 }
 
 // NewNotificationHelper creates a NotificationHelper.
-func NewNotificationHelper(log *log.Helper, notificationClient *client.NotificationClient) *NotificationHelper {
+func NewNotificationHelper(log *log.Helper, notificationClient *client.NotificationClient, resolver *recipients.Resolver) *NotificationHelper {
 	if notificationClient == nil {
 		return nil
 	}
@@ -144,44 +145,26 @@ func NewNotificationHelper(log *log.Helper, notificationClient *client.Notificat
 		log:                log,
 		notificationClient: notificationClient,
 		templateIDs:        make(map[string]string),
-		defaultRecipients:  parseRecipientsEnv(os.Getenv("LCM_NOTIFICATION_RECIPIENTS")),
+		recipientResolver:  resolver,
 	}
-}
-
-// parseRecipientsEnv splits a comma-separated list of email addresses,
-// trims whitespace, drops empties, and lowercases for stable dedup keys.
-func parseRecipientsEnv(raw string) []string {
-	if raw == "" {
-		return nil
-	}
-	parts := strings.Split(raw, ",")
-	out := make([]string, 0, len(parts))
-	seen := make(map[string]struct{}, len(parts))
-	for _, p := range parts {
-		e := strings.ToLower(strings.TrimSpace(p))
-		if e == "" {
-			continue
-		}
-		if _, dup := seen[e]; dup {
-			continue
-		}
-		seen[e] = struct{}{}
-		out = append(out, e)
-	}
-	return out
 }
 
 // ResolveRecipients returns the deduped union of an issuer-scoped email
-// (e.g. the ACME account email) and the platform-wide default recipients.
-// Both inputs are optional — passing "" or nil collapses to whatever the
-// other source provides. An empty result means there is nowhere to
-// notify; callers should log a WARN so the silent-drop is visible.
-func (h *NotificationHelper) ResolveRecipients(issuerScoped string) []string {
+// (e.g. the ACME account email) and the role-based admin recipients
+// (resolved from portal's user table). issuerScoped is optional —
+// passing "" relies entirely on the role-resolved admins. An empty
+// result means there's nowhere to notify; the helper's notifyAll logs
+// a WARN so the silent-drop is visible.
+func (h *NotificationHelper) ResolveRecipients(ctx context.Context, issuerScoped string) []string {
 	if h == nil {
 		return nil
 	}
-	seen := make(map[string]struct{}, 1+len(h.defaultRecipients))
-	out := make([]string, 0, 1+len(h.defaultRecipients))
+	var adminEmails []string
+	if h.recipientResolver != nil {
+		adminEmails = h.recipientResolver.Resolve(ctx)
+	}
+	seen := make(map[string]struct{}, 1+len(adminEmails))
+	out := make([]string, 0, 1+len(adminEmails))
 	add := func(s string) {
 		e := strings.ToLower(strings.TrimSpace(s))
 		if e == "" {
@@ -194,7 +177,7 @@ func (h *NotificationHelper) ResolveRecipients(issuerScoped string) []string {
 		out = append(out, e)
 	}
 	add(issuerScoped)
-	for _, r := range h.defaultRecipients {
+	for _, r := range adminEmails {
 		add(r)
 	}
 	return out

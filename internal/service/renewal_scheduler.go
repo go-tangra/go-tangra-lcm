@@ -529,7 +529,7 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 			if certSnapshot.IssuerType == "acme" {
 				acmeEmail = s.certificateJobService.getAcmeEmailForIssuer(notifCtx, renewalSnapshot.IssuerName, tenantIDSnapshot)
 			}
-			recipients := s.certificateJobService.notifHelper.ResolveRecipients(acmeEmail)
+			recipients := s.certificateJobService.notifHelper.ResolveRecipients(notifCtx, acmeEmail)
 			if notifErr := s.certificateJobService.notifHelper.NotifyCertificateRenewed(notifCtx, recipients, vars); notifErr != nil {
 				s.log.Errorf("Failed to send cert-renewed notification for %s: %v", certSnapshot.CommonName, notifErr)
 			}
@@ -579,7 +579,7 @@ func (s *RenewalScheduler) handleRenewalFailure(ctx context.Context, renewal *en
 		if cert.IssuerType == "acme" {
 			acmeEmail = s.certificateJobService.getAcmeEmailForIssuer(ctx, renewal.IssuerName, tenantID)
 		}
-		recipients := s.certificateJobService.notifHelper.ResolveRecipients(acmeEmail)
+		recipients := s.certificateJobService.notifHelper.ResolveRecipients(ctx, acmeEmail)
 		if notifErr := s.certificateJobService.notifHelper.NotifyCertificateFailed(ctx, recipients, vars); notifErr != nil {
 			s.log.Errorf("Failed to send cert-failed notification for %s: %v", cert.CommonName, notifErr)
 		}

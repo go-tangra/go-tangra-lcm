@@ -14,6 +14,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
 	"github.com/go-tangra/go-tangra-lcm/internal/event"
 	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
+	"github.com/go-tangra/go-tangra-lcm/internal/recipients"
 	"github.com/go-tangra/go-tangra-lcm/internal/server"
 	"github.com/go-tangra/go-tangra-lcm/internal/service"
 	"github.com/go-tangra/go-tangra-lcm/internal/service/providers"
@@ -78,7 +79,14 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	certificateJobService := service.NewCertificateJobService(context, lcm, issuerRepo, lcmClientRepo, mtlsCertificateRepo, issuedCertificateRepo, publisher, collector, notificationClient)
+	recipientResolver, cleanupRecipients, err := recipients.NewResolver(context)
+	if err != nil {
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	certificateJobService := service.NewCertificateJobService(context, lcm, issuerRepo, lcmClientRepo, mtlsCertificateRepo, issuedCertificateRepo, publisher, collector, notificationClient, recipientResolver)
 	certificateRenewalRepo := data.NewCertificateRenewalRepo(context, entClient)
 	deployerClient, cleanup4, err := client.NewDeployerClient(context, registrationClient)
 	if err != nil {
@@ -92,6 +100,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	auditLogService := service.NewAuditLogService(context, auditLogRepo, lcmClientRepo)
 	mtlsCertService, err := service.NewMtlsCertService(context, mtlsCertificateRepo, lcmClientRepo, collector)
 	if err != nil {
+		cleanupRecipients()
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -100,8 +109,9 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	}
 	certificatePermissionRepo := data.NewCertificatePermissionRepo(context, entClient)
 	certificatePermissionService := service.NewCertificatePermissionService(context, certificatePermissionRepo, lcmClientRepo, issuedCertificateRepo)
-	mtlsCertificateRequestService, err := service.NewMtlsCertificateRequestService(context, mtlsCertificateRequestRepo, mtlsCertificateRepo, lcmClientRepo, notificationClient)
+	mtlsCertificateRequestService, err := service.NewMtlsCertificateRequestService(context, mtlsCertificateRequestRepo, mtlsCertificateRepo, lcmClientRepo, notificationClient, recipientResolver)
 	if err != nil {
+		cleanupRecipients()
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -118,6 +128,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	httpServer := server.NewHTTPServer(context)
 	bootstrapBootstrapService, err := bootstrap2.NewBootstrapService(context, mtlsCertificateRepo, lcmClientRepo, issuedCertificateRepo, issuerRepo)
 	if err != nil {
+		cleanupRecipients()
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -128,6 +139,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	renewalScheduler := service.NewRenewalScheduler(context, renewalConfig, lcm, issuedCertificateRepo, certificateRenewalRepo, issuerRepo, lcmClientRepo, certificateJobService, publisher)
 	webhookService, err := webhook.NewService(context, redisClient)
 	if err != nil {
+		cleanupRecipients()
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -136,6 +148,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	}
 	app := newApp(context, grpcServer, bootstrapGRPCServer, httpServer, bootstrapBootstrapService, renewalScheduler, webhookService)
 	return app, func() {
+		cleanupRecipients()
 		cleanup4()
 		cleanup3()
 		cleanup2()

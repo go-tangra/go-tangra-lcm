@@ -15,6 +15,7 @@ import (
 	lcmClient "github.com/go-tangra/go-tangra-lcm/internal/client"
 	"github.com/go-tangra/go-tangra-lcm/internal/conf"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
+	"github.com/go-tangra/go-tangra-lcm/internal/recipients"
 	"github.com/go-tangra/go-tangra-lcm/pkg/crypto"
 )
 
@@ -38,6 +39,7 @@ func NewMtlsCertificateRequestService(
 	certRepo *data.MtlsCertificateRepo,
 	clientRepo *data.LcmClientRepo,
 	notifClient *lcmClient.NotificationClient,
+	recipientResolver *recipients.Resolver,
 ) (*MtlsCertificateRequestService, error) {
 	logger := ctx.NewLoggerHelper("lcm/service/mtls_certificate_request")
 
@@ -76,6 +78,7 @@ func NewMtlsCertificateRequestService(
 	notifHelper := NewNotificationHelper(
 		ctx.NewLoggerHelper("lcm/service/mtls_request/notification"),
 		notifClient,
+		recipientResolver,
 	)
 
 	logger.Info("MtlsCertificateRequestService initialized")
@@ -409,7 +412,7 @@ func (s *MtlsCertificateRequestService) notifyCertEvent(ctx context.Context, kin
 	commonName := req.GetCommonName()
 	domains := strings.Join(req.GetDnsNames(), ", ")
 	// mTLS requests have no ACME issuer email; rely on platform defaults.
-	recipients := s.notifHelper.ResolveRecipients("")
+	recipients := s.notifHelper.ResolveRecipients(ctx, "")
 
 	switch kind {
 	case certEventIssued:

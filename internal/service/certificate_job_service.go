@@ -28,6 +28,8 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/uuid"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
+
+	"github.com/go-tangra/go-tangra-lcm/internal/recipients"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -73,6 +75,7 @@ func NewCertificateJobService(
 	eventPublisher *event.Publisher,
 	collector *metrics.Collector,
 	notifClient *lcmClient.NotificationClient,
+	recipientResolver *recipients.Resolver,
 ) *CertificateJobService {
 	var opts []biz.DNSPropagationCheckerOption
 	if lcmConfig != nil && len(lcmConfig.DnsResolvers) > 0 {
@@ -83,6 +86,7 @@ func NewCertificateJobService(
 	notifHelper := NewNotificationHelper(
 		ctx.NewLoggerHelper("lcm/service/notification"),
 		notifClient,
+		recipientResolver,
 	)
 
 	return &CertificateJobService{
@@ -747,7 +751,7 @@ func (s *CertificateJobService) sendCertIssuedNotification(ctx context.Context, 
 	if certReq.IssuerType == "acme" {
 		acmeEmail = s.getAcmeEmailForIssuer(ctx, certReq.IssuerName, certReq.TenantID)
 	}
-	recipients := s.notifHelper.ResolveRecipients(acmeEmail)
+	recipients := s.notifHelper.ResolveRecipients(ctx, acmeEmail)
 	if err := s.notifHelper.NotifyCertificateIssued(ctx, recipients, vars); err != nil {
 		s.log.Errorf("Failed to send cert-issued notification for %s: %v", certReq.CommonName, err)
 	}
@@ -773,7 +777,7 @@ func (s *CertificateJobService) sendCertFailedNotification(ctx context.Context, 
 	if certReq.IssuerType == "acme" {
 		acmeEmail = s.getAcmeEmailForIssuer(ctx, certReq.IssuerName, certReq.TenantID)
 	}
-	recipients := s.notifHelper.ResolveRecipients(acmeEmail)
+	recipients := s.notifHelper.ResolveRecipients(ctx, acmeEmail)
 	if err := s.notifHelper.NotifyCertificateFailed(ctx, recipients, vars); err != nil {
 		s.log.Errorf("Failed to send cert-failed notification for %s: %v", certReq.CommonName, err)
 	}
