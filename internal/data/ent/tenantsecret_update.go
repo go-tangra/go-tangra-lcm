@@ -6,13 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/tenantsecret"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/tenantsecret"
 )
 
 // TenantSecretUpdate is the builder for updating TenantSecret entities.

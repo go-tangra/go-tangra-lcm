@@ -3,10 +3,10 @@
 package auditlog
 
 import (
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 )
 
 // ID filters vertices based on their ID field.

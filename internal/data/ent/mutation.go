@@ -6,12 +6,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
+
+	"entgo.io/ent"
+	"entgo.io/ent/dialect/sql"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/acmeissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/auditlog"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatedetails"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatepermission"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterenewal"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterequest"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/clientinstalledcertificate"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/clientissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
@@ -22,11 +28,6 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/selfsignedissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/tenantsecret"
-	"sync"
-	"time"
-
-	"entgo.io/ent"
-	"entgo.io/ent/dialect/sql"
 )
 
 const (
@@ -38,21 +39,22 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeAcmeIssuer             = "AcmeIssuer"
-	TypeAuditLog               = "AuditLog"
-	TypeCertificateDetails     = "CertificateDetails"
-	TypeCertificatePermission  = "CertificatePermission"
-	TypeCertificateRenewal     = "CertificateRenewal"
-	TypeCertificateRequest     = "CertificateRequest"
-	TypeClientIssuer           = "ClientIssuer"
-	TypeIssuedCertificate      = "IssuedCertificate"
-	TypeIssuer                 = "Issuer"
-	TypeLcmCa                  = "LcmCa"
-	TypeLcmClient              = "LcmClient"
-	TypeMtlsCertificate        = "MtlsCertificate"
-	TypeMtlsCertificateRequest = "MtlsCertificateRequest"
-	TypeSelfSignedIssuer       = "SelfSignedIssuer"
-	TypeTenantSecret           = "TenantSecret"
+	TypeAcmeIssuer                 = "AcmeIssuer"
+	TypeAuditLog                   = "AuditLog"
+	TypeCertificateDetails         = "CertificateDetails"
+	TypeCertificatePermission      = "CertificatePermission"
+	TypeCertificateRenewal         = "CertificateRenewal"
+	TypeCertificateRequest         = "CertificateRequest"
+	TypeClientInstalledCertificate = "ClientInstalledCertificate"
+	TypeClientIssuer               = "ClientIssuer"
+	TypeIssuedCertificate          = "IssuedCertificate"
+	TypeIssuer                     = "Issuer"
+	TypeLcmCa                      = "LcmCa"
+	TypeLcmClient                  = "LcmClient"
+	TypeMtlsCertificate            = "MtlsCertificate"
+	TypeMtlsCertificateRequest     = "MtlsCertificateRequest"
+	TypeSelfSignedIssuer           = "SelfSignedIssuer"
+	TypeTenantSecret               = "TenantSecret"
 )
 
 // AcmeIssuerMutation represents an operation that mutates the AcmeIssuer nodes in the graph.
@@ -9787,6 +9789,1070 @@ func (m *CertificateRequestMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown CertificateRequest edge %s", name)
+}
+
+// ClientInstalledCertificateMutation represents an operation that mutates the ClientInstalledCertificate nodes in the graph.
+type ClientInstalledCertificateMutation struct {
+	config
+	op                 Op
+	typ                string
+	id                 *uint32
+	create_time        *time.Time
+	update_time        *time.Time
+	delete_time        *time.Time
+	tenant_id          *uint32
+	addtenant_id       *int32
+	client_id          *string
+	name               *string
+	serial_number      *string
+	fingerprint_sha256 *string
+	status             *clientinstalledcertificate.Status
+	message            *string
+	installed_at       *time.Time
+	clearedFields      map[string]struct{}
+	done               bool
+	oldValue           func(context.Context) (*ClientInstalledCertificate, error)
+	predicates         []predicate.ClientInstalledCertificate
+}
+
+var _ ent.Mutation = (*ClientInstalledCertificateMutation)(nil)
+
+// clientinstalledcertificateOption allows management of the mutation configuration using functional options.
+type clientinstalledcertificateOption func(*ClientInstalledCertificateMutation)
+
+// newClientInstalledCertificateMutation creates new mutation for the ClientInstalledCertificate entity.
+func newClientInstalledCertificateMutation(c config, op Op, opts ...clientinstalledcertificateOption) *ClientInstalledCertificateMutation {
+	m := &ClientInstalledCertificateMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeClientInstalledCertificate,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withClientInstalledCertificateID sets the ID field of the mutation.
+func withClientInstalledCertificateID(id uint32) clientinstalledcertificateOption {
+	return func(m *ClientInstalledCertificateMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ClientInstalledCertificate
+		)
+		m.oldValue = func(ctx context.Context) (*ClientInstalledCertificate, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ClientInstalledCertificate.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withClientInstalledCertificate sets the old ClientInstalledCertificate of the mutation.
+func withClientInstalledCertificate(node *ClientInstalledCertificate) clientinstalledcertificateOption {
+	return func(m *ClientInstalledCertificateMutation) {
+		m.oldValue = func(context.Context) (*ClientInstalledCertificate, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ClientInstalledCertificateMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ClientInstalledCertificateMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ClientInstalledCertificate entities.
+func (m *ClientInstalledCertificateMutation) SetID(id uint32) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ClientInstalledCertificateMutation) ID() (id uint32, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ClientInstalledCertificateMutation) IDs(ctx context.Context) ([]uint32, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uint32{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ClientInstalledCertificate.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreateTime sets the "create_time" field.
+func (m *ClientInstalledCertificateMutation) SetCreateTime(t time.Time) {
+	m.create_time = &t
+}
+
+// CreateTime returns the value of the "create_time" field in the mutation.
+func (m *ClientInstalledCertificateMutation) CreateTime() (r time.Time, exists bool) {
+	v := m.create_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreateTime returns the old "create_time" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldCreateTime(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreateTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreateTime: %w", err)
+	}
+	return oldValue.CreateTime, nil
+}
+
+// ClearCreateTime clears the value of the "create_time" field.
+func (m *ClientInstalledCertificateMutation) ClearCreateTime() {
+	m.create_time = nil
+	m.clearedFields[clientinstalledcertificate.FieldCreateTime] = struct{}{}
+}
+
+// CreateTimeCleared returns if the "create_time" field was cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) CreateTimeCleared() bool {
+	_, ok := m.clearedFields[clientinstalledcertificate.FieldCreateTime]
+	return ok
+}
+
+// ResetCreateTime resets all changes to the "create_time" field.
+func (m *ClientInstalledCertificateMutation) ResetCreateTime() {
+	m.create_time = nil
+	delete(m.clearedFields, clientinstalledcertificate.FieldCreateTime)
+}
+
+// SetUpdateTime sets the "update_time" field.
+func (m *ClientInstalledCertificateMutation) SetUpdateTime(t time.Time) {
+	m.update_time = &t
+}
+
+// UpdateTime returns the value of the "update_time" field in the mutation.
+func (m *ClientInstalledCertificateMutation) UpdateTime() (r time.Time, exists bool) {
+	v := m.update_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdateTime returns the old "update_time" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldUpdateTime(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdateTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdateTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdateTime: %w", err)
+	}
+	return oldValue.UpdateTime, nil
+}
+
+// ClearUpdateTime clears the value of the "update_time" field.
+func (m *ClientInstalledCertificateMutation) ClearUpdateTime() {
+	m.update_time = nil
+	m.clearedFields[clientinstalledcertificate.FieldUpdateTime] = struct{}{}
+}
+
+// UpdateTimeCleared returns if the "update_time" field was cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) UpdateTimeCleared() bool {
+	_, ok := m.clearedFields[clientinstalledcertificate.FieldUpdateTime]
+	return ok
+}
+
+// ResetUpdateTime resets all changes to the "update_time" field.
+func (m *ClientInstalledCertificateMutation) ResetUpdateTime() {
+	m.update_time = nil
+	delete(m.clearedFields, clientinstalledcertificate.FieldUpdateTime)
+}
+
+// SetDeleteTime sets the "delete_time" field.
+func (m *ClientInstalledCertificateMutation) SetDeleteTime(t time.Time) {
+	m.delete_time = &t
+}
+
+// DeleteTime returns the value of the "delete_time" field in the mutation.
+func (m *ClientInstalledCertificateMutation) DeleteTime() (r time.Time, exists bool) {
+	v := m.delete_time
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeleteTime returns the old "delete_time" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldDeleteTime(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeleteTime is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeleteTime requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeleteTime: %w", err)
+	}
+	return oldValue.DeleteTime, nil
+}
+
+// ClearDeleteTime clears the value of the "delete_time" field.
+func (m *ClientInstalledCertificateMutation) ClearDeleteTime() {
+	m.delete_time = nil
+	m.clearedFields[clientinstalledcertificate.FieldDeleteTime] = struct{}{}
+}
+
+// DeleteTimeCleared returns if the "delete_time" field was cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) DeleteTimeCleared() bool {
+	_, ok := m.clearedFields[clientinstalledcertificate.FieldDeleteTime]
+	return ok
+}
+
+// ResetDeleteTime resets all changes to the "delete_time" field.
+func (m *ClientInstalledCertificateMutation) ResetDeleteTime() {
+	m.delete_time = nil
+	delete(m.clearedFields, clientinstalledcertificate.FieldDeleteTime)
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (m *ClientInstalledCertificateMutation) SetTenantID(u uint32) {
+	m.tenant_id = &u
+	m.addtenant_id = nil
+}
+
+// TenantID returns the value of the "tenant_id" field in the mutation.
+func (m *ClientInstalledCertificateMutation) TenantID() (r uint32, exists bool) {
+	v := m.tenant_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTenantID returns the old "tenant_id" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldTenantID(ctx context.Context) (v *uint32, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTenantID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTenantID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTenantID: %w", err)
+	}
+	return oldValue.TenantID, nil
+}
+
+// AddTenantID adds u to the "tenant_id" field.
+func (m *ClientInstalledCertificateMutation) AddTenantID(u int32) {
+	if m.addtenant_id != nil {
+		*m.addtenant_id += u
+	} else {
+		m.addtenant_id = &u
+	}
+}
+
+// AddedTenantID returns the value that was added to the "tenant_id" field in this mutation.
+func (m *ClientInstalledCertificateMutation) AddedTenantID() (r int32, exists bool) {
+	v := m.addtenant_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (m *ClientInstalledCertificateMutation) ClearTenantID() {
+	m.tenant_id = nil
+	m.addtenant_id = nil
+	m.clearedFields[clientinstalledcertificate.FieldTenantID] = struct{}{}
+}
+
+// TenantIDCleared returns if the "tenant_id" field was cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) TenantIDCleared() bool {
+	_, ok := m.clearedFields[clientinstalledcertificate.FieldTenantID]
+	return ok
+}
+
+// ResetTenantID resets all changes to the "tenant_id" field.
+func (m *ClientInstalledCertificateMutation) ResetTenantID() {
+	m.tenant_id = nil
+	m.addtenant_id = nil
+	delete(m.clearedFields, clientinstalledcertificate.FieldTenantID)
+}
+
+// SetClientID sets the "client_id" field.
+func (m *ClientInstalledCertificateMutation) SetClientID(s string) {
+	m.client_id = &s
+}
+
+// ClientID returns the value of the "client_id" field in the mutation.
+func (m *ClientInstalledCertificateMutation) ClientID() (r string, exists bool) {
+	v := m.client_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClientID returns the old "client_id" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldClientID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClientID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClientID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClientID: %w", err)
+	}
+	return oldValue.ClientID, nil
+}
+
+// ResetClientID resets all changes to the "client_id" field.
+func (m *ClientInstalledCertificateMutation) ResetClientID() {
+	m.client_id = nil
+}
+
+// SetName sets the "name" field.
+func (m *ClientInstalledCertificateMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *ClientInstalledCertificateMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *ClientInstalledCertificateMutation) ResetName() {
+	m.name = nil
+}
+
+// SetSerialNumber sets the "serial_number" field.
+func (m *ClientInstalledCertificateMutation) SetSerialNumber(s string) {
+	m.serial_number = &s
+}
+
+// SerialNumber returns the value of the "serial_number" field in the mutation.
+func (m *ClientInstalledCertificateMutation) SerialNumber() (r string, exists bool) {
+	v := m.serial_number
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSerialNumber returns the old "serial_number" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldSerialNumber(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSerialNumber is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSerialNumber requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSerialNumber: %w", err)
+	}
+	return oldValue.SerialNumber, nil
+}
+
+// ClearSerialNumber clears the value of the "serial_number" field.
+func (m *ClientInstalledCertificateMutation) ClearSerialNumber() {
+	m.serial_number = nil
+	m.clearedFields[clientinstalledcertificate.FieldSerialNumber] = struct{}{}
+}
+
+// SerialNumberCleared returns if the "serial_number" field was cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) SerialNumberCleared() bool {
+	_, ok := m.clearedFields[clientinstalledcertificate.FieldSerialNumber]
+	return ok
+}
+
+// ResetSerialNumber resets all changes to the "serial_number" field.
+func (m *ClientInstalledCertificateMutation) ResetSerialNumber() {
+	m.serial_number = nil
+	delete(m.clearedFields, clientinstalledcertificate.FieldSerialNumber)
+}
+
+// SetFingerprintSha256 sets the "fingerprint_sha256" field.
+func (m *ClientInstalledCertificateMutation) SetFingerprintSha256(s string) {
+	m.fingerprint_sha256 = &s
+}
+
+// FingerprintSha256 returns the value of the "fingerprint_sha256" field in the mutation.
+func (m *ClientInstalledCertificateMutation) FingerprintSha256() (r string, exists bool) {
+	v := m.fingerprint_sha256
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFingerprintSha256 returns the old "fingerprint_sha256" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldFingerprintSha256(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFingerprintSha256 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFingerprintSha256 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFingerprintSha256: %w", err)
+	}
+	return oldValue.FingerprintSha256, nil
+}
+
+// ClearFingerprintSha256 clears the value of the "fingerprint_sha256" field.
+func (m *ClientInstalledCertificateMutation) ClearFingerprintSha256() {
+	m.fingerprint_sha256 = nil
+	m.clearedFields[clientinstalledcertificate.FieldFingerprintSha256] = struct{}{}
+}
+
+// FingerprintSha256Cleared returns if the "fingerprint_sha256" field was cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) FingerprintSha256Cleared() bool {
+	_, ok := m.clearedFields[clientinstalledcertificate.FieldFingerprintSha256]
+	return ok
+}
+
+// ResetFingerprintSha256 resets all changes to the "fingerprint_sha256" field.
+func (m *ClientInstalledCertificateMutation) ResetFingerprintSha256() {
+	m.fingerprint_sha256 = nil
+	delete(m.clearedFields, clientinstalledcertificate.FieldFingerprintSha256)
+}
+
+// SetStatus sets the "status" field.
+func (m *ClientInstalledCertificateMutation) SetStatus(c clientinstalledcertificate.Status) {
+	m.status = &c
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ClientInstalledCertificateMutation) Status() (r clientinstalledcertificate.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldStatus(ctx context.Context) (v clientinstalledcertificate.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ClientInstalledCertificateMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetMessage sets the "message" field.
+func (m *ClientInstalledCertificateMutation) SetMessage(s string) {
+	m.message = &s
+}
+
+// Message returns the value of the "message" field in the mutation.
+func (m *ClientInstalledCertificateMutation) Message() (r string, exists bool) {
+	v := m.message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMessage returns the old "message" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldMessage(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMessage: %w", err)
+	}
+	return oldValue.Message, nil
+}
+
+// ClearMessage clears the value of the "message" field.
+func (m *ClientInstalledCertificateMutation) ClearMessage() {
+	m.message = nil
+	m.clearedFields[clientinstalledcertificate.FieldMessage] = struct{}{}
+}
+
+// MessageCleared returns if the "message" field was cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) MessageCleared() bool {
+	_, ok := m.clearedFields[clientinstalledcertificate.FieldMessage]
+	return ok
+}
+
+// ResetMessage resets all changes to the "message" field.
+func (m *ClientInstalledCertificateMutation) ResetMessage() {
+	m.message = nil
+	delete(m.clearedFields, clientinstalledcertificate.FieldMessage)
+}
+
+// SetInstalledAt sets the "installed_at" field.
+func (m *ClientInstalledCertificateMutation) SetInstalledAt(t time.Time) {
+	m.installed_at = &t
+}
+
+// InstalledAt returns the value of the "installed_at" field in the mutation.
+func (m *ClientInstalledCertificateMutation) InstalledAt() (r time.Time, exists bool) {
+	v := m.installed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInstalledAt returns the old "installed_at" field's value of the ClientInstalledCertificate entity.
+// If the ClientInstalledCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ClientInstalledCertificateMutation) OldInstalledAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInstalledAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInstalledAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInstalledAt: %w", err)
+	}
+	return oldValue.InstalledAt, nil
+}
+
+// ClearInstalledAt clears the value of the "installed_at" field.
+func (m *ClientInstalledCertificateMutation) ClearInstalledAt() {
+	m.installed_at = nil
+	m.clearedFields[clientinstalledcertificate.FieldInstalledAt] = struct{}{}
+}
+
+// InstalledAtCleared returns if the "installed_at" field was cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) InstalledAtCleared() bool {
+	_, ok := m.clearedFields[clientinstalledcertificate.FieldInstalledAt]
+	return ok
+}
+
+// ResetInstalledAt resets all changes to the "installed_at" field.
+func (m *ClientInstalledCertificateMutation) ResetInstalledAt() {
+	m.installed_at = nil
+	delete(m.clearedFields, clientinstalledcertificate.FieldInstalledAt)
+}
+
+// Where appends a list predicates to the ClientInstalledCertificateMutation builder.
+func (m *ClientInstalledCertificateMutation) Where(ps ...predicate.ClientInstalledCertificate) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ClientInstalledCertificateMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ClientInstalledCertificateMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ClientInstalledCertificate, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ClientInstalledCertificateMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ClientInstalledCertificateMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ClientInstalledCertificate).
+func (m *ClientInstalledCertificateMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ClientInstalledCertificateMutation) Fields() []string {
+	fields := make([]string, 0, 11)
+	if m.create_time != nil {
+		fields = append(fields, clientinstalledcertificate.FieldCreateTime)
+	}
+	if m.update_time != nil {
+		fields = append(fields, clientinstalledcertificate.FieldUpdateTime)
+	}
+	if m.delete_time != nil {
+		fields = append(fields, clientinstalledcertificate.FieldDeleteTime)
+	}
+	if m.tenant_id != nil {
+		fields = append(fields, clientinstalledcertificate.FieldTenantID)
+	}
+	if m.client_id != nil {
+		fields = append(fields, clientinstalledcertificate.FieldClientID)
+	}
+	if m.name != nil {
+		fields = append(fields, clientinstalledcertificate.FieldName)
+	}
+	if m.serial_number != nil {
+		fields = append(fields, clientinstalledcertificate.FieldSerialNumber)
+	}
+	if m.fingerprint_sha256 != nil {
+		fields = append(fields, clientinstalledcertificate.FieldFingerprintSha256)
+	}
+	if m.status != nil {
+		fields = append(fields, clientinstalledcertificate.FieldStatus)
+	}
+	if m.message != nil {
+		fields = append(fields, clientinstalledcertificate.FieldMessage)
+	}
+	if m.installed_at != nil {
+		fields = append(fields, clientinstalledcertificate.FieldInstalledAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ClientInstalledCertificateMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case clientinstalledcertificate.FieldCreateTime:
+		return m.CreateTime()
+	case clientinstalledcertificate.FieldUpdateTime:
+		return m.UpdateTime()
+	case clientinstalledcertificate.FieldDeleteTime:
+		return m.DeleteTime()
+	case clientinstalledcertificate.FieldTenantID:
+		return m.TenantID()
+	case clientinstalledcertificate.FieldClientID:
+		return m.ClientID()
+	case clientinstalledcertificate.FieldName:
+		return m.Name()
+	case clientinstalledcertificate.FieldSerialNumber:
+		return m.SerialNumber()
+	case clientinstalledcertificate.FieldFingerprintSha256:
+		return m.FingerprintSha256()
+	case clientinstalledcertificate.FieldStatus:
+		return m.Status()
+	case clientinstalledcertificate.FieldMessage:
+		return m.Message()
+	case clientinstalledcertificate.FieldInstalledAt:
+		return m.InstalledAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ClientInstalledCertificateMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case clientinstalledcertificate.FieldCreateTime:
+		return m.OldCreateTime(ctx)
+	case clientinstalledcertificate.FieldUpdateTime:
+		return m.OldUpdateTime(ctx)
+	case clientinstalledcertificate.FieldDeleteTime:
+		return m.OldDeleteTime(ctx)
+	case clientinstalledcertificate.FieldTenantID:
+		return m.OldTenantID(ctx)
+	case clientinstalledcertificate.FieldClientID:
+		return m.OldClientID(ctx)
+	case clientinstalledcertificate.FieldName:
+		return m.OldName(ctx)
+	case clientinstalledcertificate.FieldSerialNumber:
+		return m.OldSerialNumber(ctx)
+	case clientinstalledcertificate.FieldFingerprintSha256:
+		return m.OldFingerprintSha256(ctx)
+	case clientinstalledcertificate.FieldStatus:
+		return m.OldStatus(ctx)
+	case clientinstalledcertificate.FieldMessage:
+		return m.OldMessage(ctx)
+	case clientinstalledcertificate.FieldInstalledAt:
+		return m.OldInstalledAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ClientInstalledCertificate field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ClientInstalledCertificateMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case clientinstalledcertificate.FieldCreateTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreateTime(v)
+		return nil
+	case clientinstalledcertificate.FieldUpdateTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdateTime(v)
+		return nil
+	case clientinstalledcertificate.FieldDeleteTime:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeleteTime(v)
+		return nil
+	case clientinstalledcertificate.FieldTenantID:
+		v, ok := value.(uint32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTenantID(v)
+		return nil
+	case clientinstalledcertificate.FieldClientID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClientID(v)
+		return nil
+	case clientinstalledcertificate.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case clientinstalledcertificate.FieldSerialNumber:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSerialNumber(v)
+		return nil
+	case clientinstalledcertificate.FieldFingerprintSha256:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFingerprintSha256(v)
+		return nil
+	case clientinstalledcertificate.FieldStatus:
+		v, ok := value.(clientinstalledcertificate.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case clientinstalledcertificate.FieldMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMessage(v)
+		return nil
+	case clientinstalledcertificate.FieldInstalledAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInstalledAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ClientInstalledCertificate field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ClientInstalledCertificateMutation) AddedFields() []string {
+	var fields []string
+	if m.addtenant_id != nil {
+		fields = append(fields, clientinstalledcertificate.FieldTenantID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ClientInstalledCertificateMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case clientinstalledcertificate.FieldTenantID:
+		return m.AddedTenantID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ClientInstalledCertificateMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case clientinstalledcertificate.FieldTenantID:
+		v, ok := value.(int32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTenantID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ClientInstalledCertificate numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ClientInstalledCertificateMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(clientinstalledcertificate.FieldCreateTime) {
+		fields = append(fields, clientinstalledcertificate.FieldCreateTime)
+	}
+	if m.FieldCleared(clientinstalledcertificate.FieldUpdateTime) {
+		fields = append(fields, clientinstalledcertificate.FieldUpdateTime)
+	}
+	if m.FieldCleared(clientinstalledcertificate.FieldDeleteTime) {
+		fields = append(fields, clientinstalledcertificate.FieldDeleteTime)
+	}
+	if m.FieldCleared(clientinstalledcertificate.FieldTenantID) {
+		fields = append(fields, clientinstalledcertificate.FieldTenantID)
+	}
+	if m.FieldCleared(clientinstalledcertificate.FieldSerialNumber) {
+		fields = append(fields, clientinstalledcertificate.FieldSerialNumber)
+	}
+	if m.FieldCleared(clientinstalledcertificate.FieldFingerprintSha256) {
+		fields = append(fields, clientinstalledcertificate.FieldFingerprintSha256)
+	}
+	if m.FieldCleared(clientinstalledcertificate.FieldMessage) {
+		fields = append(fields, clientinstalledcertificate.FieldMessage)
+	}
+	if m.FieldCleared(clientinstalledcertificate.FieldInstalledAt) {
+		fields = append(fields, clientinstalledcertificate.FieldInstalledAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ClientInstalledCertificateMutation) ClearField(name string) error {
+	switch name {
+	case clientinstalledcertificate.FieldCreateTime:
+		m.ClearCreateTime()
+		return nil
+	case clientinstalledcertificate.FieldUpdateTime:
+		m.ClearUpdateTime()
+		return nil
+	case clientinstalledcertificate.FieldDeleteTime:
+		m.ClearDeleteTime()
+		return nil
+	case clientinstalledcertificate.FieldTenantID:
+		m.ClearTenantID()
+		return nil
+	case clientinstalledcertificate.FieldSerialNumber:
+		m.ClearSerialNumber()
+		return nil
+	case clientinstalledcertificate.FieldFingerprintSha256:
+		m.ClearFingerprintSha256()
+		return nil
+	case clientinstalledcertificate.FieldMessage:
+		m.ClearMessage()
+		return nil
+	case clientinstalledcertificate.FieldInstalledAt:
+		m.ClearInstalledAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ClientInstalledCertificate nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ClientInstalledCertificateMutation) ResetField(name string) error {
+	switch name {
+	case clientinstalledcertificate.FieldCreateTime:
+		m.ResetCreateTime()
+		return nil
+	case clientinstalledcertificate.FieldUpdateTime:
+		m.ResetUpdateTime()
+		return nil
+	case clientinstalledcertificate.FieldDeleteTime:
+		m.ResetDeleteTime()
+		return nil
+	case clientinstalledcertificate.FieldTenantID:
+		m.ResetTenantID()
+		return nil
+	case clientinstalledcertificate.FieldClientID:
+		m.ResetClientID()
+		return nil
+	case clientinstalledcertificate.FieldName:
+		m.ResetName()
+		return nil
+	case clientinstalledcertificate.FieldSerialNumber:
+		m.ResetSerialNumber()
+		return nil
+	case clientinstalledcertificate.FieldFingerprintSha256:
+		m.ResetFingerprintSha256()
+		return nil
+	case clientinstalledcertificate.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case clientinstalledcertificate.FieldMessage:
+		m.ResetMessage()
+		return nil
+	case clientinstalledcertificate.FieldInstalledAt:
+		m.ResetInstalledAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ClientInstalledCertificate field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ClientInstalledCertificateMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ClientInstalledCertificateMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ClientInstalledCertificateMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ClientInstalledCertificateMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ClientInstalledCertificateMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ClientInstalledCertificateMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown ClientInstalledCertificate unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ClientInstalledCertificateMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown ClientInstalledCertificate edge %s", name)
 }
 
 // ClientIssuerMutation represents an operation that mutates the ClientIssuer nodes in the graph.

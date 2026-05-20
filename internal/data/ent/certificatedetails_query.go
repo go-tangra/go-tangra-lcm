@@ -5,9 +5,6 @@ package ent
 import (
 	"context"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatedetails"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 	"math"
 
 	"entgo.io/ent"
@@ -15,6 +12,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatedetails"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 )
 
 // CertificateDetailsQuery is the builder for querying CertificateDetails entities.

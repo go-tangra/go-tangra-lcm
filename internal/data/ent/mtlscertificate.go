@@ -5,13 +5,13 @@ package ent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/mtlscertificate"
 	"strings"
 	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/mtlscertificate"
 )
 
 // MtlsCertificate is the model entity for the MtlsCertificate schema.

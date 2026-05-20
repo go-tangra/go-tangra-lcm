@@ -5,10 +5,6 @@ package ent
 import (
 	"context"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterequest"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 	"math"
 
 	"entgo.io/ent"
@@ -16,6 +12,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterequest"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 )
 
 // CertificateRequestQuery is the builder for querying CertificateRequest entities.

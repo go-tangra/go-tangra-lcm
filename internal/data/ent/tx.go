@@ -24,6 +24,8 @@ type Tx struct {
 	CertificateRenewal *CertificateRenewalClient
 	// CertificateRequest is the client for interacting with the CertificateRequest builders.
 	CertificateRequest *CertificateRequestClient
+	// ClientInstalledCertificate is the client for interacting with the ClientInstalledCertificate builders.
+	ClientInstalledCertificate *ClientInstalledCertificateClient
 	// ClientIssuer is the client for interacting with the ClientIssuer builders.
 	ClientIssuer *ClientIssuerClient
 	// IssuedCertificate is the client for interacting with the IssuedCertificate builders.
@@ -179,6 +181,7 @@ func (tx *Tx) init() {
 	tx.CertificatePermission = NewCertificatePermissionClient(tx.config)
 	tx.CertificateRenewal = NewCertificateRenewalClient(tx.config)
 	tx.CertificateRequest = NewCertificateRequestClient(tx.config)
+	tx.ClientInstalledCertificate = NewClientInstalledCertificateClient(tx.config)
 	tx.ClientIssuer = NewClientIssuerClient(tx.config)
 	tx.IssuedCertificate = NewIssuedCertificateClient(tx.config)
 	tx.Issuer = NewIssuerClient(tx.config)

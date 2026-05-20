@@ -233,6 +233,59 @@ func (CertificateUpdateType) EnumDescriptor() ([]byte, []int) {
 	return file_lcm_service_v1_client_proto_rawDescGZIP(), []int{3}
 }
 
+// InstalledCertificateStatus - reported by an agent for a local install.
+type InstalledCertificateStatus int32
+
+const (
+	InstalledCertificateStatus_INSTALLED_CERT_STATUS_UNSPECIFIED InstalledCertificateStatus = 0
+	InstalledCertificateStatus_INSTALLED_CERT_STATUS_INSTALLED   InstalledCertificateStatus = 1
+	InstalledCertificateStatus_INSTALLED_CERT_STATUS_FAILED      InstalledCertificateStatus = 2
+	InstalledCertificateStatus_INSTALLED_CERT_STATUS_REMOVED     InstalledCertificateStatus = 3
+)
+
+// Enum value maps for InstalledCertificateStatus.
+var (
+	InstalledCertificateStatus_name = map[int32]string{
+		0: "INSTALLED_CERT_STATUS_UNSPECIFIED",
+		1: "INSTALLED_CERT_STATUS_INSTALLED",
+		2: "INSTALLED_CERT_STATUS_FAILED",
+		3: "INSTALLED_CERT_STATUS_REMOVED",
+	}
+	InstalledCertificateStatus_value = map[string]int32{
+		"INSTALLED_CERT_STATUS_UNSPECIFIED": 0,
+		"INSTALLED_CERT_STATUS_INSTALLED":   1,
+		"INSTALLED_CERT_STATUS_FAILED":      2,
+		"INSTALLED_CERT_STATUS_REMOVED":     3,
+	}
+)
+
+func (x InstalledCertificateStatus) Enum() *InstalledCertificateStatus {
+	p := new(InstalledCertificateStatus)
+	*p = x
+	return p
+}
+
+func (x InstalledCertificateStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (InstalledCertificateStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_lcm_service_v1_client_proto_enumTypes[4].Descriptor()
+}
+
+func (InstalledCertificateStatus) Type() protoreflect.EnumType {
+	return &file_lcm_service_v1_client_proto_enumTypes[4]
+}
+
+func (x InstalledCertificateStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use InstalledCertificateStatus.Descriptor instead.
+func (InstalledCertificateStatus) EnumDescriptor() ([]byte, []int) {
+	return file_lcm_service_v1_client_proto_rawDescGZIP(), []int{4}
+}
+
 // DownloadClientCertificateRequest is used by clients to download their certificate using public key verification
 type DownloadClientCertificateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1387,8 +1440,13 @@ type CertificateUpdateEvent struct {
 	CaCertificatePem *string                `protobuf:"bytes,3,opt,name=ca_certificate_pem,json=caCertificatePem,proto3,oneof" json:"ca_certificate_pem,omitempty"` // Included with issued/renewed events
 	EventTime        *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=event_time,json=eventTime,proto3" json:"event_time,omitempty"`
 	Message          *string                `protobuf:"bytes,5,opt,name=message,proto3,oneof" json:"message,omitempty"` // Human-readable description
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Private key PEM. Normally absent: the agent already holds the key from
+	// its initial registration. Present when a pusher (e.g. the deployer's
+	// tangra-client provider) is delivering a certificate whose key the agent
+	// does not already own.
+	PrivateKeyPem *string `protobuf:"bytes,6,opt,name=private_key_pem,json=privateKeyPem,proto3,oneof" json:"private_key_pem,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CertificateUpdateEvent) Reset() {
@@ -1454,6 +1512,481 @@ func (x *CertificateUpdateEvent) GetMessage() string {
 		return *x.Message
 	}
 	return ""
+}
+
+func (x *CertificateUpdateEvent) GetPrivateKeyPem() string {
+	if x != nil && x.PrivateKeyPem != nil {
+		return *x.PrivateKeyPem
+	}
+	return ""
+}
+
+// ListLcmClientsRequest - lists registered LCM clients with optional filters.
+// Metadata filter is AND-matched: every key/value pair must match the
+// client's stored metadata. tenant_id is required to scope the listing.
+type ListLcmClientsRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       *uint32                `protobuf:"varint,1,opt,name=tenant_id,json=tenantId,proto3,oneof" json:"tenant_id,omitempty"`
+	MetadataFilter map[string]string      `protobuf:"bytes,2,rep,name=metadata_filter,json=metadataFilter,proto3" json:"metadata_filter,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Status         *LcmClientStatus       `protobuf:"varint,3,opt,name=status,proto3,enum=lcm.service.v1.LcmClientStatus,oneof" json:"status,omitempty"`
+	Page           *uint32                `protobuf:"varint,10,opt,name=page,proto3,oneof" json:"page,omitempty"`
+	PageSize       *uint32                `protobuf:"varint,11,opt,name=page_size,json=pageSize,proto3,oneof" json:"page_size,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListLcmClientsRequest) Reset() {
+	*x = ListLcmClientsRequest{}
+	mi := &file_lcm_service_v1_client_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLcmClientsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLcmClientsRequest) ProtoMessage() {}
+
+func (x *ListLcmClientsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_client_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLcmClientsRequest.ProtoReflect.Descriptor instead.
+func (*ListLcmClientsRequest) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_client_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ListLcmClientsRequest) GetTenantId() uint32 {
+	if x != nil && x.TenantId != nil {
+		return *x.TenantId
+	}
+	return 0
+}
+
+func (x *ListLcmClientsRequest) GetMetadataFilter() map[string]string {
+	if x != nil {
+		return x.MetadataFilter
+	}
+	return nil
+}
+
+func (x *ListLcmClientsRequest) GetStatus() LcmClientStatus {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return LcmClientStatus_LCM_CLIENT_UNSPECIFIED
+}
+
+func (x *ListLcmClientsRequest) GetPage() uint32 {
+	if x != nil && x.Page != nil {
+		return *x.Page
+	}
+	return 0
+}
+
+func (x *ListLcmClientsRequest) GetPageSize() uint32 {
+	if x != nil && x.PageSize != nil {
+		return *x.PageSize
+	}
+	return 0
+}
+
+type ListLcmClientsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*LcmClient           `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Total         uint64                 `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLcmClientsResponse) Reset() {
+	*x = ListLcmClientsResponse{}
+	mi := &file_lcm_service_v1_client_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLcmClientsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLcmClientsResponse) ProtoMessage() {}
+
+func (x *ListLcmClientsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_client_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLcmClientsResponse.ProtoReflect.Descriptor instead.
+func (*ListLcmClientsResponse) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_client_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ListLcmClientsResponse) GetItems() []*LcmClient {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *ListLcmClientsResponse) GetTotal() uint64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+// InstalledCertificateInfo - one row of installed cert state per client+name.
+type InstalledCertificateInfo struct {
+	state             protoimpl.MessageState      `protogen:"open.v1"`
+	ClientId          *string                     `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3,oneof" json:"client_id,omitempty"`
+	Name              *string                     `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"` // logical cert name on the agent (e.g. cn)
+	SerialNumber      *string                     `protobuf:"bytes,3,opt,name=serial_number,json=serialNumber,proto3,oneof" json:"serial_number,omitempty"`
+	FingerprintSha256 *string                     `protobuf:"bytes,4,opt,name=fingerprint_sha256,json=fingerprintSha256,proto3,oneof" json:"fingerprint_sha256,omitempty"`
+	Status            *InstalledCertificateStatus `protobuf:"varint,5,opt,name=status,proto3,enum=lcm.service.v1.InstalledCertificateStatus,oneof" json:"status,omitempty"`
+	Message           *string                     `protobuf:"bytes,6,opt,name=message,proto3,oneof" json:"message,omitempty"` // free-form error or info text
+	InstalledAt       *timestamppb.Timestamp      `protobuf:"bytes,7,opt,name=installed_at,json=installedAt,proto3,oneof" json:"installed_at,omitempty"`
+	TenantId          *uint32                     `protobuf:"varint,8,opt,name=tenant_id,json=tenantId,proto3,oneof" json:"tenant_id,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *InstalledCertificateInfo) Reset() {
+	*x = InstalledCertificateInfo{}
+	mi := &file_lcm_service_v1_client_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InstalledCertificateInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InstalledCertificateInfo) ProtoMessage() {}
+
+func (x *InstalledCertificateInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_client_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InstalledCertificateInfo.ProtoReflect.Descriptor instead.
+func (*InstalledCertificateInfo) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_client_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *InstalledCertificateInfo) GetClientId() string {
+	if x != nil && x.ClientId != nil {
+		return *x.ClientId
+	}
+	return ""
+}
+
+func (x *InstalledCertificateInfo) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *InstalledCertificateInfo) GetSerialNumber() string {
+	if x != nil && x.SerialNumber != nil {
+		return *x.SerialNumber
+	}
+	return ""
+}
+
+func (x *InstalledCertificateInfo) GetFingerprintSha256() string {
+	if x != nil && x.FingerprintSha256 != nil {
+		return *x.FingerprintSha256
+	}
+	return ""
+}
+
+func (x *InstalledCertificateInfo) GetStatus() InstalledCertificateStatus {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return InstalledCertificateStatus_INSTALLED_CERT_STATUS_UNSPECIFIED
+}
+
+func (x *InstalledCertificateInfo) GetMessage() string {
+	if x != nil && x.Message != nil {
+		return *x.Message
+	}
+	return ""
+}
+
+func (x *InstalledCertificateInfo) GetInstalledAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.InstalledAt
+	}
+	return nil
+}
+
+func (x *InstalledCertificateInfo) GetTenantId() uint32 {
+	if x != nil && x.TenantId != nil {
+		return *x.TenantId
+	}
+	return 0
+}
+
+// ReportInstalledCertificateRequest - agent reports a local install result.
+// client_id is taken from the authenticated mTLS certificate if omitted.
+type ReportInstalledCertificateRequest struct {
+	state             protoimpl.MessageState     `protogen:"open.v1"`
+	ClientId          *string                    `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3,oneof" json:"client_id,omitempty"`
+	Name              string                     `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	SerialNumber      *string                    `protobuf:"bytes,3,opt,name=serial_number,json=serialNumber,proto3,oneof" json:"serial_number,omitempty"`
+	FingerprintSha256 *string                    `protobuf:"bytes,4,opt,name=fingerprint_sha256,json=fingerprintSha256,proto3,oneof" json:"fingerprint_sha256,omitempty"`
+	Status            InstalledCertificateStatus `protobuf:"varint,5,opt,name=status,proto3,enum=lcm.service.v1.InstalledCertificateStatus" json:"status,omitempty"`
+	Message           *string                    `protobuf:"bytes,6,opt,name=message,proto3,oneof" json:"message,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ReportInstalledCertificateRequest) Reset() {
+	*x = ReportInstalledCertificateRequest{}
+	mi := &file_lcm_service_v1_client_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReportInstalledCertificateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReportInstalledCertificateRequest) ProtoMessage() {}
+
+func (x *ReportInstalledCertificateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_client_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReportInstalledCertificateRequest.ProtoReflect.Descriptor instead.
+func (*ReportInstalledCertificateRequest) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_client_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ReportInstalledCertificateRequest) GetClientId() string {
+	if x != nil && x.ClientId != nil {
+		return *x.ClientId
+	}
+	return ""
+}
+
+func (x *ReportInstalledCertificateRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ReportInstalledCertificateRequest) GetSerialNumber() string {
+	if x != nil && x.SerialNumber != nil {
+		return *x.SerialNumber
+	}
+	return ""
+}
+
+func (x *ReportInstalledCertificateRequest) GetFingerprintSha256() string {
+	if x != nil && x.FingerprintSha256 != nil {
+		return *x.FingerprintSha256
+	}
+	return ""
+}
+
+func (x *ReportInstalledCertificateRequest) GetStatus() InstalledCertificateStatus {
+	if x != nil {
+		return x.Status
+	}
+	return InstalledCertificateStatus_INSTALLED_CERT_STATUS_UNSPECIFIED
+}
+
+func (x *ReportInstalledCertificateRequest) GetMessage() string {
+	if x != nil && x.Message != nil {
+		return *x.Message
+	}
+	return ""
+}
+
+type ReportInstalledCertificateResponse struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Info          *InstalledCertificateInfo `protobuf:"bytes,1,opt,name=info,proto3" json:"info,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReportInstalledCertificateResponse) Reset() {
+	*x = ReportInstalledCertificateResponse{}
+	mi := &file_lcm_service_v1_client_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReportInstalledCertificateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReportInstalledCertificateResponse) ProtoMessage() {}
+
+func (x *ReportInstalledCertificateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_client_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReportInstalledCertificateResponse.ProtoReflect.Descriptor instead.
+func (*ReportInstalledCertificateResponse) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_client_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ReportInstalledCertificateResponse) GetInfo() *InstalledCertificateInfo {
+	if x != nil {
+		return x.Info
+	}
+	return nil
+}
+
+// ListClientInstalledCertificatesRequest - look up installed cert state
+// across multiple clients, optionally filtered by name.
+type ListClientInstalledCertificatesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientIds     []string               `protobuf:"bytes,1,rep,name=client_ids,json=clientIds,proto3" json:"client_ids,omitempty"`
+	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	TenantId      *uint32                `protobuf:"varint,3,opt,name=tenant_id,json=tenantId,proto3,oneof" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListClientInstalledCertificatesRequest) Reset() {
+	*x = ListClientInstalledCertificatesRequest{}
+	mi := &file_lcm_service_v1_client_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListClientInstalledCertificatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListClientInstalledCertificatesRequest) ProtoMessage() {}
+
+func (x *ListClientInstalledCertificatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_client_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListClientInstalledCertificatesRequest.ProtoReflect.Descriptor instead.
+func (*ListClientInstalledCertificatesRequest) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_client_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListClientInstalledCertificatesRequest) GetClientIds() []string {
+	if x != nil {
+		return x.ClientIds
+	}
+	return nil
+}
+
+func (x *ListClientInstalledCertificatesRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *ListClientInstalledCertificatesRequest) GetTenantId() uint32 {
+	if x != nil && x.TenantId != nil {
+		return *x.TenantId
+	}
+	return 0
+}
+
+type ListClientInstalledCertificatesResponse struct {
+	state         protoimpl.MessageState      `protogen:"open.v1"`
+	Items         []*InstalledCertificateInfo `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListClientInstalledCertificatesResponse) Reset() {
+	*x = ListClientInstalledCertificatesResponse{}
+	mi := &file_lcm_service_v1_client_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListClientInstalledCertificatesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListClientInstalledCertificatesResponse) ProtoMessage() {}
+
+func (x *ListClientInstalledCertificatesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_service_v1_client_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListClientInstalledCertificatesResponse.ProtoReflect.Descriptor instead.
+func (*ListClientInstalledCertificatesResponse) Descriptor() ([]byte, []int) {
+	return file_lcm_service_v1_client_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ListClientInstalledCertificatesResponse) GetItems() []*InstalledCertificateInfo {
+	if x != nil {
+		return x.Items
+	}
+	return nil
 }
 
 var File_lcm_service_v1_client_proto protoreflect.FileDescriptor
@@ -1677,7 +2210,7 @@ const file_lcm_service_v1_client_proto_rawDesc = "" +
 	"\x1fStreamCertificateUpdatesRequest\x12F\n" +
 	"\tclient_id\x18\x01 \x01(\tB$\xbaH!r\x1f\x18@2\x1b^[a-zA-Z0-9][a-zA-Z0-9_-]*$H\x00R\bclientId\x88\x01\x01B\f\n" +
 	"\n" +
-	"_client_id\"\xd9\x02\n" +
+	"_client_id\"\xa2\x03\n" +
 	"\x16CertificateUpdateEvent\x12D\n" +
 	"\n" +
 	"event_type\x18\x01 \x01(\x0e2%.lcm.service.v1.CertificateUpdateTypeR\teventType\x12A\n" +
@@ -1685,10 +2218,76 @@ const file_lcm_service_v1_client_proto_rawDesc = "" +
 	"\x12ca_certificate_pem\x18\x03 \x01(\tB\x06ڶ\x1a\x02z\x00H\x00R\x10caCertificatePem\x88\x01\x01\x129\n" +
 	"\n" +
 	"event_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\teventTime\x12\x1d\n" +
-	"\amessage\x18\x05 \x01(\tH\x01R\amessage\x88\x01\x01B\x15\n" +
+	"\amessage\x18\x05 \x01(\tH\x01R\amessage\x88\x01\x01\x123\n" +
+	"\x0fprivate_key_pem\x18\x06 \x01(\tB\x06ڶ\x1a\x02z\x00H\x02R\rprivateKeyPem\x88\x01\x01B\x15\n" +
 	"\x13_ca_certificate_pemB\n" +
 	"\n" +
-	"\b_message*m\n" +
+	"\b_messageB\x12\n" +
+	"\x10_private_key_pem\"\x89\x03\n" +
+	"\x15ListLcmClientsRequest\x12 \n" +
+	"\ttenant_id\x18\x01 \x01(\rH\x00R\btenantId\x88\x01\x01\x12b\n" +
+	"\x0fmetadata_filter\x18\x02 \x03(\v29.lcm.service.v1.ListLcmClientsRequest.MetadataFilterEntryR\x0emetadataFilter\x12<\n" +
+	"\x06status\x18\x03 \x01(\x0e2\x1f.lcm.service.v1.LcmClientStatusH\x01R\x06status\x88\x01\x01\x12\x17\n" +
+	"\x04page\x18\n" +
+	" \x01(\rH\x02R\x04page\x88\x01\x01\x12 \n" +
+	"\tpage_size\x18\v \x01(\rH\x03R\bpageSize\x88\x01\x01\x1aA\n" +
+	"\x13MetadataFilterEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\f\n" +
+	"\n" +
+	"_tenant_idB\t\n" +
+	"\a_statusB\a\n" +
+	"\x05_pageB\f\n" +
+	"\n" +
+	"_page_size\"_\n" +
+	"\x16ListLcmClientsResponse\x12/\n" +
+	"\x05items\x18\x01 \x03(\v2\x19.lcm.service.v1.LcmClientR\x05items\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x04R\x05total\"\xf7\x03\n" +
+	"\x18InstalledCertificateInfo\x12 \n" +
+	"\tclient_id\x18\x01 \x01(\tH\x00R\bclientId\x88\x01\x01\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x01R\x04name\x88\x01\x01\x12(\n" +
+	"\rserial_number\x18\x03 \x01(\tH\x02R\fserialNumber\x88\x01\x01\x122\n" +
+	"\x12fingerprint_sha256\x18\x04 \x01(\tH\x03R\x11fingerprintSha256\x88\x01\x01\x12G\n" +
+	"\x06status\x18\x05 \x01(\x0e2*.lcm.service.v1.InstalledCertificateStatusH\x04R\x06status\x88\x01\x01\x12\x1d\n" +
+	"\amessage\x18\x06 \x01(\tH\x05R\amessage\x88\x01\x01\x12B\n" +
+	"\finstalled_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x06R\vinstalledAt\x88\x01\x01\x12 \n" +
+	"\ttenant_id\x18\b \x01(\rH\aR\btenantId\x88\x01\x01B\f\n" +
+	"\n" +
+	"_client_idB\a\n" +
+	"\x05_nameB\x10\n" +
+	"\x0e_serial_numberB\x15\n" +
+	"\x13_fingerprint_sha256B\t\n" +
+	"\a_statusB\n" +
+	"\n" +
+	"\b_messageB\x0f\n" +
+	"\r_installed_atB\f\n" +
+	"\n" +
+	"_tenant_id\"\x96\x03\n" +
+	"!ReportInstalledCertificateRequest\x12F\n" +
+	"\tclient_id\x18\x01 \x01(\tB$\xbaH!r\x1f\x18@2\x1b^[a-zA-Z0-9][a-zA-Z0-9_-]*$H\x00R\bclientId\x88\x01\x01\x12\x1b\n" +
+	"\x04name\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04name\x12(\n" +
+	"\rserial_number\x18\x03 \x01(\tH\x01R\fserialNumber\x88\x01\x01\x122\n" +
+	"\x12fingerprint_sha256\x18\x04 \x01(\tH\x02R\x11fingerprintSha256\x88\x01\x01\x12L\n" +
+	"\x06status\x18\x05 \x01(\x0e2*.lcm.service.v1.InstalledCertificateStatusB\b\xbaH\x05\x82\x01\x02\x10\x01R\x06status\x12\x1d\n" +
+	"\amessage\x18\x06 \x01(\tH\x03R\amessage\x88\x01\x01B\f\n" +
+	"\n" +
+	"_client_idB\x10\n" +
+	"\x0e_serial_numberB\x15\n" +
+	"\x13_fingerprint_sha256B\n" +
+	"\n" +
+	"\b_message\"b\n" +
+	"\"ReportInstalledCertificateResponse\x12<\n" +
+	"\x04info\x18\x01 \x01(\v2(.lcm.service.v1.InstalledCertificateInfoR\x04info\"\x99\x01\n" +
+	"&ListClientInstalledCertificatesRequest\x12\x1d\n" +
+	"\n" +
+	"client_ids\x18\x01 \x03(\tR\tclientIds\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12 \n" +
+	"\ttenant_id\x18\x03 \x01(\rH\x01R\btenantId\x88\x01\x01B\a\n" +
+	"\x05_nameB\f\n" +
+	"\n" +
+	"_tenant_id\"i\n" +
+	"'ListClientInstalledCertificatesResponse\x12>\n" +
+	"\x05items\x18\x01 \x03(\v2(.lcm.service.v1.InstalledCertificateInfoR\x05items*m\n" +
 	"\x13MtlsCertificateType\x12\x1e\n" +
 	"\x1aMTLS_CERT_TYPE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15MTLS_CERT_TYPE_CLIENT\x10\x01\x12\x1b\n" +
@@ -1708,13 +2307,21 @@ const file_lcm_service_v1_client_proto_rawDesc = "" +
 	"\x12CERTIFICATE_ISSUED\x10\x01\x12\x17\n" +
 	"\x13CERTIFICATE_RENEWED\x10\x02\x12\x17\n" +
 	"\x13CERTIFICATE_REVOKED\x10\x03\x12\x18\n" +
-	"\x14CERTIFICATE_EXPIRING\x10\x042\xdc\x04\n" +
+	"\x14CERTIFICATE_EXPIRING\x10\x04*\xad\x01\n" +
+	"\x1aInstalledCertificateStatus\x12%\n" +
+	"!INSTALLED_CERT_STATUS_UNSPECIFIED\x10\x00\x12#\n" +
+	"\x1fINSTALLED_CERT_STATUS_INSTALLED\x10\x01\x12 \n" +
+	"\x1cINSTALLED_CERT_STATUS_FAILED\x10\x02\x12!\n" +
+	"\x1dINSTALLED_CERT_STATUS_REMOVED\x10\x032\xde\a\n" +
 	"\x10LcmClientService\x12f\n" +
 	"\x11RegisterLcmClient\x12&.lcm.service.v1.CreateLcmClientRequest\x1a'.lcm.service.v1.CreateLcmClientResponse\"\x00\x12g\n" +
 	"\x10GetRequestStatus\x12'.lcm.service.v1.GetRequestStatusRequest\x1a(.lcm.service.v1.GetRequestStatusResponse\"\x00\x12\x82\x01\n" +
 	"\x19DownloadClientCertificate\x120.lcm.service.v1.DownloadClientCertificateRequest\x1a1.lcm.service.v1.DownloadClientCertificateResponse\"\x00\x12y\n" +
 	"\x16ListClientCertificates\x12-.lcm.service.v1.ListClientCertificatesRequest\x1a..lcm.service.v1.ListClientCertificatesResponse\"\x00\x12w\n" +
-	"\x18StreamCertificateUpdates\x12/.lcm.service.v1.StreamCertificateUpdatesRequest\x1a&.lcm.service.v1.CertificateUpdateEvent\"\x000\x01B\xbf\x01\n" +
+	"\x18StreamCertificateUpdates\x12/.lcm.service.v1.StreamCertificateUpdatesRequest\x1a&.lcm.service.v1.CertificateUpdateEvent\"\x000\x01\x12a\n" +
+	"\x0eListLcmClients\x12%.lcm.service.v1.ListLcmClientsRequest\x1a&.lcm.service.v1.ListLcmClientsResponse\"\x00\x12\x85\x01\n" +
+	"\x1aReportInstalledCertificate\x121.lcm.service.v1.ReportInstalledCertificateRequest\x1a2.lcm.service.v1.ReportInstalledCertificateResponse\"\x00\x12\x94\x01\n" +
+	"\x1fListClientInstalledCertificates\x126.lcm.service.v1.ListClientInstalledCertificatesRequest\x1a7.lcm.service.v1.ListClientInstalledCertificatesResponse\"\x00B\xbf\x01\n" +
 	"\x12com.lcm.service.v1B\vClientProtoP\x01ZBgithub.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1;servicev1\xa2\x02\x03LSX\xaa\x02\x0eLcm.Service.V1\xca\x02\x0eLcm\\Service\\V1\xe2\x02\x1aLcm\\Service\\V1\\GPBMetadata\xea\x02\x10Lcm::Service::V1b\x06proto3"
 
 var (
@@ -1729,78 +2336,101 @@ func file_lcm_service_v1_client_proto_rawDescGZIP() []byte {
 	return file_lcm_service_v1_client_proto_rawDescData
 }
 
-var file_lcm_service_v1_client_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_lcm_service_v1_client_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_lcm_service_v1_client_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_lcm_service_v1_client_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_lcm_service_v1_client_proto_goTypes = []any{
-	(MtlsCertificateType)(0),                  // 0: lcm.service.v1.MtlsCertificateType
-	(ClientCertificateStatus)(0),              // 1: lcm.service.v1.ClientCertificateStatus
-	(LcmClientStatus)(0),                      // 2: lcm.service.v1.LcmClientStatus
-	(CertificateUpdateType)(0),                // 3: lcm.service.v1.CertificateUpdateType
-	(*DownloadClientCertificateRequest)(nil),  // 4: lcm.service.v1.DownloadClientCertificateRequest
-	(*DownloadClientCertificateResponse)(nil), // 5: lcm.service.v1.DownloadClientCertificateResponse
-	(*GetRequestStatusRequest)(nil),           // 6: lcm.service.v1.GetRequestStatusRequest
-	(*GetRequestStatusResponse)(nil),          // 7: lcm.service.v1.GetRequestStatusResponse
-	(*CreateLcmClientRequest)(nil),            // 8: lcm.service.v1.CreateLcmClientRequest
-	(*CreateLcmClientResponse)(nil),           // 9: lcm.service.v1.CreateLcmClientResponse
-	(*ClientCertificate)(nil),                 // 10: lcm.service.v1.ClientCertificate
-	(*LcmClient)(nil),                         // 11: lcm.service.v1.LcmClient
-	(*ListClientCertificatesRequest)(nil),     // 12: lcm.service.v1.ListClientCertificatesRequest
-	(*ListClientCertificatesResponse)(nil),    // 13: lcm.service.v1.ListClientCertificatesResponse
-	(*CertificateInfo)(nil),                   // 14: lcm.service.v1.CertificateInfo
-	(*StreamCertificateUpdatesRequest)(nil),   // 15: lcm.service.v1.StreamCertificateUpdatesRequest
-	(*CertificateUpdateEvent)(nil),            // 16: lcm.service.v1.CertificateUpdateEvent
-	nil,                                       // 17: lcm.service.v1.CreateLcmClientRequest.MetadataEntry
-	nil,                                       // 18: lcm.service.v1.LcmClient.MetadataEntry
-	(*timestamppb.Timestamp)(nil),             // 19: google.protobuf.Timestamp
+	(MtlsCertificateType)(0),                        // 0: lcm.service.v1.MtlsCertificateType
+	(ClientCertificateStatus)(0),                    // 1: lcm.service.v1.ClientCertificateStatus
+	(LcmClientStatus)(0),                            // 2: lcm.service.v1.LcmClientStatus
+	(CertificateUpdateType)(0),                      // 3: lcm.service.v1.CertificateUpdateType
+	(InstalledCertificateStatus)(0),                 // 4: lcm.service.v1.InstalledCertificateStatus
+	(*DownloadClientCertificateRequest)(nil),        // 5: lcm.service.v1.DownloadClientCertificateRequest
+	(*DownloadClientCertificateResponse)(nil),       // 6: lcm.service.v1.DownloadClientCertificateResponse
+	(*GetRequestStatusRequest)(nil),                 // 7: lcm.service.v1.GetRequestStatusRequest
+	(*GetRequestStatusResponse)(nil),                // 8: lcm.service.v1.GetRequestStatusResponse
+	(*CreateLcmClientRequest)(nil),                  // 9: lcm.service.v1.CreateLcmClientRequest
+	(*CreateLcmClientResponse)(nil),                 // 10: lcm.service.v1.CreateLcmClientResponse
+	(*ClientCertificate)(nil),                       // 11: lcm.service.v1.ClientCertificate
+	(*LcmClient)(nil),                               // 12: lcm.service.v1.LcmClient
+	(*ListClientCertificatesRequest)(nil),           // 13: lcm.service.v1.ListClientCertificatesRequest
+	(*ListClientCertificatesResponse)(nil),          // 14: lcm.service.v1.ListClientCertificatesResponse
+	(*CertificateInfo)(nil),                         // 15: lcm.service.v1.CertificateInfo
+	(*StreamCertificateUpdatesRequest)(nil),         // 16: lcm.service.v1.StreamCertificateUpdatesRequest
+	(*CertificateUpdateEvent)(nil),                  // 17: lcm.service.v1.CertificateUpdateEvent
+	(*ListLcmClientsRequest)(nil),                   // 18: lcm.service.v1.ListLcmClientsRequest
+	(*ListLcmClientsResponse)(nil),                  // 19: lcm.service.v1.ListLcmClientsResponse
+	(*InstalledCertificateInfo)(nil),                // 20: lcm.service.v1.InstalledCertificateInfo
+	(*ReportInstalledCertificateRequest)(nil),       // 21: lcm.service.v1.ReportInstalledCertificateRequest
+	(*ReportInstalledCertificateResponse)(nil),      // 22: lcm.service.v1.ReportInstalledCertificateResponse
+	(*ListClientInstalledCertificatesRequest)(nil),  // 23: lcm.service.v1.ListClientInstalledCertificatesRequest
+	(*ListClientInstalledCertificatesResponse)(nil), // 24: lcm.service.v1.ListClientInstalledCertificatesResponse
+	nil,                           // 25: lcm.service.v1.CreateLcmClientRequest.MetadataEntry
+	nil,                           // 26: lcm.service.v1.LcmClient.MetadataEntry
+	nil,                           // 27: lcm.service.v1.ListLcmClientsRequest.MetadataFilterEntry
+	(*timestamppb.Timestamp)(nil), // 28: google.protobuf.Timestamp
 }
 var file_lcm_service_v1_client_proto_depIdxs = []int32{
 	1,  // 0: lcm.service.v1.DownloadClientCertificateResponse.status:type_name -> lcm.service.v1.ClientCertificateStatus
 	1,  // 1: lcm.service.v1.GetRequestStatusResponse.status:type_name -> lcm.service.v1.ClientCertificateStatus
-	19, // 2: lcm.service.v1.GetRequestStatusResponse.create_time:type_name -> google.protobuf.Timestamp
-	19, // 3: lcm.service.v1.GetRequestStatusResponse.update_time:type_name -> google.protobuf.Timestamp
-	19, // 4: lcm.service.v1.GetRequestStatusResponse.revoke_time:type_name -> google.protobuf.Timestamp
-	17, // 5: lcm.service.v1.CreateLcmClientRequest.metadata:type_name -> lcm.service.v1.CreateLcmClientRequest.MetadataEntry
-	19, // 6: lcm.service.v1.CreateLcmClientRequest.created_at:type_name -> google.protobuf.Timestamp
-	19, // 7: lcm.service.v1.CreateLcmClientRequest.updated_at:type_name -> google.protobuf.Timestamp
-	19, // 8: lcm.service.v1.CreateLcmClientRequest.revoked_at:type_name -> google.protobuf.Timestamp
-	11, // 9: lcm.service.v1.CreateLcmClientResponse.client:type_name -> lcm.service.v1.LcmClient
-	10, // 10: lcm.service.v1.CreateLcmClientResponse.certificate:type_name -> lcm.service.v1.ClientCertificate
+	28, // 2: lcm.service.v1.GetRequestStatusResponse.create_time:type_name -> google.protobuf.Timestamp
+	28, // 3: lcm.service.v1.GetRequestStatusResponse.update_time:type_name -> google.protobuf.Timestamp
+	28, // 4: lcm.service.v1.GetRequestStatusResponse.revoke_time:type_name -> google.protobuf.Timestamp
+	25, // 5: lcm.service.v1.CreateLcmClientRequest.metadata:type_name -> lcm.service.v1.CreateLcmClientRequest.MetadataEntry
+	28, // 6: lcm.service.v1.CreateLcmClientRequest.created_at:type_name -> google.protobuf.Timestamp
+	28, // 7: lcm.service.v1.CreateLcmClientRequest.updated_at:type_name -> google.protobuf.Timestamp
+	28, // 8: lcm.service.v1.CreateLcmClientRequest.revoked_at:type_name -> google.protobuf.Timestamp
+	12, // 9: lcm.service.v1.CreateLcmClientResponse.client:type_name -> lcm.service.v1.LcmClient
+	11, // 10: lcm.service.v1.CreateLcmClientResponse.certificate:type_name -> lcm.service.v1.ClientCertificate
 	1,  // 11: lcm.service.v1.ClientCertificate.status:type_name -> lcm.service.v1.ClientCertificateStatus
-	19, // 12: lcm.service.v1.ClientCertificate.last_seen:type_name -> google.protobuf.Timestamp
-	19, // 13: lcm.service.v1.ClientCertificate.revoked_at:type_name -> google.protobuf.Timestamp
-	19, // 14: lcm.service.v1.ClientCertificate.expires_at:type_name -> google.protobuf.Timestamp
+	28, // 12: lcm.service.v1.ClientCertificate.last_seen:type_name -> google.protobuf.Timestamp
+	28, // 13: lcm.service.v1.ClientCertificate.revoked_at:type_name -> google.protobuf.Timestamp
+	28, // 14: lcm.service.v1.ClientCertificate.expires_at:type_name -> google.protobuf.Timestamp
 	0,  // 15: lcm.service.v1.ClientCertificate.cert_type:type_name -> lcm.service.v1.MtlsCertificateType
-	19, // 16: lcm.service.v1.ClientCertificate.create_time:type_name -> google.protobuf.Timestamp
-	19, // 17: lcm.service.v1.ClientCertificate.update_time:type_name -> google.protobuf.Timestamp
-	19, // 18: lcm.service.v1.ClientCertificate.delete_time:type_name -> google.protobuf.Timestamp
+	28, // 16: lcm.service.v1.ClientCertificate.create_time:type_name -> google.protobuf.Timestamp
+	28, // 17: lcm.service.v1.ClientCertificate.update_time:type_name -> google.protobuf.Timestamp
+	28, // 18: lcm.service.v1.ClientCertificate.delete_time:type_name -> google.protobuf.Timestamp
 	2,  // 19: lcm.service.v1.LcmClient.status:type_name -> lcm.service.v1.LcmClientStatus
-	18, // 20: lcm.service.v1.LcmClient.metadata:type_name -> lcm.service.v1.LcmClient.MetadataEntry
-	19, // 21: lcm.service.v1.LcmClient.create_time:type_name -> google.protobuf.Timestamp
-	19, // 22: lcm.service.v1.LcmClient.update_time:type_name -> google.protobuf.Timestamp
-	19, // 23: lcm.service.v1.LcmClient.delete_time:type_name -> google.protobuf.Timestamp
+	26, // 20: lcm.service.v1.LcmClient.metadata:type_name -> lcm.service.v1.LcmClient.MetadataEntry
+	28, // 21: lcm.service.v1.LcmClient.create_time:type_name -> google.protobuf.Timestamp
+	28, // 22: lcm.service.v1.LcmClient.update_time:type_name -> google.protobuf.Timestamp
+	28, // 23: lcm.service.v1.LcmClient.delete_time:type_name -> google.protobuf.Timestamp
 	1,  // 24: lcm.service.v1.ListClientCertificatesRequest.status_filter:type_name -> lcm.service.v1.ClientCertificateStatus
-	14, // 25: lcm.service.v1.ListClientCertificatesResponse.certificates:type_name -> lcm.service.v1.CertificateInfo
+	15, // 25: lcm.service.v1.ListClientCertificatesResponse.certificates:type_name -> lcm.service.v1.CertificateInfo
 	1,  // 26: lcm.service.v1.CertificateInfo.status:type_name -> lcm.service.v1.ClientCertificateStatus
-	19, // 27: lcm.service.v1.CertificateInfo.issued_at:type_name -> google.protobuf.Timestamp
-	19, // 28: lcm.service.v1.CertificateInfo.expires_at:type_name -> google.protobuf.Timestamp
+	28, // 27: lcm.service.v1.CertificateInfo.issued_at:type_name -> google.protobuf.Timestamp
+	28, // 28: lcm.service.v1.CertificateInfo.expires_at:type_name -> google.protobuf.Timestamp
 	3,  // 29: lcm.service.v1.CertificateUpdateEvent.event_type:type_name -> lcm.service.v1.CertificateUpdateType
-	14, // 30: lcm.service.v1.CertificateUpdateEvent.certificate:type_name -> lcm.service.v1.CertificateInfo
-	19, // 31: lcm.service.v1.CertificateUpdateEvent.event_time:type_name -> google.protobuf.Timestamp
-	8,  // 32: lcm.service.v1.LcmClientService.RegisterLcmClient:input_type -> lcm.service.v1.CreateLcmClientRequest
-	6,  // 33: lcm.service.v1.LcmClientService.GetRequestStatus:input_type -> lcm.service.v1.GetRequestStatusRequest
-	4,  // 34: lcm.service.v1.LcmClientService.DownloadClientCertificate:input_type -> lcm.service.v1.DownloadClientCertificateRequest
-	12, // 35: lcm.service.v1.LcmClientService.ListClientCertificates:input_type -> lcm.service.v1.ListClientCertificatesRequest
-	15, // 36: lcm.service.v1.LcmClientService.StreamCertificateUpdates:input_type -> lcm.service.v1.StreamCertificateUpdatesRequest
-	9,  // 37: lcm.service.v1.LcmClientService.RegisterLcmClient:output_type -> lcm.service.v1.CreateLcmClientResponse
-	7,  // 38: lcm.service.v1.LcmClientService.GetRequestStatus:output_type -> lcm.service.v1.GetRequestStatusResponse
-	5,  // 39: lcm.service.v1.LcmClientService.DownloadClientCertificate:output_type -> lcm.service.v1.DownloadClientCertificateResponse
-	13, // 40: lcm.service.v1.LcmClientService.ListClientCertificates:output_type -> lcm.service.v1.ListClientCertificatesResponse
-	16, // 41: lcm.service.v1.LcmClientService.StreamCertificateUpdates:output_type -> lcm.service.v1.CertificateUpdateEvent
-	37, // [37:42] is the sub-list for method output_type
-	32, // [32:37] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	15, // 30: lcm.service.v1.CertificateUpdateEvent.certificate:type_name -> lcm.service.v1.CertificateInfo
+	28, // 31: lcm.service.v1.CertificateUpdateEvent.event_time:type_name -> google.protobuf.Timestamp
+	27, // 32: lcm.service.v1.ListLcmClientsRequest.metadata_filter:type_name -> lcm.service.v1.ListLcmClientsRequest.MetadataFilterEntry
+	2,  // 33: lcm.service.v1.ListLcmClientsRequest.status:type_name -> lcm.service.v1.LcmClientStatus
+	12, // 34: lcm.service.v1.ListLcmClientsResponse.items:type_name -> lcm.service.v1.LcmClient
+	4,  // 35: lcm.service.v1.InstalledCertificateInfo.status:type_name -> lcm.service.v1.InstalledCertificateStatus
+	28, // 36: lcm.service.v1.InstalledCertificateInfo.installed_at:type_name -> google.protobuf.Timestamp
+	4,  // 37: lcm.service.v1.ReportInstalledCertificateRequest.status:type_name -> lcm.service.v1.InstalledCertificateStatus
+	20, // 38: lcm.service.v1.ReportInstalledCertificateResponse.info:type_name -> lcm.service.v1.InstalledCertificateInfo
+	20, // 39: lcm.service.v1.ListClientInstalledCertificatesResponse.items:type_name -> lcm.service.v1.InstalledCertificateInfo
+	9,  // 40: lcm.service.v1.LcmClientService.RegisterLcmClient:input_type -> lcm.service.v1.CreateLcmClientRequest
+	7,  // 41: lcm.service.v1.LcmClientService.GetRequestStatus:input_type -> lcm.service.v1.GetRequestStatusRequest
+	5,  // 42: lcm.service.v1.LcmClientService.DownloadClientCertificate:input_type -> lcm.service.v1.DownloadClientCertificateRequest
+	13, // 43: lcm.service.v1.LcmClientService.ListClientCertificates:input_type -> lcm.service.v1.ListClientCertificatesRequest
+	16, // 44: lcm.service.v1.LcmClientService.StreamCertificateUpdates:input_type -> lcm.service.v1.StreamCertificateUpdatesRequest
+	18, // 45: lcm.service.v1.LcmClientService.ListLcmClients:input_type -> lcm.service.v1.ListLcmClientsRequest
+	21, // 46: lcm.service.v1.LcmClientService.ReportInstalledCertificate:input_type -> lcm.service.v1.ReportInstalledCertificateRequest
+	23, // 47: lcm.service.v1.LcmClientService.ListClientInstalledCertificates:input_type -> lcm.service.v1.ListClientInstalledCertificatesRequest
+	10, // 48: lcm.service.v1.LcmClientService.RegisterLcmClient:output_type -> lcm.service.v1.CreateLcmClientResponse
+	8,  // 49: lcm.service.v1.LcmClientService.GetRequestStatus:output_type -> lcm.service.v1.GetRequestStatusResponse
+	6,  // 50: lcm.service.v1.LcmClientService.DownloadClientCertificate:output_type -> lcm.service.v1.DownloadClientCertificateResponse
+	14, // 51: lcm.service.v1.LcmClientService.ListClientCertificates:output_type -> lcm.service.v1.ListClientCertificatesResponse
+	17, // 52: lcm.service.v1.LcmClientService.StreamCertificateUpdates:output_type -> lcm.service.v1.CertificateUpdateEvent
+	19, // 53: lcm.service.v1.LcmClientService.ListLcmClients:output_type -> lcm.service.v1.ListLcmClientsResponse
+	22, // 54: lcm.service.v1.LcmClientService.ReportInstalledCertificate:output_type -> lcm.service.v1.ReportInstalledCertificateResponse
+	24, // 55: lcm.service.v1.LcmClientService.ListClientInstalledCertificates:output_type -> lcm.service.v1.ListClientInstalledCertificatesResponse
+	48, // [48:56] is the sub-list for method output_type
+	40, // [40:48] is the sub-list for method input_type
+	40, // [40:40] is the sub-list for extension type_name
+	40, // [40:40] is the sub-list for extension extendee
+	0,  // [0:40] is the sub-list for field type_name
 }
 
 func init() { file_lcm_service_v1_client_proto_init() }
@@ -1819,13 +2449,17 @@ func file_lcm_service_v1_client_proto_init() {
 	file_lcm_service_v1_client_proto_msgTypes[10].OneofWrappers = []any{}
 	file_lcm_service_v1_client_proto_msgTypes[11].OneofWrappers = []any{}
 	file_lcm_service_v1_client_proto_msgTypes[12].OneofWrappers = []any{}
+	file_lcm_service_v1_client_proto_msgTypes[13].OneofWrappers = []any{}
+	file_lcm_service_v1_client_proto_msgTypes[15].OneofWrappers = []any{}
+	file_lcm_service_v1_client_proto_msgTypes[16].OneofWrappers = []any{}
+	file_lcm_service_v1_client_proto_msgTypes[18].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_lcm_service_v1_client_proto_rawDesc), len(file_lcm_service_v1_client_proto_rawDesc)),
-			NumEnums:      4,
-			NumMessages:   15,
+			NumEnums:      5,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

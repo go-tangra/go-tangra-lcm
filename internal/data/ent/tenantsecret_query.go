@@ -5,8 +5,6 @@ package ent
 import (
 	"context"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/tenantsecret"
 	"math"
 
 	"entgo.io/ent"
@@ -14,6 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/tenantsecret"
 )
 
 // TenantSecretQuery is the builder for querying TenantSecret entities.

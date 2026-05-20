@@ -20,6 +20,7 @@ import (
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
 	"github.com/go-tangra/go-tangra-lcm/internal/cert"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/mtlscertificaterequest"
 	"github.com/go-tangra/go-tangra-lcm/internal/event"
 	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
@@ -33,6 +34,7 @@ type LcmClientService struct {
 	log              *log.Helper
 	certManager      *cert.CertManager
 	clientRepo       *data.LcmClientRepo
+	installedRepo    *data.ClientInstalledCertificateRepo
 	requestRepo      *data.MtlsCertificateRequestRepo
 	certRepo         *data.MtlsCertificateRepo
 	tenantSecretRepo *data.TenantSecretRepo
@@ -46,6 +48,7 @@ func NewLcmClientService(
 	ctx *bootstrap.Context,
 	certManager *cert.CertManager,
 	clientRepo *data.LcmClientRepo,
+	installedRepo *data.ClientInstalledCertificateRepo,
 	requestRepo *data.MtlsCertificateRequestRepo,
 	certRepo *data.MtlsCertificateRepo,
 	tenantSecretRepo *data.TenantSecretRepo,
@@ -66,6 +69,7 @@ func NewLcmClientService(
 		log:              ctx.NewLoggerHelper("lcm/service/client"),
 		certManager:      certManager,
 		clientRepo:       clientRepo,
+		installedRepo:    installedRepo,
 		requestRepo:      requestRepo,
 		certRepo:         certRepo,
 		tenantSecretRepo: tenantSecretRepo,
@@ -600,15 +604,41 @@ func (s *LcmClientService) parseEventForClient(msg *redis.Message, clientID stri
 		updateEvent.Certificate = certInfo
 	}
 
-	// Include CA certificate for issued/renewed events
+	// Include CA certificate for issued/renewed events. Prefer a CA explicitly
+	// carried in the event payload (e.g. when the deployer publishes a cert
+	// signed by a different chain) over the local LCM CA.
 	if eventType == lcmV1.CertificateUpdateType_CERTIFICATE_ISSUED || eventType == lcmV1.CertificateUpdateType_CERTIFICATE_RENEWED {
-		caCertPEM, err := s.certManager.GetCACertificatePEM()
-		if err == nil {
+		if ca := extractStringFromEvent(lcmEvent.Data, "ca_certificate_pem"); ca != "" {
+			updateEvent.CaCertificatePem = &ca
+		} else if caCertPEM, err := s.certManager.GetCACertificatePEM(); err == nil {
 			updateEvent.CaCertificatePem = &caCertPEM
+		}
+		// Forward a pushed private key if present. Normally the agent already
+		// owns the key (it generated it during registration), but pushers can
+		// deliver certs whose key the agent doesn't yet have.
+		if pk := extractStringFromEvent(lcmEvent.Data, "private_key_pem"); pk != "" {
+			updateEvent.PrivateKeyPem = &pk
 		}
 	}
 
 	return updateEvent, nil
+}
+
+// extractStringFromEvent returns a top-level string field from the event
+// data map if present. Used to pull through optional payload fields like
+// ca_certificate_pem and private_key_pem that pushers can supply.
+func extractStringFromEvent(data interface{}, key string) string {
+	if data == nil {
+		return ""
+	}
+	m, ok := data.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
 }
 
 // mapTopicToUpdateType maps Redis topic to CertificateUpdateType
@@ -641,7 +671,12 @@ func extractClientIDFromEvent(data interface{}) string {
 	return ""
 }
 
-// buildCertInfoFromEvent builds CertificateInfo from event data
+// buildCertInfoFromEvent builds CertificateInfo from event data. In addition
+// to the lightweight metadata that internally-published events carry, it now
+// passes through certificate_pem, ip_addresses, issued_at, expires_at, and
+// fingerprint_sha256 if present. This lets pushers (e.g. the deployer's
+// tangra-client provider) include the full certificate payload so the agent
+// can install it without an extra round-trip.
 func buildCertInfoFromEvent(data interface{}) *lcmV1.CertificateInfo {
 	if data == nil {
 		return nil
@@ -658,6 +693,10 @@ func buildCertInfoFromEvent(data interface{}) *lcmV1.CertificateInfo {
 		info.CommonName = v
 		info.Name = v
 	}
+	// Explicit "name" overrides the default name derived from CommonName.
+	if v, ok := m["name"].(string); ok && v != "" {
+		info.Name = v
+	}
 	if v, ok := m["serial_number"].(string); ok {
 		info.SerialNumber = v
 	}
@@ -671,8 +710,56 @@ func buildCertInfoFromEvent(data interface{}) *lcmV1.CertificateInfo {
 			}
 		}
 	}
+	if ipAddrs, ok := m["ip_addresses"].([]interface{}); ok {
+		for _, ip := range ipAddrs {
+			if s, ok := ip.(string); ok {
+				info.IpAddresses = append(info.IpAddresses, s)
+			}
+		}
+	}
+	if v, ok := m["certificate_pem"].(string); ok && v != "" {
+		info.CertificatePem = &v
+	}
+	if v, ok := m["fingerprint_sha256"].(string); ok && v != "" {
+		info.FingerprintSha256 = &v
+	}
+	if ts, ok := parseEventTimestamp(m["issued_at"]); ok {
+		info.IssuedAt = timestamppb.New(ts)
+	}
+	if ts, ok := parseEventTimestamp(m["expires_at"]); ok {
+		info.ExpiresAt = timestamppb.New(ts)
+	}
 
 	return info
+}
+
+// parseEventTimestamp accepts either RFC3339 strings or unix-seconds numbers
+// (the JSON output of CertificateData.ExpiresAt is unix seconds, while LCM's
+// own publisher emits time.Time which marshals to RFC3339).
+func parseEventTimestamp(v interface{}) (time.Time, bool) {
+	switch x := v.(type) {
+	case string:
+		if x == "" {
+			return time.Time{}, false
+		}
+		if t, err := time.Parse(time.RFC3339, x); err == nil {
+			return t, true
+		}
+		if t, err := time.Parse(time.RFC3339Nano, x); err == nil {
+			return t, true
+		}
+	case float64:
+		if x == 0 {
+			return time.Time{}, false
+		}
+		return time.Unix(int64(x), 0), true
+	case int64:
+		if x == 0 {
+			return time.Time{}, false
+		}
+		return time.Unix(x, 0), true
+	}
+	return time.Time{}, false
 }
 
 // mapCertStatusToClientStatus maps MtlsCertificateStatus to ClientCertificateStatus
@@ -687,4 +774,121 @@ func mapCertStatusToClientStatus(status lcmV1.MtlsCertificateStatus) lcmV1.Clien
 	default:
 		return lcmV1.ClientCertificateStatus_CLIENT_CERT_STATUS_UNKNOWN
 	}
+}
+
+// ListLcmClients lists registered LCM clients filtered by tenant, status,
+// and metadata labels. Intended for inter-service callers (admin gateway,
+// deployer's tangra-client provider). All filters are AND-composed.
+func (s *LcmClientService) ListLcmClients(ctx context.Context, req *lcmV1.ListLcmClientsRequest) (*lcmV1.ListLcmClientsResponse, error) {
+	filter := data.LcmClientListFilter{
+		Labels:   req.GetMetadataFilter(),
+		Page:     req.GetPage(),
+		PageSize: req.GetPageSize(),
+	}
+	if req.TenantId != nil {
+		tid := req.GetTenantId()
+		filter.TenantID = &tid
+	}
+	if req.Status != nil {
+		statusName := req.GetStatus().String()
+		st := lcmclient.Status(statusName)
+		filter.Status = &st
+	}
+
+	rows, total, err := s.clientRepo.ListByFilter(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*lcmV1.LcmClient, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, s.clientRepo.ToProto(row))
+	}
+
+	return &lcmV1.ListLcmClientsResponse{
+		Items: items,
+		Total: uint64(total),
+	}, nil
+}
+
+// ReportInstalledCertificate records that an agent has applied a certificate
+// locally. The mTLS-authenticated client_id from the connection takes
+// precedence; an explicit client_id in the request must match it.
+func (s *LcmClientService) ReportInstalledCertificate(ctx context.Context, req *lcmV1.ReportInstalledCertificateRequest) (*lcmV1.ReportInstalledCertificateResponse, error) {
+	authClientID := client.GetClientID(ctx)
+	clientID := authClientID
+	if req.ClientId != nil && *req.ClientId != "" {
+		if authClientID != "" && authClientID != *req.ClientId {
+			return nil, lcmV1.ErrorForbidden("client ID does not match authenticated certificate")
+		}
+		clientID = *req.ClientId
+	}
+	if clientID == "" {
+		return nil, lcmV1.ErrorUnauthorized("client authentication required")
+	}
+	if req.GetName() == "" {
+		return nil, lcmV1.ErrorBadRequest("name is required")
+	}
+
+	// Resolve tenant from the registered client record.
+	clientRow, err := s.clientRepo.GetByClientID(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+	if clientRow == nil {
+		return nil, lcmV1.ErrorNotFound("client not registered")
+	}
+
+	var tenantID uint32
+	if clientRow.TenantID != nil {
+		tenantID = *clientRow.TenantID
+	}
+	input := data.UpsertInput{
+		TenantID:          tenantID,
+		ClientID:          clientID,
+		Name:              req.GetName(),
+		SerialNumber:      req.GetSerialNumber(),
+		FingerprintSHA256: req.GetFingerprintSha256(),
+		Status:            data.MapStatusFromProto(req.GetStatus()),
+		Message:           req.GetMessage(),
+		InstalledAt:       time.Now().UTC(),
+	}
+
+	row, err := s.installedRepo.Upsert(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	info := s.installedRepo.ToProto(row)
+	if row.InstalledAt != nil {
+		info.InstalledAt = timestamppb.New(*row.InstalledAt)
+	}
+	return &lcmV1.ReportInstalledCertificateResponse{Info: info}, nil
+}
+
+// ListClientInstalledCertificates returns the installed-certificate state
+// for the supplied client_ids (filtered by name if provided). Intended for
+// inter-service callers (e.g. deployer Verify).
+func (s *LcmClientService) ListClientInstalledCertificates(ctx context.Context, req *lcmV1.ListClientInstalledCertificatesRequest) (*lcmV1.ListClientInstalledCertificatesResponse, error) {
+	var tenantID *uint32
+	if req.TenantId != nil {
+		tid := req.GetTenantId()
+		tenantID = &tid
+	}
+
+	rows, err := s.installedRepo.ListForClients(ctx, tenantID, req.GetClientIds(), req.GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*lcmV1.InstalledCertificateInfo, 0, len(rows))
+	for _, row := range rows {
+		info := s.installedRepo.ToProto(row)
+		if row.InstalledAt != nil {
+			info.InstalledAt = timestamppb.New(*row.InstalledAt)
+		}
+		items = append(items, info)
+	}
+
+	return &lcmV1.ListClientInstalledCertificatesResponse{Items: items}, nil
 }

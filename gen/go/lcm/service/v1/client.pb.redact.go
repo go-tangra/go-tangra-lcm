@@ -95,6 +95,39 @@ func (s *redactedLcmClientServiceServer) StreamCertificateUpdates(in *StreamCert
 	return s.srv.StreamCertificateUpdates(in, stream)
 }
 
+// ListLcmClients is the redacted wrapper for the actual LcmClientServiceServer.ListLcmClients method
+// Unary RPC
+func (s *redactedLcmClientServiceServer) ListLcmClients(ctx context.Context, in *ListLcmClientsRequest) (*ListLcmClientsResponse, error) {
+	res, err := s.srv.ListLcmClients(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
+// ReportInstalledCertificate is the redacted wrapper for the actual LcmClientServiceServer.ReportInstalledCertificate method
+// Unary RPC
+func (s *redactedLcmClientServiceServer) ReportInstalledCertificate(ctx context.Context, in *ReportInstalledCertificateRequest) (*ReportInstalledCertificateResponse, error) {
+	res, err := s.srv.ReportInstalledCertificate(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
+// ListClientInstalledCertificates is the redacted wrapper for the actual LcmClientServiceServer.ListClientInstalledCertificates method
+// Unary RPC
+func (s *redactedLcmClientServiceServer) ListClientInstalledCertificates(ctx context.Context, in *ListClientInstalledCertificatesRequest) (*ListClientInstalledCertificatesResponse, error) {
+	res, err := s.srv.ListClientInstalledCertificates(ctx, in)
+	if !s.bypass.CheckInternal(ctx) {
+		// Apply redaction to the response
+		redact.Apply(res)
+	}
+	return res, err
+}
+
 // Redact method implementation for DownloadClientCertificateRequest
 func (x *DownloadClientCertificateRequest) Redact() string {
 	if x == nil {
@@ -400,5 +433,117 @@ func (x *CertificateUpdateEvent) Redact() string {
 	// Safe field: EventTime
 
 	// Safe field: Message
+
+	// Redacting field: PrivateKeyPem
+	PrivateKeyPemTmp := ``
+	x.PrivateKeyPem = &PrivateKeyPemTmp
+	return x.String()
+}
+
+// Redact method implementation for ListLcmClientsRequest
+func (x *ListLcmClientsRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: TenantId
+
+	// Safe field: MetadataFilter
+
+	// Safe field: Status
+
+	// Safe field: Page
+
+	// Safe field: PageSize
+	return x.String()
+}
+
+// Redact method implementation for ListLcmClientsResponse
+func (x *ListLcmClientsResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Items
+
+	// Safe field: Total
+	return x.String()
+}
+
+// Redact method implementation for InstalledCertificateInfo
+func (x *InstalledCertificateInfo) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: ClientId
+
+	// Safe field: Name
+
+	// Safe field: SerialNumber
+
+	// Safe field: FingerprintSha256
+
+	// Safe field: Status
+
+	// Safe field: Message
+
+	// Safe field: InstalledAt
+
+	// Safe field: TenantId
+	return x.String()
+}
+
+// Redact method implementation for ReportInstalledCertificateRequest
+func (x *ReportInstalledCertificateRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: ClientId
+
+	// Safe field: Name
+
+	// Safe field: SerialNumber
+
+	// Safe field: FingerprintSha256
+
+	// Safe field: Status
+
+	// Safe field: Message
+	return x.String()
+}
+
+// Redact method implementation for ReportInstalledCertificateResponse
+func (x *ReportInstalledCertificateResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Info
+	return x.String()
+}
+
+// Redact method implementation for ListClientInstalledCertificatesRequest
+func (x *ListClientInstalledCertificatesRequest) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: ClientIds
+
+	// Safe field: Name
+
+	// Safe field: TenantId
+	return x.String()
+}
+
+// Redact method implementation for ListClientInstalledCertificatesResponse
+func (x *ListClientInstalledCertificatesResponse) Redact() string {
+	if x == nil {
+		return ""
+	}
+
+	// Safe field: Items
 	return x.String()
 }

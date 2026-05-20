@@ -9,9 +9,8 @@ import (
 	// required by schema hooks.
 	_ "github.com/go-tangra/go-tangra-lcm/internal/data/ent/runtime"
 
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/migrate"
-
 	"entgo.io/ent/dialect/sql/schema"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/migrate"
 )
 
 type (

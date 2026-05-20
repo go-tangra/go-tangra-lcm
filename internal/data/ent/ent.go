@@ -6,12 +6,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"sync"
+
+	"entgo.io/ent"
+	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/acmeissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/auditlog"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatedetails"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatepermission"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterenewal"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterequest"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/clientinstalledcertificate"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/clientissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
@@ -21,12 +28,6 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/mtlscertificaterequest"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/selfsignedissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/tenantsecret"
-	"reflect"
-	"sync"
-
-	"entgo.io/ent"
-	"entgo.io/ent/dialect/sql"
-	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -87,21 +88,22 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			acmeissuer.Table:             acmeissuer.ValidColumn,
-			auditlog.Table:               auditlog.ValidColumn,
-			certificatedetails.Table:     certificatedetails.ValidColumn,
-			certificatepermission.Table:  certificatepermission.ValidColumn,
-			certificaterenewal.Table:     certificaterenewal.ValidColumn,
-			certificaterequest.Table:     certificaterequest.ValidColumn,
-			clientissuer.Table:           clientissuer.ValidColumn,
-			issuedcertificate.Table:      issuedcertificate.ValidColumn,
-			issuer.Table:                 issuer.ValidColumn,
-			lcmca.Table:                  lcmca.ValidColumn,
-			lcmclient.Table:              lcmclient.ValidColumn,
-			mtlscertificate.Table:        mtlscertificate.ValidColumn,
-			mtlscertificaterequest.Table: mtlscertificaterequest.ValidColumn,
-			selfsignedissuer.Table:       selfsignedissuer.ValidColumn,
-			tenantsecret.Table:           tenantsecret.ValidColumn,
+			acmeissuer.Table:                 acmeissuer.ValidColumn,
+			auditlog.Table:                   auditlog.ValidColumn,
+			certificatedetails.Table:         certificatedetails.ValidColumn,
+			certificatepermission.Table:      certificatepermission.ValidColumn,
+			certificaterenewal.Table:         certificaterenewal.ValidColumn,
+			certificaterequest.Table:         certificaterequest.ValidColumn,
+			clientinstalledcertificate.Table: clientinstalledcertificate.ValidColumn,
+			clientissuer.Table:               clientissuer.ValidColumn,
+			issuedcertificate.Table:          issuedcertificate.ValidColumn,
+			issuer.Table:                     issuer.ValidColumn,
+			lcmca.Table:                      lcmca.ValidColumn,
+			lcmclient.Table:                  lcmclient.ValidColumn,
+			mtlscertificate.Table:            mtlscertificate.ValidColumn,
+			mtlscertificaterequest.Table:     mtlscertificaterequest.ValidColumn,
+			selfsignedissuer.Table:           selfsignedissuer.ValidColumn,
+			tenantsecret.Table:               tenantsecret.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

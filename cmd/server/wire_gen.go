@@ -51,6 +51,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	mtlsCertificateRepo := data.NewMtlsCertificateRepo(context, entClient)
 	systemService := service.NewSystemService(context)
 	lcmClientRepo := data.NewLcmClientRepo(context, entClient)
+	clientInstalledCertificateRepo := data.NewClientInstalledCertificateRepo(context, entClient)
 	mtlsCertificateRequestRepo := data.NewMtlsCertificateRequestRepo(context, entClient)
 	tenantSecretRepo := data.NewTenantSecretRepo(context, entClient)
 	redisClient, cleanup2, err := data.NewRedisClient(context)
@@ -58,7 +59,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
-	lcmClientService := service.NewLcmClientService(context, certManager, lcmClientRepo, mtlsCertificateRequestRepo, mtlsCertificateRepo, tenantSecretRepo, redisClient, collector)
+	lcmClientService := service.NewLcmClientService(context, certManager, lcmClientRepo, clientInstalledCertificateRepo, mtlsCertificateRequestRepo, mtlsCertificateRepo, tenantSecretRepo, redisClient, collector)
 	issuerRepo := data.NewIssuerRepo(context, entClient)
 	issuerService := service.NewIssuerService(context, issuerRepo, lcmClientRepo, mtlsCertificateRepo, collector)
 	lcm := providers.ProvideLCMConfig(context)

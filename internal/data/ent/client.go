@@ -11,12 +11,17 @@ import (
 
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/migrate"
 
+	"entgo.io/ent"
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/acmeissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/auditlog"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatedetails"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatepermission"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterenewal"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterequest"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/clientinstalledcertificate"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/clientissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
@@ -26,11 +31,6 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/mtlscertificaterequest"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/selfsignedissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/tenantsecret"
-
-	"entgo.io/ent"
-	"entgo.io/ent/dialect"
-	"entgo.io/ent/dialect/sql"
-	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 // Client is the client that holds all ent builders.
@@ -50,6 +50,8 @@ type Client struct {
 	CertificateRenewal *CertificateRenewalClient
 	// CertificateRequest is the client for interacting with the CertificateRequest builders.
 	CertificateRequest *CertificateRequestClient
+	// ClientInstalledCertificate is the client for interacting with the ClientInstalledCertificate builders.
+	ClientInstalledCertificate *ClientInstalledCertificateClient
 	// ClientIssuer is the client for interacting with the ClientIssuer builders.
 	ClientIssuer *ClientIssuerClient
 	// IssuedCertificate is the client for interacting with the IssuedCertificate builders.
@@ -85,6 +87,7 @@ func (c *Client) init() {
 	c.CertificatePermission = NewCertificatePermissionClient(c.config)
 	c.CertificateRenewal = NewCertificateRenewalClient(c.config)
 	c.CertificateRequest = NewCertificateRequestClient(c.config)
+	c.ClientInstalledCertificate = NewClientInstalledCertificateClient(c.config)
 	c.ClientIssuer = NewClientIssuerClient(c.config)
 	c.IssuedCertificate = NewIssuedCertificateClient(c.config)
 	c.Issuer = NewIssuerClient(c.config)
@@ -184,23 +187,24 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                    ctx,
-		config:                 cfg,
-		AcmeIssuer:             NewAcmeIssuerClient(cfg),
-		AuditLog:               NewAuditLogClient(cfg),
-		CertificateDetails:     NewCertificateDetailsClient(cfg),
-		CertificatePermission:  NewCertificatePermissionClient(cfg),
-		CertificateRenewal:     NewCertificateRenewalClient(cfg),
-		CertificateRequest:     NewCertificateRequestClient(cfg),
-		ClientIssuer:           NewClientIssuerClient(cfg),
-		IssuedCertificate:      NewIssuedCertificateClient(cfg),
-		Issuer:                 NewIssuerClient(cfg),
-		LcmCa:                  NewLcmCaClient(cfg),
-		LcmClient:              NewLcmClientClient(cfg),
-		MtlsCertificate:        NewMtlsCertificateClient(cfg),
-		MtlsCertificateRequest: NewMtlsCertificateRequestClient(cfg),
-		SelfSignedIssuer:       NewSelfSignedIssuerClient(cfg),
-		TenantSecret:           NewTenantSecretClient(cfg),
+		ctx:                        ctx,
+		config:                     cfg,
+		AcmeIssuer:                 NewAcmeIssuerClient(cfg),
+		AuditLog:                   NewAuditLogClient(cfg),
+		CertificateDetails:         NewCertificateDetailsClient(cfg),
+		CertificatePermission:      NewCertificatePermissionClient(cfg),
+		CertificateRenewal:         NewCertificateRenewalClient(cfg),
+		CertificateRequest:         NewCertificateRequestClient(cfg),
+		ClientInstalledCertificate: NewClientInstalledCertificateClient(cfg),
+		ClientIssuer:               NewClientIssuerClient(cfg),
+		IssuedCertificate:          NewIssuedCertificateClient(cfg),
+		Issuer:                     NewIssuerClient(cfg),
+		LcmCa:                      NewLcmCaClient(cfg),
+		LcmClient:                  NewLcmClientClient(cfg),
+		MtlsCertificate:            NewMtlsCertificateClient(cfg),
+		MtlsCertificateRequest:     NewMtlsCertificateRequestClient(cfg),
+		SelfSignedIssuer:           NewSelfSignedIssuerClient(cfg),
+		TenantSecret:               NewTenantSecretClient(cfg),
 	}, nil
 }
 
@@ -218,23 +222,24 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                    ctx,
-		config:                 cfg,
-		AcmeIssuer:             NewAcmeIssuerClient(cfg),
-		AuditLog:               NewAuditLogClient(cfg),
-		CertificateDetails:     NewCertificateDetailsClient(cfg),
-		CertificatePermission:  NewCertificatePermissionClient(cfg),
-		CertificateRenewal:     NewCertificateRenewalClient(cfg),
-		CertificateRequest:     NewCertificateRequestClient(cfg),
-		ClientIssuer:           NewClientIssuerClient(cfg),
-		IssuedCertificate:      NewIssuedCertificateClient(cfg),
-		Issuer:                 NewIssuerClient(cfg),
-		LcmCa:                  NewLcmCaClient(cfg),
-		LcmClient:              NewLcmClientClient(cfg),
-		MtlsCertificate:        NewMtlsCertificateClient(cfg),
-		MtlsCertificateRequest: NewMtlsCertificateRequestClient(cfg),
-		SelfSignedIssuer:       NewSelfSignedIssuerClient(cfg),
-		TenantSecret:           NewTenantSecretClient(cfg),
+		ctx:                        ctx,
+		config:                     cfg,
+		AcmeIssuer:                 NewAcmeIssuerClient(cfg),
+		AuditLog:                   NewAuditLogClient(cfg),
+		CertificateDetails:         NewCertificateDetailsClient(cfg),
+		CertificatePermission:      NewCertificatePermissionClient(cfg),
+		CertificateRenewal:         NewCertificateRenewalClient(cfg),
+		CertificateRequest:         NewCertificateRequestClient(cfg),
+		ClientInstalledCertificate: NewClientInstalledCertificateClient(cfg),
+		ClientIssuer:               NewClientIssuerClient(cfg),
+		IssuedCertificate:          NewIssuedCertificateClient(cfg),
+		Issuer:                     NewIssuerClient(cfg),
+		LcmCa:                      NewLcmCaClient(cfg),
+		LcmClient:                  NewLcmClientClient(cfg),
+		MtlsCertificate:            NewMtlsCertificateClient(cfg),
+		MtlsCertificateRequest:     NewMtlsCertificateRequestClient(cfg),
+		SelfSignedIssuer:           NewSelfSignedIssuerClient(cfg),
+		TenantSecret:               NewTenantSecretClient(cfg),
 	}, nil
 }
 
@@ -265,9 +270,10 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.AcmeIssuer, c.AuditLog, c.CertificateDetails, c.CertificatePermission,
-		c.CertificateRenewal, c.CertificateRequest, c.ClientIssuer,
-		c.IssuedCertificate, c.Issuer, c.LcmCa, c.LcmClient, c.MtlsCertificate,
-		c.MtlsCertificateRequest, c.SelfSignedIssuer, c.TenantSecret,
+		c.CertificateRenewal, c.CertificateRequest, c.ClientInstalledCertificate,
+		c.ClientIssuer, c.IssuedCertificate, c.Issuer, c.LcmCa, c.LcmClient,
+		c.MtlsCertificate, c.MtlsCertificateRequest, c.SelfSignedIssuer,
+		c.TenantSecret,
 	} {
 		n.Use(hooks...)
 	}
@@ -278,9 +284,10 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.AcmeIssuer, c.AuditLog, c.CertificateDetails, c.CertificatePermission,
-		c.CertificateRenewal, c.CertificateRequest, c.ClientIssuer,
-		c.IssuedCertificate, c.Issuer, c.LcmCa, c.LcmClient, c.MtlsCertificate,
-		c.MtlsCertificateRequest, c.SelfSignedIssuer, c.TenantSecret,
+		c.CertificateRenewal, c.CertificateRequest, c.ClientInstalledCertificate,
+		c.ClientIssuer, c.IssuedCertificate, c.Issuer, c.LcmCa, c.LcmClient,
+		c.MtlsCertificate, c.MtlsCertificateRequest, c.SelfSignedIssuer,
+		c.TenantSecret,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -301,6 +308,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.CertificateRenewal.mutate(ctx, m)
 	case *CertificateRequestMutation:
 		return c.CertificateRequest.mutate(ctx, m)
+	case *ClientInstalledCertificateMutation:
+		return c.ClientInstalledCertificate.mutate(ctx, m)
 	case *ClientIssuerMutation:
 		return c.ClientIssuer.mutate(ctx, m)
 	case *IssuedCertificateMutation:
@@ -1233,6 +1242,140 @@ func (c *CertificateRequestClient) mutate(ctx context.Context, m *CertificateReq
 		return (&CertificateRequestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown CertificateRequest mutation op: %q", m.Op())
+	}
+}
+
+// ClientInstalledCertificateClient is a client for the ClientInstalledCertificate schema.
+type ClientInstalledCertificateClient struct {
+	config
+}
+
+// NewClientInstalledCertificateClient returns a client for the ClientInstalledCertificate from the given config.
+func NewClientInstalledCertificateClient(c config) *ClientInstalledCertificateClient {
+	return &ClientInstalledCertificateClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `clientinstalledcertificate.Hooks(f(g(h())))`.
+func (c *ClientInstalledCertificateClient) Use(hooks ...Hook) {
+	c.hooks.ClientInstalledCertificate = append(c.hooks.ClientInstalledCertificate, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `clientinstalledcertificate.Intercept(f(g(h())))`.
+func (c *ClientInstalledCertificateClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ClientInstalledCertificate = append(c.inters.ClientInstalledCertificate, interceptors...)
+}
+
+// Create returns a builder for creating a ClientInstalledCertificate entity.
+func (c *ClientInstalledCertificateClient) Create() *ClientInstalledCertificateCreate {
+	mutation := newClientInstalledCertificateMutation(c.config, OpCreate)
+	return &ClientInstalledCertificateCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ClientInstalledCertificate entities.
+func (c *ClientInstalledCertificateClient) CreateBulk(builders ...*ClientInstalledCertificateCreate) *ClientInstalledCertificateCreateBulk {
+	return &ClientInstalledCertificateCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ClientInstalledCertificateClient) MapCreateBulk(slice any, setFunc func(*ClientInstalledCertificateCreate, int)) *ClientInstalledCertificateCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ClientInstalledCertificateCreateBulk{err: fmt.Errorf("calling to ClientInstalledCertificateClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ClientInstalledCertificateCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ClientInstalledCertificateCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ClientInstalledCertificate.
+func (c *ClientInstalledCertificateClient) Update() *ClientInstalledCertificateUpdate {
+	mutation := newClientInstalledCertificateMutation(c.config, OpUpdate)
+	return &ClientInstalledCertificateUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ClientInstalledCertificateClient) UpdateOne(_m *ClientInstalledCertificate) *ClientInstalledCertificateUpdateOne {
+	mutation := newClientInstalledCertificateMutation(c.config, OpUpdateOne, withClientInstalledCertificate(_m))
+	return &ClientInstalledCertificateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ClientInstalledCertificateClient) UpdateOneID(id uint32) *ClientInstalledCertificateUpdateOne {
+	mutation := newClientInstalledCertificateMutation(c.config, OpUpdateOne, withClientInstalledCertificateID(id))
+	return &ClientInstalledCertificateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ClientInstalledCertificate.
+func (c *ClientInstalledCertificateClient) Delete() *ClientInstalledCertificateDelete {
+	mutation := newClientInstalledCertificateMutation(c.config, OpDelete)
+	return &ClientInstalledCertificateDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ClientInstalledCertificateClient) DeleteOne(_m *ClientInstalledCertificate) *ClientInstalledCertificateDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ClientInstalledCertificateClient) DeleteOneID(id uint32) *ClientInstalledCertificateDeleteOne {
+	builder := c.Delete().Where(clientinstalledcertificate.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ClientInstalledCertificateDeleteOne{builder}
+}
+
+// Query returns a query builder for ClientInstalledCertificate.
+func (c *ClientInstalledCertificateClient) Query() *ClientInstalledCertificateQuery {
+	return &ClientInstalledCertificateQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeClientInstalledCertificate},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ClientInstalledCertificate entity by its id.
+func (c *ClientInstalledCertificateClient) Get(ctx context.Context, id uint32) (*ClientInstalledCertificate, error) {
+	return c.Query().Where(clientinstalledcertificate.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ClientInstalledCertificateClient) GetX(ctx context.Context, id uint32) *ClientInstalledCertificate {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ClientInstalledCertificateClient) Hooks() []Hook {
+	hooks := c.hooks.ClientInstalledCertificate
+	return append(hooks[:len(hooks):len(hooks)], clientinstalledcertificate.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *ClientInstalledCertificateClient) Interceptors() []Interceptor {
+	return c.inters.ClientInstalledCertificate
+}
+
+func (c *ClientInstalledCertificateClient) mutate(ctx context.Context, m *ClientInstalledCertificateMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ClientInstalledCertificateCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ClientInstalledCertificateUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ClientInstalledCertificateUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ClientInstalledCertificateDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ClientInstalledCertificate mutation op: %q", m.Op())
 	}
 }
 
@@ -2794,14 +2937,14 @@ func (c *TenantSecretClient) mutate(ctx context.Context, m *TenantSecretMutation
 type (
 	hooks struct {
 		AcmeIssuer, AuditLog, CertificateDetails, CertificatePermission,
-		CertificateRenewal, CertificateRequest, ClientIssuer, IssuedCertificate,
-		Issuer, LcmCa, LcmClient, MtlsCertificate, MtlsCertificateRequest,
-		SelfSignedIssuer, TenantSecret []ent.Hook
+		CertificateRenewal, CertificateRequest, ClientInstalledCertificate,
+		ClientIssuer, IssuedCertificate, Issuer, LcmCa, LcmClient, MtlsCertificate,
+		MtlsCertificateRequest, SelfSignedIssuer, TenantSecret []ent.Hook
 	}
 	inters struct {
 		AcmeIssuer, AuditLog, CertificateDetails, CertificatePermission,
-		CertificateRenewal, CertificateRequest, ClientIssuer, IssuedCertificate,
-		Issuer, LcmCa, LcmClient, MtlsCertificate, MtlsCertificateRequest,
-		SelfSignedIssuer, TenantSecret []ent.Interceptor
+		CertificateRenewal, CertificateRequest, ClientInstalledCertificate,
+		ClientIssuer, IssuedCertificate, Issuer, LcmCa, LcmClient, MtlsCertificate,
+		MtlsCertificateRequest, SelfSignedIssuer, TenantSecret []ent.Interceptor
 	}
 )

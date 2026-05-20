@@ -3,11 +3,11 @@
 package certificaterenewal
 
 import (
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 )
 
 // ID filters vertices based on their ID field.

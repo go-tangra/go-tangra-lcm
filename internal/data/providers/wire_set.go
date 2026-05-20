@@ -23,6 +23,7 @@ var ProviderSet = wire.NewSet(
 	data.NewMtlsCertificateRepo,
 	data.NewMtlsCertificateRequestRepo,
 	data.NewLcmClientRepo,
+	data.NewClientInstalledCertificateRepo,
 	data.NewTenantSecretRepo,
 	data.NewIssuerRepo,
 	data.NewIssuedCertificateRepo,

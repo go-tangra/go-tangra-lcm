@@ -4,13 +4,13 @@ package ent
 
 import (
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmca"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
 	"strings"
 	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmca"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
 )
 
 // LcmCa is the model entity for the LcmCa schema.

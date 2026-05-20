@@ -5,13 +5,13 @@ package ent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
 	"strings"
 	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
 )
 
 // Issuer is the model entity for the Issuer schema.

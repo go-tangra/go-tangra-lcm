@@ -6,14 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmca"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmca"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 )
 
 // LcmCaUpdate is the builder for updating LcmCa entities.

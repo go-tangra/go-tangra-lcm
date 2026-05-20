@@ -4,12 +4,12 @@ package ent
 
 import (
 	"context"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/tenantsecret"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/tenantsecret"
 )
 
 // TenantSecretDelete is the builder for deleting a TenantSecret entity.

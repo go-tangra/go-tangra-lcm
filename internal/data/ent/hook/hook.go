@@ -5,6 +5,7 @@ package hook
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent"
 )
 
@@ -78,6 +79,18 @@ func (f CertificateRequestFunc) Mutate(ctx context.Context, m ent.Mutation) (ent
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CertificateRequestMutation", m)
+}
+
+// The ClientInstalledCertificateFunc type is an adapter to allow the use of ordinary
+// function as ClientInstalledCertificate mutator.
+type ClientInstalledCertificateFunc func(context.Context, *ent.ClientInstalledCertificateMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ClientInstalledCertificateFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ClientInstalledCertificateMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ClientInstalledCertificateMutation", m)
 }
 
 // The ClientIssuerFunc type is an adapter to allow the use of ordinary

@@ -6,15 +6,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatedetails"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatedetails"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 )
 
 // CertificateDetailsUpdate is the builder for updating CertificateDetails entities.

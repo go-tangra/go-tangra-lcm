@@ -5,13 +5,13 @@ package ent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterenewal"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
 	"strings"
 	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterenewal"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
 )
 
 // CertificateRenewal is the model entity for the CertificateRenewal schema.

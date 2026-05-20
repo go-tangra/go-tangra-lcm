@@ -5,14 +5,14 @@ package ent
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterequest"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
 	"strings"
 	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterequest"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/lcmclient"
 )
 
 // CertificateRequest is the model entity for the CertificateRequest schema.

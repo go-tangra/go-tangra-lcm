@@ -6,8 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/auditlog"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 	"math"
 
 	"entgo.io/ent"
@@ -15,6 +13,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/auditlog"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 )
 
 // AuditLogQuery is the builder for querying AuditLog entities.

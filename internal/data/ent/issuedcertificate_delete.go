@@ -4,12 +4,12 @@ package ent
 
 import (
 	"context"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 )
 
 // IssuedCertificateDelete is the builder for deleting a IssuedCertificate entity.

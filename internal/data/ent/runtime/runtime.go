@@ -4,12 +4,15 @@ package runtime
 
 import (
 	"context"
+	"time"
+
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/acmeissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/auditlog"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatedetails"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificatepermission"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterenewal"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/certificaterequest"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/clientinstalledcertificate"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/clientissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuedcertificate"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
@@ -20,7 +23,6 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/schema"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/selfsignedissuer"
 	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/tenantsecret"
-	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/privacy"
@@ -229,6 +231,38 @@ func init() {
 	certificaterequest.DefaultUpdatedAt = certificaterequestDescUpdatedAt.Default.(func() time.Time)
 	// certificaterequest.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	certificaterequest.UpdateDefaultUpdatedAt = certificaterequestDescUpdatedAt.UpdateDefault.(func() time.Time)
+	clientinstalledcertificateMixin := schema.ClientInstalledCertificate{}.Mixin()
+	clientinstalledcertificate.Policy = privacy.NewPolicies(clientinstalledcertificateMixin[2], schema.ClientInstalledCertificate{})
+	clientinstalledcertificate.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := clientinstalledcertificate.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	clientinstalledcertificateMixinFields0 := clientinstalledcertificateMixin[0].Fields()
+	_ = clientinstalledcertificateMixinFields0
+	clientinstalledcertificateMixinFields2 := clientinstalledcertificateMixin[2].Fields()
+	_ = clientinstalledcertificateMixinFields2
+	clientinstalledcertificateFields := schema.ClientInstalledCertificate{}.Fields()
+	_ = clientinstalledcertificateFields
+	// clientinstalledcertificateDescTenantID is the schema descriptor for tenant_id field.
+	clientinstalledcertificateDescTenantID := clientinstalledcertificateMixinFields2[0].Descriptor()
+	// clientinstalledcertificate.DefaultTenantID holds the default value on creation for the tenant_id field.
+	clientinstalledcertificate.DefaultTenantID = clientinstalledcertificateDescTenantID.Default.(uint32)
+	// clientinstalledcertificateDescClientID is the schema descriptor for client_id field.
+	clientinstalledcertificateDescClientID := clientinstalledcertificateFields[0].Descriptor()
+	// clientinstalledcertificate.ClientIDValidator is a validator for the "client_id" field. It is called by the builders before save.
+	clientinstalledcertificate.ClientIDValidator = clientinstalledcertificateDescClientID.Validators[0].(func(string) error)
+	// clientinstalledcertificateDescName is the schema descriptor for name field.
+	clientinstalledcertificateDescName := clientinstalledcertificateFields[1].Descriptor()
+	// clientinstalledcertificate.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	clientinstalledcertificate.NameValidator = clientinstalledcertificateDescName.Validators[0].(func(string) error)
+	// clientinstalledcertificateDescID is the schema descriptor for id field.
+	clientinstalledcertificateDescID := clientinstalledcertificateMixinFields0[0].Descriptor()
+	// clientinstalledcertificate.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	clientinstalledcertificate.IDValidator = clientinstalledcertificateDescID.Validators[0].(func(uint32) error)
 	clientissuerFields := schema.ClientIssuer{}.Fields()
 	_ = clientissuerFields
 	// clientissuerDescIssuerName is the schema descriptor for issuer_name field.
@@ -481,6 +515,6 @@ func init() {
 }
 
 const (
-	Version = "v0.14.5"                                         // Version of ent codegen.
-	Sum     = "h1:Rj2WOYJtCkWyFo6a+5wB3EfBRP0rnx1fMk6gGA0UUe4=" // Sum of ent codegen.
+	Version = "v0.14.6"                                         // Version of ent codegen.
+	Sum     = "h1:/f2696BpwuWAEEG6PVGWflg6+Inrpq4pRWuNlWz/Skk=" // Sum of ent codegen.
 )

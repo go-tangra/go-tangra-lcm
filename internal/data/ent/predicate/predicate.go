@@ -24,6 +24,9 @@ type CertificateRenewal func(*sql.Selector)
 // CertificateRequest is the predicate function for certificaterequest builders.
 type CertificateRequest func(*sql.Selector)
 
+// ClientInstalledCertificate is the predicate function for clientinstalledcertificate builders.
+type ClientInstalledCertificate func(*sql.Selector)
+
 // ClientIssuer is the predicate function for clientissuer builders.
 type ClientIssuer func(*sql.Selector)
 

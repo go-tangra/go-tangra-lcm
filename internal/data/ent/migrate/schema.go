@@ -429,6 +429,44 @@ var (
 			},
 		},
 	}
+	// ClientInstalledCertificatesColumns holds the columns for the "client_installed_certificates" table.
+	ClientInstalledCertificatesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint32, Increment: true, Comment: "id"},
+		{Name: "create_time", Type: field.TypeTime, Nullable: true, Comment: "创建时间"},
+		{Name: "update_time", Type: field.TypeTime, Nullable: true, Comment: "更新时间"},
+		{Name: "delete_time", Type: field.TypeTime, Nullable: true, Comment: "删除时间"},
+		{Name: "tenant_id", Type: field.TypeUint32, Nullable: true, Comment: "租户ID", Default: 0},
+		{Name: "client_id", Type: field.TypeString, Comment: "Logical client identifier (matches LcmClient.client_id)"},
+		{Name: "name", Type: field.TypeString, Comment: "Certificate name on the agent (e.g. CN or pusher override)"},
+		{Name: "serial_number", Type: field.TypeString, Nullable: true, Comment: "Serial number of the installed certificate"},
+		{Name: "fingerprint_sha256", Type: field.TypeString, Nullable: true, Comment: "SHA256 fingerprint of the installed certificate"},
+		{Name: "status", Type: field.TypeEnum, Comment: "Last reported status from the agent", Enums: []string{"INSTALLED_CERT_STATUS_UNSPECIFIED", "INSTALLED_CERT_STATUS_INSTALLED", "INSTALLED_CERT_STATUS_FAILED", "INSTALLED_CERT_STATUS_REMOVED"}, Default: "INSTALLED_CERT_STATUS_UNSPECIFIED"},
+		{Name: "message", Type: field.TypeString, Nullable: true, Comment: "Free-form message from the agent (error text on failures)"},
+		{Name: "installed_at", Type: field.TypeTime, Nullable: true, Comment: "When the agent applied this certificate"},
+	}
+	// ClientInstalledCertificatesTable holds the schema information for the "client_installed_certificates" table.
+	ClientInstalledCertificatesTable = &schema.Table{
+		Name:       "client_installed_certificates",
+		Columns:    ClientInstalledCertificatesColumns,
+		PrimaryKey: []*schema.Column{ClientInstalledCertificatesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "clientinstalledcertificate_tenant_id_client_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{ClientInstalledCertificatesColumns[4], ClientInstalledCertificatesColumns[5], ClientInstalledCertificatesColumns[6]},
+			},
+			{
+				Name:    "clientinstalledcertificate_tenant_id_client_id",
+				Unique:  false,
+				Columns: []*schema.Column{ClientInstalledCertificatesColumns[4], ClientInstalledCertificatesColumns[5]},
+			},
+			{
+				Name:    "clientinstalledcertificate_serial_number",
+				Unique:  false,
+				Columns: []*schema.Column{ClientInstalledCertificatesColumns[7]},
+			},
+		},
+	}
 	// ClientIssuersColumns holds the columns for the "client_issuers" table.
 	ClientIssuersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -1059,6 +1097,7 @@ var (
 		CertificatePermissionsTable,
 		CertificateRenewalsTable,
 		CertificateRequestsTable,
+		ClientInstalledCertificatesTable,
 		ClientIssuersTable,
 		IssuedCertificatesTable,
 		IssuersTable,
@@ -1096,6 +1135,9 @@ func init() {
 	CertificateRequestsTable.ForeignKeys[1].RefTable = LcmClientsTable
 	CertificateRequestsTable.Annotation = &entsql.Annotation{
 		Table: "certificate_requests",
+	}
+	ClientInstalledCertificatesTable.Annotation = &entsql.Annotation{
+		Table: "client_installed_certificates",
 	}
 	ClientIssuersTable.ForeignKeys[0].RefTable = IssuersTable
 	ClientIssuersTable.ForeignKeys[1].RefTable = LcmClientsTable

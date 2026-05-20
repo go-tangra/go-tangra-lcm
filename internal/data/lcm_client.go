@@ -2,8 +2,10 @@ package data
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
+	"entgo.io/ent/dialect/sql"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
 
@@ -97,6 +99,62 @@ func (r *LcmClientRepo) Update(ctx context.Context, id uint32, metadata map[stri
 	}
 
 	return entity, nil
+}
+
+// LcmClientListFilter narrows a ListByFilter query.
+type LcmClientListFilter struct {
+	TenantID *uint32
+	Status   *lcmclient.Status
+	// Labels is matched against the JSON metadata field using postgres
+	// jsonb containment (@>). All key/value pairs must be present in the
+	// stored metadata for the client to match.
+	Labels   map[string]string
+	Page     uint32
+	PageSize uint32
+}
+
+// ListByFilter returns clients matching the filter and the total count.
+// When PageSize is zero, all matching rows are returned (no pagination).
+func (r *LcmClientRepo) ListByFilter(ctx context.Context, filter LcmClientListFilter) ([]*ent.LcmClient, int, error) {
+	builder := r.entClient.Client().LcmClient.Query()
+
+	if filter.TenantID != nil {
+		builder = builder.Where(lcmclient.TenantIDEQ(*filter.TenantID))
+	}
+	if filter.Status != nil {
+		builder = builder.Where(lcmclient.StatusEQ(*filter.Status))
+	}
+	if len(filter.Labels) > 0 {
+		labelJSON, err := json.Marshal(filter.Labels)
+		if err != nil {
+			return nil, 0, lcmV1.ErrorInternalServerError("encode label filter failed")
+		}
+		// PostgreSQL jsonb @> operator: stored metadata must contain all
+		// supplied key/value pairs.
+		builder.Modify(func(s *sql.Selector) {
+			s.Where(sql.ExprP(s.C(lcmclient.FieldMetadata)+" @> ?", string(labelJSON)))
+		})
+	}
+
+	total, err := builder.Count(ctx)
+	if err != nil {
+		r.log.Errorf("count clients failed: %s", err.Error())
+		return nil, 0, lcmV1.ErrorInternalServerError("count clients failed")
+	}
+
+	if filter.PageSize > 0 {
+		builder = builder.Limit(int(filter.PageSize))
+		if filter.Page > 1 {
+			builder = builder.Offset(int((filter.Page - 1) * filter.PageSize))
+		}
+	}
+
+	rows, err := builder.All(ctx)
+	if err != nil {
+		r.log.Errorf("list clients failed: %s", err.Error())
+		return nil, 0, lcmV1.ErrorInternalServerError("list clients failed")
+	}
+	return rows, total, nil
 }
 
 // ToProto converts an ent.LcmClient to lcmV1.LcmClient

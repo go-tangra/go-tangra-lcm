@@ -5,9 +5,6 @@ package ent
 import (
 	"context"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/acmeissuer"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 	"math"
 
 	"entgo.io/ent"
@@ -15,6 +12,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/acmeissuer"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
 )
 
 // AcmeIssuerQuery is the builder for querying AcmeIssuer entities.

@@ -2226,6 +2226,10 @@ func (m *CertificateUpdateEvent) validate(all bool) error {
 		// no validation rules for Message
 	}
 
+	if m.PrivateKeyPem != nil {
+		// no validation rules for PrivateKeyPem
+	}
+
 	if len(errors) > 0 {
 		return CertificateUpdateEventMultiError(errors)
 	}
@@ -2305,3 +2309,937 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = CertificateUpdateEventValidationError{}
+
+// Validate checks the field values on ListLcmClientsRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ListLcmClientsRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListLcmClientsRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ListLcmClientsRequestMultiError, or nil if none found.
+func (m *ListLcmClientsRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListLcmClientsRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for MetadataFilter
+
+	if m.TenantId != nil {
+		// no validation rules for TenantId
+	}
+
+	if m.Status != nil {
+		// no validation rules for Status
+	}
+
+	if m.Page != nil {
+		// no validation rules for Page
+	}
+
+	if m.PageSize != nil {
+		// no validation rules for PageSize
+	}
+
+	if len(errors) > 0 {
+		return ListLcmClientsRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// ListLcmClientsRequestMultiError is an error wrapping multiple validation
+// errors returned by ListLcmClientsRequest.ValidateAll() if the designated
+// constraints aren't met.
+type ListLcmClientsRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListLcmClientsRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListLcmClientsRequestMultiError) AllErrors() []error { return m }
+
+// ListLcmClientsRequestValidationError is the validation error returned by
+// ListLcmClientsRequest.Validate if the designated constraints aren't met.
+type ListLcmClientsRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListLcmClientsRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListLcmClientsRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListLcmClientsRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListLcmClientsRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListLcmClientsRequestValidationError) ErrorName() string {
+	return "ListLcmClientsRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListLcmClientsRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListLcmClientsRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListLcmClientsRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListLcmClientsRequestValidationError{}
+
+// Validate checks the field values on ListLcmClientsResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ListLcmClientsResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListLcmClientsResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ListLcmClientsResponseMultiError, or nil if none found.
+func (m *ListLcmClientsResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListLcmClientsResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetItems() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListLcmClientsResponseValidationError{
+						field:  fmt.Sprintf("Items[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListLcmClientsResponseValidationError{
+						field:  fmt.Sprintf("Items[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListLcmClientsResponseValidationError{
+					field:  fmt.Sprintf("Items[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for Total
+
+	if len(errors) > 0 {
+		return ListLcmClientsResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// ListLcmClientsResponseMultiError is an error wrapping multiple validation
+// errors returned by ListLcmClientsResponse.ValidateAll() if the designated
+// constraints aren't met.
+type ListLcmClientsResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListLcmClientsResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListLcmClientsResponseMultiError) AllErrors() []error { return m }
+
+// ListLcmClientsResponseValidationError is the validation error returned by
+// ListLcmClientsResponse.Validate if the designated constraints aren't met.
+type ListLcmClientsResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListLcmClientsResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListLcmClientsResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListLcmClientsResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListLcmClientsResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListLcmClientsResponseValidationError) ErrorName() string {
+	return "ListLcmClientsResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListLcmClientsResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListLcmClientsResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListLcmClientsResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListLcmClientsResponseValidationError{}
+
+// Validate checks the field values on InstalledCertificateInfo with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *InstalledCertificateInfo) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on InstalledCertificateInfo with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// InstalledCertificateInfoMultiError, or nil if none found.
+func (m *InstalledCertificateInfo) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *InstalledCertificateInfo) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.ClientId != nil {
+		// no validation rules for ClientId
+	}
+
+	if m.Name != nil {
+		// no validation rules for Name
+	}
+
+	if m.SerialNumber != nil {
+		// no validation rules for SerialNumber
+	}
+
+	if m.FingerprintSha256 != nil {
+		// no validation rules for FingerprintSha256
+	}
+
+	if m.Status != nil {
+		// no validation rules for Status
+	}
+
+	if m.Message != nil {
+		// no validation rules for Message
+	}
+
+	if m.InstalledAt != nil {
+
+		if all {
+			switch v := interface{}(m.GetInstalledAt()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, InstalledCertificateInfoValidationError{
+						field:  "InstalledAt",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, InstalledCertificateInfoValidationError{
+						field:  "InstalledAt",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetInstalledAt()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return InstalledCertificateInfoValidationError{
+					field:  "InstalledAt",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if m.TenantId != nil {
+		// no validation rules for TenantId
+	}
+
+	if len(errors) > 0 {
+		return InstalledCertificateInfoMultiError(errors)
+	}
+
+	return nil
+}
+
+// InstalledCertificateInfoMultiError is an error wrapping multiple validation
+// errors returned by InstalledCertificateInfo.ValidateAll() if the designated
+// constraints aren't met.
+type InstalledCertificateInfoMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m InstalledCertificateInfoMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m InstalledCertificateInfoMultiError) AllErrors() []error { return m }
+
+// InstalledCertificateInfoValidationError is the validation error returned by
+// InstalledCertificateInfo.Validate if the designated constraints aren't met.
+type InstalledCertificateInfoValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e InstalledCertificateInfoValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e InstalledCertificateInfoValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e InstalledCertificateInfoValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e InstalledCertificateInfoValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e InstalledCertificateInfoValidationError) ErrorName() string {
+	return "InstalledCertificateInfoValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e InstalledCertificateInfoValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sInstalledCertificateInfo.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = InstalledCertificateInfoValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = InstalledCertificateInfoValidationError{}
+
+// Validate checks the field values on ReportInstalledCertificateRequest with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
+func (m *ReportInstalledCertificateRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ReportInstalledCertificateRequest
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// ReportInstalledCertificateRequestMultiError, or nil if none found.
+func (m *ReportInstalledCertificateRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ReportInstalledCertificateRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Name
+
+	// no validation rules for Status
+
+	if m.ClientId != nil {
+		// no validation rules for ClientId
+	}
+
+	if m.SerialNumber != nil {
+		// no validation rules for SerialNumber
+	}
+
+	if m.FingerprintSha256 != nil {
+		// no validation rules for FingerprintSha256
+	}
+
+	if m.Message != nil {
+		// no validation rules for Message
+	}
+
+	if len(errors) > 0 {
+		return ReportInstalledCertificateRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// ReportInstalledCertificateRequestMultiError is an error wrapping multiple
+// validation errors returned by
+// ReportInstalledCertificateRequest.ValidateAll() if the designated
+// constraints aren't met.
+type ReportInstalledCertificateRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ReportInstalledCertificateRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ReportInstalledCertificateRequestMultiError) AllErrors() []error { return m }
+
+// ReportInstalledCertificateRequestValidationError is the validation error
+// returned by ReportInstalledCertificateRequest.Validate if the designated
+// constraints aren't met.
+type ReportInstalledCertificateRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ReportInstalledCertificateRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ReportInstalledCertificateRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ReportInstalledCertificateRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ReportInstalledCertificateRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ReportInstalledCertificateRequestValidationError) ErrorName() string {
+	return "ReportInstalledCertificateRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ReportInstalledCertificateRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sReportInstalledCertificateRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ReportInstalledCertificateRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ReportInstalledCertificateRequestValidationError{}
+
+// Validate checks the field values on ReportInstalledCertificateResponse with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
+func (m *ReportInstalledCertificateResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ReportInstalledCertificateResponse
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// ReportInstalledCertificateResponseMultiError, or nil if none found.
+func (m *ReportInstalledCertificateResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ReportInstalledCertificateResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetInfo()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ReportInstalledCertificateResponseValidationError{
+					field:  "Info",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ReportInstalledCertificateResponseValidationError{
+					field:  "Info",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetInfo()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ReportInstalledCertificateResponseValidationError{
+				field:  "Info",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return ReportInstalledCertificateResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// ReportInstalledCertificateResponseMultiError is an error wrapping multiple
+// validation errors returned by
+// ReportInstalledCertificateResponse.ValidateAll() if the designated
+// constraints aren't met.
+type ReportInstalledCertificateResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ReportInstalledCertificateResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ReportInstalledCertificateResponseMultiError) AllErrors() []error { return m }
+
+// ReportInstalledCertificateResponseValidationError is the validation error
+// returned by ReportInstalledCertificateResponse.Validate if the designated
+// constraints aren't met.
+type ReportInstalledCertificateResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ReportInstalledCertificateResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ReportInstalledCertificateResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ReportInstalledCertificateResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ReportInstalledCertificateResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ReportInstalledCertificateResponseValidationError) ErrorName() string {
+	return "ReportInstalledCertificateResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ReportInstalledCertificateResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sReportInstalledCertificateResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ReportInstalledCertificateResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ReportInstalledCertificateResponseValidationError{}
+
+// Validate checks the field values on ListClientInstalledCertificatesRequest
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
+func (m *ListClientInstalledCertificatesRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ListClientInstalledCertificatesRequest with the rules defined in the proto
+// definition for this message. If any rules are violated, the result is a
+// list of violation errors wrapped in
+// ListClientInstalledCertificatesRequestMultiError, or nil if none found.
+func (m *ListClientInstalledCertificatesRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListClientInstalledCertificatesRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.Name != nil {
+		// no validation rules for Name
+	}
+
+	if m.TenantId != nil {
+		// no validation rules for TenantId
+	}
+
+	if len(errors) > 0 {
+		return ListClientInstalledCertificatesRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// ListClientInstalledCertificatesRequestMultiError is an error wrapping
+// multiple validation errors returned by
+// ListClientInstalledCertificatesRequest.ValidateAll() if the designated
+// constraints aren't met.
+type ListClientInstalledCertificatesRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListClientInstalledCertificatesRequestMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListClientInstalledCertificatesRequestMultiError) AllErrors() []error { return m }
+
+// ListClientInstalledCertificatesRequestValidationError is the validation
+// error returned by ListClientInstalledCertificatesRequest.Validate if the
+// designated constraints aren't met.
+type ListClientInstalledCertificatesRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListClientInstalledCertificatesRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListClientInstalledCertificatesRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListClientInstalledCertificatesRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListClientInstalledCertificatesRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListClientInstalledCertificatesRequestValidationError) ErrorName() string {
+	return "ListClientInstalledCertificatesRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListClientInstalledCertificatesRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListClientInstalledCertificatesRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListClientInstalledCertificatesRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListClientInstalledCertificatesRequestValidationError{}
+
+// Validate checks the field values on ListClientInstalledCertificatesResponse
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
+func (m *ListClientInstalledCertificatesResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// ListClientInstalledCertificatesResponse with the rules defined in the proto
+// definition for this message. If any rules are violated, the result is a
+// list of violation errors wrapped in
+// ListClientInstalledCertificatesResponseMultiError, or nil if none found.
+func (m *ListClientInstalledCertificatesResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListClientInstalledCertificatesResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetItems() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListClientInstalledCertificatesResponseValidationError{
+						field:  fmt.Sprintf("Items[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListClientInstalledCertificatesResponseValidationError{
+						field:  fmt.Sprintf("Items[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListClientInstalledCertificatesResponseValidationError{
+					field:  fmt.Sprintf("Items[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return ListClientInstalledCertificatesResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// ListClientInstalledCertificatesResponseMultiError is an error wrapping
+// multiple validation errors returned by
+// ListClientInstalledCertificatesResponse.ValidateAll() if the designated
+// constraints aren't met.
+type ListClientInstalledCertificatesResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListClientInstalledCertificatesResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListClientInstalledCertificatesResponseMultiError) AllErrors() []error { return m }
+
+// ListClientInstalledCertificatesResponseValidationError is the validation
+// error returned by ListClientInstalledCertificatesResponse.Validate if the
+// designated constraints aren't met.
+type ListClientInstalledCertificatesResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListClientInstalledCertificatesResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListClientInstalledCertificatesResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListClientInstalledCertificatesResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListClientInstalledCertificatesResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListClientInstalledCertificatesResponseValidationError) ErrorName() string {
+	return "ListClientInstalledCertificatesResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListClientInstalledCertificatesResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListClientInstalledCertificatesResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListClientInstalledCertificatesResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListClientInstalledCertificatesResponseValidationError{}

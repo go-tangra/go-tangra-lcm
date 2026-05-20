@@ -6,15 +6,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
-	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/selfsignedissuer"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/issuer"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/predicate"
+	"github.com/go-tangra/go-tangra-lcm/internal/data/ent/selfsignedissuer"
 )
 
 // SelfSignedIssuerUpdate is the builder for updating SelfSignedIssuer entities.

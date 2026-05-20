@@ -18,6 +18,21 @@ service LcmClientService {
   // Stream certificate updates to the client (server-streaming, requires mTLS authentication)
   // The server pushes notifications when certificates are issued, renewed, or revoked
   rpc StreamCertificateUpdates(StreamCertificateUpdatesRequest) returns (stream CertificateUpdateEvent) {}
+
+  // List registered LCM clients, optionally filtered by metadata labels.
+  // Used by inter-service callers (e.g. the deployer's tangra-client
+  // provider) to resolve label selectors into concrete client_ids. mTLS
+  // required; access is by service identity, not end-user JWT.
+  rpc ListLcmClients(ListLcmClientsRequest) returns (ListLcmClientsResponse) {}
+
+  // Report an installed certificate (called by an agent after it applies a
+  // pushed certificate locally, e.g. into nginx). Used by deployer Verify.
+  rpc ReportInstalledCertificate(ReportInstalledCertificateRequest) returns (ReportInstalledCertificateResponse) {}
+
+  // List installed certificates for the given client_ids (filtered by name).
+  // Used by inter-service callers (e.g. the deployer's tangra-client
+  // provider) to verify that a push actually landed.
+  rpc ListClientInstalledCertificates(ListClientInstalledCertificatesRequest) returns (ListClientInstalledCertificatesResponse) {}
 }
 enum MtlsCertificateType {
   MTLS_CERT_TYPE_UNSPECIFIED = 0;
@@ -250,6 +265,11 @@ message CertificateUpdateEvent {
   optional string ca_certificate_pem = 3 [(redact.v3.value).string = ""]; // Included with issued/renewed events
   google.protobuf.Timestamp event_time = 4;
   optional string message = 5; // Human-readable description
+  // Private key PEM. Normally absent: the agent already holds the key from
+  // its initial registration. Present when a pusher (e.g. the deployer's
+  // tangra-client provider) is delivering a certificate whose key the agent
+  // does not already own.
+  optional string private_key_pem = 6 [(redact.v3.value).string = ""];
 }
 
 // CertificateUpdateType - types of certificate update events
@@ -259,4 +279,70 @@ enum CertificateUpdateType {
   CERTIFICATE_RENEWED = 2;   // Certificate was renewed
   CERTIFICATE_REVOKED = 3;   // Certificate was revoked
   CERTIFICATE_EXPIRING = 4;  // Certificate expiring soon (warning)
+}
+
+// ListLcmClientsRequest - lists registered LCM clients with optional filters.
+// Metadata filter is AND-matched: every key/value pair must match the
+// client's stored metadata. tenant_id is required to scope the listing.
+message ListLcmClientsRequest {
+  optional uint32 tenant_id = 1;
+  map<string, string> metadata_filter = 2;
+  optional LcmClientStatus status = 3;
+  optional uint32 page = 10;
+  optional uint32 page_size = 11;
+}
+
+message ListLcmClientsResponse {
+  repeated LcmClient items = 1;
+  uint64 total = 2;
+}
+
+// InstalledCertificateStatus - reported by an agent for a local install.
+enum InstalledCertificateStatus {
+  INSTALLED_CERT_STATUS_UNSPECIFIED = 0;
+  INSTALLED_CERT_STATUS_INSTALLED = 1;
+  INSTALLED_CERT_STATUS_FAILED = 2;
+  INSTALLED_CERT_STATUS_REMOVED = 3;
+}
+
+// InstalledCertificateInfo - one row of installed cert state per client+name.
+message InstalledCertificateInfo {
+  optional string client_id = 1;
+  optional string name = 2;          // logical cert name on the agent (e.g. cn)
+  optional string serial_number = 3;
+  optional string fingerprint_sha256 = 4;
+  optional InstalledCertificateStatus status = 5;
+  optional string message = 6;       // free-form error or info text
+  optional google.protobuf.Timestamp installed_at = 7;
+  optional uint32 tenant_id = 8;
+}
+
+// ReportInstalledCertificateRequest - agent reports a local install result.
+// client_id is taken from the authenticated mTLS certificate if omitted.
+message ReportInstalledCertificateRequest {
+  optional string client_id = 1 [(buf.validate.field).string = {
+    max_len: 64
+    pattern: "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
+  }];
+  string name = 2 [(buf.validate.field).string.min_len = 1];
+  optional string serial_number = 3;
+  optional string fingerprint_sha256 = 4;
+  InstalledCertificateStatus status = 5 [(buf.validate.field).enum.defined_only = true];
+  optional string message = 6;
+}
+
+message ReportInstalledCertificateResponse {
+  InstalledCertificateInfo info = 1;
+}
+
+// ListClientInstalledCertificatesRequest - look up installed cert state
+// across multiple clients, optionally filtered by name.
+message ListClientInstalledCertificatesRequest {
+  repeated string client_ids = 1;
+  optional string name = 2;
+  optional uint32 tenant_id = 3;
+}
+
+message ListClientInstalledCertificatesResponse {
+  repeated InstalledCertificateInfo items = 1;
 }
