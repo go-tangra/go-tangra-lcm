@@ -17,6 +17,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	appViewer "github.com/go-tangra/go-tangra-common/viewer"
+
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
 	"github.com/go-tangra/go-tangra-lcm/internal/cert"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
@@ -523,7 +525,13 @@ func (s *LcmClientService) StreamCertificateUpdates(req *lcmV1.StreamCertificate
 	certCN := client.GetClientID(ctx)
 	clientID := certCN
 	if certCN != "" && s.certRepo != nil {
-		if actual, err := s.certRepo.GetClientIDByCommonName(ctx, certCN); err != nil {
+		// Ent privacy enforcement requires a ViewerContext. The stream
+		// RPC's context comes straight from the agent's mTLS connection
+		// and doesn't pass through systemViewerMiddleware (which only
+		// wraps unary handlers), so we inject the system viewer just
+		// for this lookup — same pattern as bootstrap_service.go.
+		lookupCtx := appViewer.NewSystemViewerContext(ctx)
+		if actual, err := s.certRepo.GetClientIDByCommonName(lookupCtx, certCN); err != nil {
 			s.log.Warnf("CN→client_id lookup failed for %q: %v", certCN, err)
 		} else if actual != "" {
 			clientID = actual
