@@ -839,13 +839,24 @@ func (s *LcmClientService) ListLcmClients(ctx context.Context, req *lcmV1.ListLc
 }
 
 // ReportInstalledCertificate records that an agent has applied a certificate
-// locally. The mTLS-authenticated client_id from the connection takes
-// precedence; an explicit client_id in the request must match it.
+// locally. The mTLS-authenticated cert CN is resolved to the registered
+// client_id (see StreamCertificateUpdates) before the install row is
+// persisted, so agents whose cert was issued with hostname-as-CN can still
+// report under their canonical client_id. An explicit client_id in the
+// request is accepted if it matches either the cert CN or the resolved ID.
 func (s *LcmClientService) ReportInstalledCertificate(ctx context.Context, req *lcmV1.ReportInstalledCertificateRequest) (*lcmV1.ReportInstalledCertificateResponse, error) {
-	authClientID := client.GetClientID(ctx)
-	clientID := authClientID
+	certCN := client.GetClientID(ctx)
+	clientID := certCN
+	if certCN != "" && s.certRepo != nil {
+		lookupCtx := appViewer.NewSystemViewerContext(ctx)
+		if actual, err := s.certRepo.GetClientIDByCommonName(lookupCtx, certCN); err != nil {
+			s.log.Warnf("CN→client_id lookup failed for %q: %v", certCN, err)
+		} else if actual != "" {
+			clientID = actual
+		}
+	}
 	if req.ClientId != nil && *req.ClientId != "" {
-		if authClientID != "" && authClientID != *req.ClientId {
+		if clientID != "" && *req.ClientId != clientID && *req.ClientId != certCN {
 			return nil, lcmV1.ErrorForbidden("client ID does not match authenticated certificate")
 		}
 		clientID = *req.ClientId
@@ -857,8 +868,9 @@ func (s *LcmClientService) ReportInstalledCertificate(ctx context.Context, req *
 		return nil, lcmV1.ErrorBadRequest("name is required")
 	}
 
-	// Resolve tenant from the registered client record.
-	clientRow, err := s.clientRepo.GetByClientID(ctx, clientID)
+	// Resolve tenant from the registered client record. clientRepo lookups
+	// also go through ent privacy, so wrap with the system viewer ctx.
+	clientRow, err := s.clientRepo.GetByClientID(appViewer.NewSystemViewerContext(ctx), clientID)
 	if err != nil {
 		return nil, err
 	}
@@ -881,7 +893,7 @@ func (s *LcmClientService) ReportInstalledCertificate(ctx context.Context, req *
 		InstalledAt:       time.Now().UTC(),
 	}
 
-	row, err := s.installedRepo.Upsert(ctx, input)
+	row, err := s.installedRepo.Upsert(appViewer.NewSystemViewerContext(ctx), input)
 	if err != nil {
 		return nil, err
 	}
