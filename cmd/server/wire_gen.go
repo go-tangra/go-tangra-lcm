@@ -7,7 +7,10 @@
 package main
 
 import (
+	gocontext "context"
+
 	"github.com/go-kratos/kratos/v2"
+	appViewer "github.com/go-tangra/go-tangra-common/viewer"
 	bootstrap2 "github.com/go-tangra/go-tangra-lcm/internal/bootstrap"
 	"github.com/go-tangra/go-tangra-lcm/internal/cert"
 	"github.com/go-tangra/go-tangra-lcm/internal/client"
@@ -146,6 +149,13 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 		cleanup()
 		return nil, nil, err
 	}
+	// Seed Prometheus gauges from the DB so /metrics shows real values
+	// immediately on boot — without this, the tangra_lcm_* series only
+	// materialise on the next cert event and Grafana dashboards look
+	// empty after every restart. SystemViewerContext bypasses ent
+	// privacy policies for the cross-tenant aggregate queries.
+	collector.Seed(appViewer.NewSystemViewerContext(gocontext.Background()), statisticsRepo)
+
 	app := newApp(context, grpcServer, bootstrapGRPCServer, httpServer, bootstrapBootstrapService, renewalScheduler, webhookService)
 	return app, func() {
 		cleanupRecipients()
