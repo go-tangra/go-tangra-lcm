@@ -5,7 +5,7 @@ const routes: RouteRecordRaw[] = [
     path: '/lcm',
     name: 'CertificateManagement',
     component: () => import('shell/app-layout'),
-    redirect: '/lcm/issuer',
+    redirect: '/lcm/dashboard',
     meta: {
       order: 2006,
       icon: 'lucide:shield-check',
@@ -14,6 +14,16 @@ const routes: RouteRecordRaw[] = [
       authority: ['platform:admin'],
     },
     children: [
+      {
+        path: 'dashboard',
+        name: 'LcmDashboard',
+        meta: {
+          icon: 'lucide:layout-dashboard',
+          title: 'lcm.menu.dashboard',
+          authority: ['platform:admin'],
+        },
+        component: () => import('./views/dashboard/index.vue'),
+      },
       {
         path: 'issuer',
         name: 'IssuerManagement',

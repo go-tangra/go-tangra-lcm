@@ -19,6 +19,18 @@ menus:
       - platform:admin
       - tenant:manager
 
+  - id: lcm-dashboard
+    parent_id: lcm
+    type: MENU
+    name: Dashboard
+    path: dashboard
+    component: app/lcm/dashboard/index.vue
+    icon: lucide:layout-dashboard
+    order: 0
+    authority:
+      - platform:admin
+      - tenant:manager
+
   - id: lcm-certificates
     parent_id: lcm
     type: MENU

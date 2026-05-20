@@ -1,6 +1,7 @@
 {
   "menu": {
     "moduleName": "Certificate Management",
+    "dashboard": "Dashboard",
     "certificate": "mTLS Certificates",
     "mtlsCertificate": "mTLS Certificates",
     "mtlsCertificateRequest": "Certificate Requests",
@@ -12,6 +13,34 @@
     "auditLog": "Audit Logs"
   },
   "page": {
+    "dashboard": {
+      "title": "LCM Dashboard",
+      "description": "Live certificate-lifecycle statistics: issued certs, expiring soon, clients, issuers, and recent failures.",
+      "lastUpdated": "Last updated",
+      "empty": "Statistics unavailable. Try refreshing.",
+      "issuedCertsTotal": "Issued certificates",
+      "expiringSoon": "Expiring in {days} days",
+      "autoRenewEnabled": "Auto-renew",
+      "clientsTotal": "Registered clients",
+      "issuersTotal": "Issuers",
+      "statusActive": "Active",
+      "statusExpired": "Expired",
+      "statusRevoked": "Revoked",
+      "statusPending": "Pending",
+      "statusProcessing": "Processing",
+      "statusFailed": "Failed",
+      "statusError": "Error",
+      "issuedByStatus": "Issued certificates by status",
+      "certsByIssuerType": "Certificates by issuer type",
+      "mtlsOverview": "mTLS overview",
+      "mtlsActive": "Active",
+      "mtlsRevoked": "Revoked",
+      "mtlsClient": "Client",
+      "mtlsInternal": "Internal",
+      "recentErrors": "Recent failures",
+      "noCerts": "No certificates yet.",
+      "noErrors": "No recent failures."
+    },
     "certificate": {
       "moduleName": "mTLS Certificate",
       "serialNumber": "Serial Number",
