@@ -100,7 +100,7 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	}
 	certificatePermissionRepo := data.NewCertificatePermissionRepo(context, entClient)
 	certificatePermissionService := service.NewCertificatePermissionService(context, certificatePermissionRepo, lcmClientRepo, issuedCertificateRepo)
-	mtlsCertificateRequestService, err := service.NewMtlsCertificateRequestService(context, mtlsCertificateRequestRepo, mtlsCertificateRepo, lcmClientRepo)
+	mtlsCertificateRequestService, err := service.NewMtlsCertificateRequestService(context, mtlsCertificateRequestRepo, mtlsCertificateRepo, lcmClientRepo, notificationClient)
 	if err != nil {
 		cleanup4()
 		cleanup3()

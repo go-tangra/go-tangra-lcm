@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -125,6 +127,12 @@ type NotificationHelper struct {
 
 	mu          sync.Mutex
 	templateIDs map[string]string // template name -> resolved ID
+
+	// defaultRecipients is the platform-wide fallback mailing list for
+	// every cert event (issued, renewed, failed, rejected). Loaded once
+	// from LCM_NOTIFICATION_RECIPIENTS at construction time. Combined
+	// with issuer-scoped recipients (e.g. ACME email) per send.
+	defaultRecipients []string
 }
 
 // NewNotificationHelper creates a NotificationHelper.
@@ -136,7 +144,60 @@ func NewNotificationHelper(log *log.Helper, notificationClient *client.Notificat
 		log:                log,
 		notificationClient: notificationClient,
 		templateIDs:        make(map[string]string),
+		defaultRecipients:  parseRecipientsEnv(os.Getenv("LCM_NOTIFICATION_RECIPIENTS")),
 	}
+}
+
+// parseRecipientsEnv splits a comma-separated list of email addresses,
+// trims whitespace, drops empties, and lowercases for stable dedup keys.
+func parseRecipientsEnv(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, p := range parts {
+		e := strings.ToLower(strings.TrimSpace(p))
+		if e == "" {
+			continue
+		}
+		if _, dup := seen[e]; dup {
+			continue
+		}
+		seen[e] = struct{}{}
+		out = append(out, e)
+	}
+	return out
+}
+
+// ResolveRecipients returns the deduped union of an issuer-scoped email
+// (e.g. the ACME account email) and the platform-wide default recipients.
+// Both inputs are optional — passing "" or nil collapses to whatever the
+// other source provides. An empty result means there is nowhere to
+// notify; callers should log a WARN so the silent-drop is visible.
+func (h *NotificationHelper) ResolveRecipients(issuerScoped string) []string {
+	if h == nil {
+		return nil
+	}
+	seen := make(map[string]struct{}, 1+len(h.defaultRecipients))
+	out := make([]string, 0, 1+len(h.defaultRecipients))
+	add := func(s string) {
+		e := strings.ToLower(strings.TrimSpace(s))
+		if e == "" {
+			return
+		}
+		if _, dup := seen[e]; dup {
+			return
+		}
+		seen[e] = struct{}{}
+		out = append(out, e)
+	}
+	add(issuerScoped)
+	for _, r := range h.defaultRecipients {
+		add(r)
+	}
+	return out
 }
 
 // EnsureTemplate resolves (or creates) a notification template by name.
@@ -190,62 +251,107 @@ func (h *NotificationHelper) EnsureTemplate(ctx context.Context, templateName st
 	return created.GetId(), nil
 }
 
-// SendCertificateIssued sends a notification that a certificate has been issued.
+// notifyAll renders the template and dispatches to every recipient.
+// Returns the last send error encountered (if any) and a count of
+// successful deliveries — useful for callers that want to react to
+// total-silent-drop scenarios. Errors on individual recipients are
+// logged at ERROR level (was WARN) so they surface in monitoring; we
+// continue past the failure so a single bad address doesn't prevent
+// other recipients from being notified.
+//
+// kind is the human-readable event name used in log lines (e.g.
+// "cert-issued"). recipients is expected to already be deduped by
+// ResolveRecipients.
+func (h *NotificationHelper) notifyAll(ctx context.Context, kind, templateName string, recipients []string, vars map[string]string) (int, error) {
+	if h == nil {
+		return 0, nil
+	}
+	if len(recipients) == 0 {
+		// Strict mode: surface the silent drop. Without recipients
+		// configured there is nowhere to send, so the operator must
+		// explicitly opt in via LCM_NOTIFICATION_RECIPIENTS or by
+		// supplying an issuer-scoped email.
+		h.log.Warnf("%s notification has no recipients (set LCM_NOTIFICATION_RECIPIENTS or configure an issuer email)", kind)
+		return 0, nil
+	}
+
+	templateID, err := h.EnsureTemplate(ctx, templateName)
+	if err != nil {
+		h.log.Errorf("Failed to ensure %s template: %v", kind, err)
+		return 0, err
+	}
+
+	platformCtx := client.DetachedMetadataContext(ctx, 0)
+
+	sent := 0
+	var lastErr error
+	for _, r := range recipients {
+		if _, sendErr := h.notificationClient.SendNotification(platformCtx, templateID, r, vars); sendErr != nil {
+			h.log.Errorf("Failed to send %s notification to %s: %v", kind, r, sendErr)
+			lastErr = sendErr
+			continue
+		}
+		sent++
+	}
+	if sent == 0 && lastErr != nil {
+		return 0, fmt.Errorf("%s notification failed for all %d recipient(s): %w", kind, len(recipients), lastErr)
+	}
+	return sent, nil
+}
+
+// NotifyCertificateIssued sends a "certificate issued" notification to every
+// recipient. Use ResolveRecipients to build the list from an issuer-scoped
+// email + platform defaults.
+func (h *NotificationHelper) NotifyCertificateIssued(ctx context.Context, recipients []string, vars map[string]string) error {
+	if h == nil {
+		return nil
+	}
+	_, err := h.notifyAll(ctx, "cert-issued", templateNameCertIssued, recipients, vars)
+	return err
+}
+
+// NotifyCertificateRenewed sends a "certificate renewed" notification to every recipient.
+func (h *NotificationHelper) NotifyCertificateRenewed(ctx context.Context, recipients []string, vars map[string]string) error {
+	if h == nil {
+		return nil
+	}
+	_, err := h.notifyAll(ctx, "cert-renewed", templateNameCertRenewed, recipients, vars)
+	return err
+}
+
+// NotifyCertificateFailed sends a "certificate failed" notification to every
+// recipient. Used for both transient failures (ACME 429, signing errors) and
+// hard rejections of mTLS certificate requests by admins.
+func (h *NotificationHelper) NotifyCertificateFailed(ctx context.Context, recipients []string, vars map[string]string) error {
+	if h == nil {
+		return nil
+	}
+	_, err := h.notifyAll(ctx, "cert-failed", templateNameCertFailed, recipients, vars)
+	return err
+}
+
+// SendCertificateIssued is a single-recipient wrapper around the new
+// NotifyCertificateIssued API; kept for backwards compatibility with the
+// older call sites that still pass a single recipient string.
 func (h *NotificationHelper) SendCertificateIssued(ctx context.Context, recipient string, vars map[string]string) error {
 	if h == nil || recipient == "" {
 		return nil
 	}
-
-	templateID, err := h.EnsureTemplate(ctx, templateNameCertIssued)
-	if err != nil {
-		h.log.Warnf("Failed to ensure cert-issued template: %v", err)
-		return nil
-	}
-
-	platformCtx := client.DetachedMetadataContext(ctx, 0)
-	_, err = h.notificationClient.SendNotification(platformCtx, templateID, recipient, vars)
-	if err != nil {
-		h.log.Warnf("Failed to send cert-issued notification to %s: %v", recipient, err)
-	}
-	return err
+	return h.NotifyCertificateIssued(ctx, []string{recipient}, vars)
 }
 
-// SendCertificateRenewed sends a notification that a certificate has been renewed.
+// SendCertificateRenewed is the single-recipient wrapper around NotifyCertificateRenewed.
 func (h *NotificationHelper) SendCertificateRenewed(ctx context.Context, recipient string, vars map[string]string) error {
 	if h == nil || recipient == "" {
 		return nil
 	}
-
-	templateID, err := h.EnsureTemplate(ctx, templateNameCertRenewed)
-	if err != nil {
-		h.log.Warnf("Failed to ensure cert-renewed template: %v", err)
-		return nil
-	}
-
-	platformCtx := client.DetachedMetadataContext(ctx, 0)
-	_, err = h.notificationClient.SendNotification(platformCtx, templateID, recipient, vars)
-	if err != nil {
-		h.log.Warnf("Failed to send cert-renewed notification to %s: %v", recipient, err)
-	}
-	return err
+	return h.NotifyCertificateRenewed(ctx, []string{recipient}, vars)
 }
 
-// SendCertificateFailed sends a notification that a certificate operation has failed.
+// SendCertificateFailed is the single-recipient wrapper around NotifyCertificateFailed.
 func (h *NotificationHelper) SendCertificateFailed(ctx context.Context, recipient string, vars map[string]string) error {
 	if h == nil || recipient == "" {
 		return nil
 	}
-
-	templateID, err := h.EnsureTemplate(ctx, templateNameCertFailed)
-	if err != nil {
-		h.log.Warnf("Failed to ensure cert-failed template: %v", err)
-		return nil
-	}
-
-	platformCtx := client.DetachedMetadataContext(ctx, 0)
-	_, err = h.notificationClient.SendNotification(platformCtx, templateID, recipient, vars)
-	if err != nil {
-		h.log.Warnf("Failed to send cert-failed notification to %s: %v", recipient, err)
-	}
-	return err
+	return h.NotifyCertificateFailed(ctx, []string{recipient}, vars)
 }

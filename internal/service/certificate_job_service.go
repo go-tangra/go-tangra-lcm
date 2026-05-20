@@ -726,6 +726,10 @@ func (s *CertificateJobService) getAcmeEmailForIssuer(ctx context.Context, issue
 }
 
 // sendCertIssuedNotification sends a notification that a certificate has been issued.
+// All issuer types fire this — ACME, self-signed, external — using the platform-wide
+// default recipient list (LCM_NOTIFICATION_RECIPIENTS) plus the issuer's ACME email
+// when present. With no recipients configured, the helper logs a WARN so the silent
+// drop is visible.
 func (s *CertificateJobService) sendCertIssuedNotification(ctx context.Context, certReq *biz.CertificateRequest, issuedCert *biz.IssuedCertificate) {
 	if s.notifHelper == nil {
 		return
@@ -739,18 +743,19 @@ func (s *CertificateJobService) sendCertIssuedNotification(ctx context.Context, 
 		"KeyType":    certReq.KeyType,
 	}
 
-	// Send to ACME issuer email if applicable
+	var acmeEmail string
 	if certReq.IssuerType == "acme" {
-		acmeEmail := s.getAcmeEmailForIssuer(ctx, certReq.IssuerName, certReq.TenantID)
-		if acmeEmail != "" {
-			if err := s.notifHelper.SendCertificateIssued(ctx, acmeEmail, vars); err != nil {
-				s.log.Warnf("Failed to send cert-issued notification to ACME email %s: %v", acmeEmail, err)
-			}
-		}
+		acmeEmail = s.getAcmeEmailForIssuer(ctx, certReq.IssuerName, certReq.TenantID)
+	}
+	recipients := s.notifHelper.ResolveRecipients(acmeEmail)
+	if err := s.notifHelper.NotifyCertificateIssued(ctx, recipients, vars); err != nil {
+		s.log.Errorf("Failed to send cert-issued notification for %s: %v", certReq.CommonName, err)
 	}
 }
 
 // sendCertFailedNotification sends a notification that a certificate operation has failed.
+// All issuer types are notified — silent failure was hiding self-signed and external-CA
+// issuance errors from operators.
 func (s *CertificateJobService) sendCertFailedNotification(ctx context.Context, certReq *biz.CertificateRequest, operation, errorMsg string) {
 	if s.notifHelper == nil {
 		return
@@ -764,14 +769,13 @@ func (s *CertificateJobService) sendCertFailedNotification(ctx context.Context, 
 		"ErrorMessage": errorMsg,
 	}
 
-	// Send to ACME issuer email if applicable
+	var acmeEmail string
 	if certReq.IssuerType == "acme" {
-		acmeEmail := s.getAcmeEmailForIssuer(ctx, certReq.IssuerName, certReq.TenantID)
-		if acmeEmail != "" {
-			if err := s.notifHelper.SendCertificateFailed(ctx, acmeEmail, vars); err != nil {
-				s.log.Warnf("Failed to send cert-failed notification to ACME email %s: %v", acmeEmail, err)
-			}
-		}
+		acmeEmail = s.getAcmeEmailForIssuer(ctx, certReq.IssuerName, certReq.TenantID)
+	}
+	recipients := s.notifHelper.ResolveRecipients(acmeEmail)
+	if err := s.notifHelper.NotifyCertificateFailed(ctx, recipients, vars); err != nil {
+		s.log.Errorf("Failed to send cert-failed notification for %s: %v", certReq.CommonName, err)
 	}
 }
 

@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
+	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
 
 	lcmV1 "github.com/go-tangra/go-tangra-lcm/gen/go/lcm/service/v1"
 	"github.com/go-tangra/go-tangra-lcm/internal/cert"
+	lcmClient "github.com/go-tangra/go-tangra-lcm/internal/client"
 	"github.com/go-tangra/go-tangra-lcm/internal/conf"
 	"github.com/go-tangra/go-tangra-lcm/internal/data"
 	"github.com/go-tangra/go-tangra-lcm/pkg/crypto"
@@ -25,6 +28,7 @@ type MtlsCertificateRequestService struct {
 	clientRepo  *data.LcmClientRepo
 	config      *conf.LCM
 	issuer      *crypto.MtlsIssuer
+	notifHelper *NotificationHelper
 }
 
 // NewMtlsCertificateRequestService creates a new MtlsCertificateRequestService
@@ -33,6 +37,7 @@ func NewMtlsCertificateRequestService(
 	requestRepo *data.MtlsCertificateRequestRepo,
 	certRepo *data.MtlsCertificateRepo,
 	clientRepo *data.LcmClientRepo,
+	notifClient *lcmClient.NotificationClient,
 ) (*MtlsCertificateRequestService, error) {
 	logger := ctx.NewLoggerHelper("lcm/service/mtls_certificate_request")
 
@@ -64,6 +69,15 @@ func NewMtlsCertificateRequestService(
 		return nil, fmt.Errorf("failed to create mTLS issuer: %w", err)
 	}
 
+	// Construct an independent notification helper for the mTLS request
+	// service. The helper is stateless apart from a template-ID cache,
+	// so sharing or not sharing with CertificateJobService is purely an
+	// instance-count question; per-service is simpler to wire.
+	notifHelper := NewNotificationHelper(
+		ctx.NewLoggerHelper("lcm/service/mtls_request/notification"),
+		notifClient,
+	)
+
 	logger.Info("MtlsCertificateRequestService initialized")
 
 	return &MtlsCertificateRequestService{
@@ -73,6 +87,7 @@ func NewMtlsCertificateRequestService(
 		clientRepo:  clientRepo,
 		config:      lcmConfig,
 		issuer:      issuer,
+		notifHelper: notifHelper,
 	}, nil
 }
 
@@ -310,6 +325,11 @@ func (s *MtlsCertificateRequestService) ApproveMtlsCertificateRequest(ctx contex
 
 	s.log.Infof("Approved request ID: %d, issued certificate with serial: %d", req.GetId(), serialNumber)
 
+	// Notify recipients that an mTLS certificate has been issued. mTLS
+	// approval is operator-driven and there's no issuer-scoped email like
+	// ACME has, so this leans entirely on LCM_NOTIFICATION_RECIPIENTS.
+	s.notifyCertEvent(ctx, certEventIssued, existingReq, issuedCert.NotAfter.Format(time.RFC3339), "")
+
 	// Build ClientCertificate response for compatibility
 	clientCert := &lcmV1.ClientCertificate{
 		SerialNumber:   ptr(fmt.Sprintf("%d", serialNumber)),
@@ -354,7 +374,67 @@ func (s *MtlsCertificateRequestService) RejectMtlsCertificateRequest(ctx context
 		return nil, err
 	}
 
+	// Notify recipients that an mTLS certificate request was rejected.
+	// The admin's reject reason becomes the ErrorMessage in the template
+	// so the recipient knows why.
+	reason := req.GetReason()
+	if reason == "" {
+		reason = "rejected by operator (no reason supplied)"
+	}
+	s.notifyCertEvent(ctx, certEventRejected, existingReq, "", reason)
+
 	return &lcmV1.RejectMtlsCertificateRequestResponse{MtlsCertificateRequest: request}, nil
+}
+
+// certEventKind enumerates the cert-lifecycle events worth notifying on
+// from this service. We don't reuse the renewal scheduler's notification
+// glue because mTLS certs don't go through ACME and have no issuer-scoped
+// email — recipient resolution falls back entirely on the platform list.
+type certEventKind int
+
+const (
+	certEventIssued certEventKind = iota
+	certEventRejected
+)
+
+// notifyCertEvent dispatches a cert-issued or cert-failed (rejected)
+// notification using the helper's recipient resolution. expiresAt is used
+// only for the issued path; reason only for rejected. Best-effort: failures
+// log at ERROR but don't propagate — the cert state on disk / in the DB
+// is already correct regardless of whether the email lands.
+func (s *MtlsCertificateRequestService) notifyCertEvent(ctx context.Context, kind certEventKind, req *lcmV1.MtlsCertificateRequest, expiresAt, reason string) {
+	if s.notifHelper == nil || req == nil {
+		return
+	}
+	commonName := req.GetCommonName()
+	domains := strings.Join(req.GetDnsNames(), ", ")
+	// mTLS requests have no ACME issuer email; rely on platform defaults.
+	recipients := s.notifHelper.ResolveRecipients("")
+
+	switch kind {
+	case certEventIssued:
+		vars := map[string]string{
+			"CommonName": commonName,
+			"Domains":    domains,
+			"IssuerName": "lcm-root-ca",
+			"ExpiresAt":  expiresAt,
+			"KeyType":    "RSA-2048",
+		}
+		if err := s.notifHelper.NotifyCertificateIssued(ctx, recipients, vars); err != nil {
+			s.log.Errorf("Failed to send mTLS cert-issued notification for %s: %v", commonName, err)
+		}
+	case certEventRejected:
+		vars := map[string]string{
+			"CommonName":   commonName,
+			"Domains":      domains,
+			"IssuerName":   "lcm-root-ca",
+			"Operation":    "mTLS request rejected",
+			"ErrorMessage": reason,
+		}
+		if err := s.notifHelper.NotifyCertificateFailed(ctx, recipients, vars); err != nil {
+			s.log.Errorf("Failed to send mTLS cert-rejected notification for %s: %v", commonName, err)
+		}
+	}
 }
 
 // generateUniqueSerialNumber generates a unique serial number for certificates

@@ -507,7 +507,11 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 	// must not gate the renewal completion. Uses a detached background
 	// context with its own timeout since the worker's ctx may be cancelled
 	// shortly after we return.
-	if cert != nil && s.certificateJobService != nil && s.certificateJobService.notifHelper != nil && cert.IssuerType == "acme" {
+	//
+	// All issuer types notify now (was ACME-only). ResolveRecipients
+	// combines the issuer-scoped email with the platform default list
+	// from LCM_NOTIFICATION_RECIPIENTS.
+	if cert != nil && s.certificateJobService != nil && s.certificateJobService.notifHelper != nil {
 		certSnapshot := cert
 		renewalSnapshot := renewal
 		tenantIDSnapshot := tenantID
@@ -521,12 +525,13 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 				"ExpiresAt":         certSnapshot.ExpiresAt.Format(time.RFC3339),
 				"PreviousExpiresAt": renewalSnapshot.OriginalExpiresAt.Format(time.RFC3339),
 			}
-			acmeEmail := s.certificateJobService.getAcmeEmailForIssuer(notifCtx, renewalSnapshot.IssuerName, tenantIDSnapshot)
-			if acmeEmail == "" {
-				return
+			var acmeEmail string
+			if certSnapshot.IssuerType == "acme" {
+				acmeEmail = s.certificateJobService.getAcmeEmailForIssuer(notifCtx, renewalSnapshot.IssuerName, tenantIDSnapshot)
 			}
-			if notifErr := s.certificateJobService.notifHelper.SendCertificateRenewed(notifCtx, acmeEmail, vars); notifErr != nil {
-				s.log.Warnf("Failed to send cert-renewed notification: %v", notifErr)
+			recipients := s.certificateJobService.notifHelper.ResolveRecipients(acmeEmail)
+			if notifErr := s.certificateJobService.notifHelper.NotifyCertificateRenewed(notifCtx, recipients, vars); notifErr != nil {
+				s.log.Errorf("Failed to send cert-renewed notification for %s: %v", certSnapshot.CommonName, notifErr)
 			}
 		}()
 	}
@@ -559,7 +564,9 @@ func (s *RenewalScheduler) handleRenewalFailure(ctx context.Context, renewal *en
 		tenantID = *cert.Edges.LcmClient.TenantID
 	}
 
-	// Send failure notification (only on final failure, not retries)
+	// Send failure notification (only on final failure, not retries).
+	// All issuer types fire it now — silent renewal failures for
+	// self-signed/external certs were hiding outages.
 	if !willRetry && cert != nil && s.certificateJobService.notifHelper != nil {
 		vars := map[string]string{
 			"CommonName":   cert.CommonName,
@@ -568,14 +575,13 @@ func (s *RenewalScheduler) handleRenewalFailure(ctx context.Context, renewal *en
 			"Operation":    "renewal",
 			"ErrorMessage": renewalErr.Error(),
 		}
-
+		var acmeEmail string
 		if cert.IssuerType == "acme" {
-			acmeEmail := s.certificateJobService.getAcmeEmailForIssuer(ctx, renewal.IssuerName, tenantID)
-			if acmeEmail != "" {
-				if notifErr := s.certificateJobService.notifHelper.SendCertificateFailed(ctx, acmeEmail, vars); notifErr != nil {
-					s.log.Warnf("Failed to send cert-failed notification: %v", notifErr)
-				}
-			}
+			acmeEmail = s.certificateJobService.getAcmeEmailForIssuer(ctx, renewal.IssuerName, tenantID)
+		}
+		recipients := s.certificateJobService.notifHelper.ResolveRecipients(acmeEmail)
+		if notifErr := s.certificateJobService.notifHelper.NotifyCertificateFailed(ctx, recipients, vars); notifErr != nil {
+			s.log.Errorf("Failed to send cert-failed notification for %s: %v", cert.CommonName, notifErr)
 		}
 	}
 
