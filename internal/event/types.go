@@ -117,15 +117,24 @@ type RenewalScheduledEvent struct {
 	ExpiresAt     time.Time `json:"expires_at"`
 }
 
-// RenewalCompletedEvent is published when a certificate renewal completes
+// RenewalCompletedEvent is published when a certificate renewal completes.
+// CommonName / DNSNames / IssuerName were added so downstream subscribers
+// (e.g. the deployer's auto-deploy handler) can match the event against a
+// target's certificate_filters without making a follow-up LCM lookup —
+// without these, every renewal.completed event would fail the filter match
+// and silently no-op.
 type RenewalCompletedEvent struct {
-	RenewalID        int       `json:"renewal_id"`
-	CertificateID    string    `json:"certificate_id"`
-	ClientID         string    `json:"client_id"`
-	TenantID         uint32    `json:"tenant_id"`
-	NewSerialNumber  string    `json:"new_serial_number"`
-	NewExpiresAt     time.Time `json:"new_expires_at"`
-	AttemptNumber    int32     `json:"attempt_number"`
+	RenewalID       int       `json:"renewal_id"`
+	CertificateID   string    `json:"certificate_id"`
+	ClientID        string    `json:"client_id"`
+	TenantID        uint32    `json:"tenant_id"`
+	NewSerialNumber string    `json:"new_serial_number"`
+	NewExpiresAt    time.Time `json:"new_expires_at"`
+	AttemptNumber   int32     `json:"attempt_number"`
+	CommonName      string    `json:"common_name,omitempty"`
+	DNSNames        []string  `json:"dns_names,omitempty"`
+	IssuerName      string    `json:"issuer_name,omitempty"`
+	IssuerType      string    `json:"issuer_type,omitempty"`
 }
 
 // RenewalFailedEvent is published when a certificate renewal fails

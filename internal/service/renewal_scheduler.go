@@ -478,8 +478,12 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 	// from ever firing, so downstream consumers (e.g. the deployer's
 	// auto-deploy-on-renewal subscriber) never received the event. The
 	// event is the load-bearing path; notifications are a side effect.
+	//
+	// Include CN/DNSNames/Issuer in the payload so subscribers can match
+	// the cert against deployment-target filters without a follow-up LCM
+	// query.
 	if s.eventPublisher != nil {
-		if pubErr := s.eventPublisher.PublishRenewalCompleted(ctx, &event.RenewalCompletedEvent{
+		evt := &event.RenewalCompletedEvent{
 			RenewalID:       renewal.ID,
 			CertificateID:   renewal.CertificateID,
 			ClientID:        renewal.ClientID,
@@ -487,7 +491,14 @@ func (s *RenewalScheduler) handleRenewalSuccess(ctx context.Context, renewal *en
 			NewSerialNumber: newSerial,
 			NewExpiresAt:    newExpiresAt,
 			AttemptNumber:   renewal.AttemptNumber,
-		}); pubErr != nil {
+			IssuerName:      renewal.IssuerName,
+			DNSNames:        renewal.Domains,
+		}
+		if cert != nil {
+			evt.CommonName = cert.CommonName
+			evt.IssuerType = cert.IssuerType
+		}
+		if pubErr := s.eventPublisher.PublishRenewalCompleted(ctx, evt); pubErr != nil {
 			s.log.Warnf("Failed to publish renewal completed event for cert %s: %v", renewal.CertificateID, pubErr)
 		}
 	}
