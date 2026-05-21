@@ -104,12 +104,32 @@ func loadSchedulerTLS(l *log.Helper) grpc.DialOption {
 		return grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
 
-	clientCert, err := tls.LoadX509KeyPair(
-		filepath.Join(certsDir, "lcm", "lcm.crt"),
-		filepath.Join(certsDir, "lcm", "lcm.key"),
-	)
-	if err != nil {
-		l.Info("No client cert found, using insecure credentials for scheduler")
+	// Fallback ladder for the cert LCM presents to the scheduler.
+	// LCM is unusual in that it doesn't issue itself a per-module client
+	// cert (it's the CA — nothing else signs for it). On platforms
+	// where lcm/lcm.crt was provisioned by an init job we honor it,
+	// otherwise we reuse LCM's own server cert: same CA, same trust
+	// chain, just slightly off-convention to use it for client auth.
+	// Both certs typically carry ClientAuth + ServerAuth ExtKeyUsage
+	// so the scheduler validates either one without complaint.
+	candidates := [][2]string{
+		{filepath.Join(certsDir, "lcm", "lcm.crt"), filepath.Join(certsDir, "lcm", "lcm.key")},
+		{filepath.Join(certsDir, "client", "client.crt"), filepath.Join(certsDir, "client", "client.key")},
+		{filepath.Join(certsDir, "server", "server.crt"), filepath.Join(certsDir, "server", "server.key")},
+	}
+	var clientCert tls.Certificate
+	var loaded bool
+	for _, pair := range candidates {
+		c, err := tls.LoadX509KeyPair(pair[0], pair[1])
+		if err == nil {
+			clientCert = c
+			loaded = true
+			l.Infof("Using client cert from %s for scheduler", pair[0])
+			break
+		}
+	}
+	if !loaded {
+		l.Info("No client cert found in lcm/, client/, or server/ — using insecure credentials for scheduler")
 		return grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
 
