@@ -126,6 +126,15 @@ message IssuedCertificateInfo {
   optional string error_message = 12 [json_name = "errorMessage"];
   google.protobuf.Timestamp created_at = 13 [json_name = "createdAt"];
   google.protobuf.Timestamp updated_at = 14 [json_name = "updatedAt"];
+  // NotBefore from the actual X.509 cert. Truth source for "when was
+  // this cert issued" — created_at only reflects when the DB row was
+  // first inserted and does not change across renewals.
+  optional google.protobuf.Timestamp last_issued_at = 15 [json_name = "lastIssuedAt"];
+  // Timestamp of the most recent renewal attempt (success or failure).
+  // Compare against last_issued_at to detect "renewal ran but didn't
+  // actually issue a new cert" — those should never diverge if the
+  // renewal scheduler is healthy.
+  optional google.protobuf.Timestamp last_renewal_at = 16 [json_name = "lastRenewalAt"];
 }
 
 // Request to force renew an issued certificate

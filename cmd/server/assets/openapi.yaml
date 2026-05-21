@@ -2131,6 +2131,14 @@ components:
                 updatedAt:
                     type: string
                     format: date-time
+                lastIssuedAt:
+                    type: string
+                    format: date-time
+                    description: NotBefore from the actual X.509 cert; advances on every renewal.
+                lastRenewalAt:
+                    type: string
+                    format: date-time
+                    description: Most recent renewal attempt timestamp (success or failure).
             description: Issued certificate info
         IssuedCertificateStatistics:
             type: object

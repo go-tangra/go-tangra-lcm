@@ -423,11 +423,18 @@ func (s *IssuedCertificateService) ListDeploymentTargets(ctx context.Context, _ 
 func mapIssuedCertToProto(cert *ent.IssuedCertificate) *lcmV1.IssuedCertificateInfo {
 	keyType := string(cert.KeyType)
 	keySize := cert.KeySize
+	var lastIssuedAt *timestamppb.Timestamp
 	if cert.CertPem != "" {
 		if parsed, err := parseCertificatePEM(cert.CertPem); err == nil {
 			if kt, ks := extractSPKIInfo(parsed); kt != "" {
 				keyType = kt
 				keySize = ks
+			}
+			// NotBefore is the truth source for "when this cert was
+			// issued" — it advances on every successful renewal even
+			// though created_at stays frozen at row-creation time.
+			if !parsed.NotBefore.IsZero() {
+				lastIssuedAt = timestamppb.New(parsed.NotBefore)
 			}
 		}
 	}
@@ -445,10 +452,15 @@ func mapIssuedCertToProto(cert *ent.IssuedCertificate) *lcmV1.IssuedCertificateI
 		KeySize:                   keySize,
 		CreatedAt:                 timestamppb.New(cert.CreatedAt),
 		UpdatedAt:                 timestamppb.New(cert.UpdatedAt),
+		LastIssuedAt:              lastIssuedAt,
 	}
 
 	if !cert.ExpiresAt.IsZero() {
 		info.ExpiresAt = timestamppb.New(cert.ExpiresAt)
+	}
+
+	if !cert.LastRenewalAt.IsZero() {
+		info.LastRenewalAt = timestamppb.New(cert.LastRenewalAt)
 	}
 
 	if cert.ErrorMessage != "" {

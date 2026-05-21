@@ -308,6 +308,14 @@ export interface IssuedCertificateInfo {
   errorMessage?: string;
   createdAt?: string;
   updatedAt?: string;
+  // NotBefore from the actual X.509 cert. Source of truth for "when
+  // this cert was last issued" — advances on every successful renewal,
+  // unlike createdAt which is frozen at row creation.
+  lastIssuedAt?: string;
+  // Timestamp of the most recent renewal attempt. If this is set but
+  // lastIssuedAt didn't advance, the renewal didn't actually issue a
+  // new cert (silent failure indicator).
+  lastRenewalAt?: string;
 }
 
 export interface ListIssuedCertificatesResponse {

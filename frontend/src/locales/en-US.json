@@ -279,6 +279,8 @@
       "issuerName": "Issuer",
       "issuerType": "Issuer Type",
       "expiresAt": "Expires At",
+      "lastIssuedAt": "Last Issued",
+      "lastRenewalAt": "Last Renewal",
       "autoRenew": "Auto Renew",
       "autoRenewDays": "Renew Before (days)",
       "keyType": "Key Type",

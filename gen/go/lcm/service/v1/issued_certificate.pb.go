@@ -370,8 +370,17 @@ type IssuedCertificateInfo struct {
 	ErrorMessage              *string                 `protobuf:"bytes,12,opt,name=error_message,json=errorMessage,proto3,oneof" json:"error_message,omitempty"`
 	CreatedAt                 *timestamppb.Timestamp  `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt                 *timestamppb.Timestamp  `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// NotBefore from the actual X.509 cert. Truth source for "when was
+	// this cert issued" — created_at only reflects when the DB row was
+	// first inserted and does not change across renewals.
+	LastIssuedAt *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=last_issued_at,json=lastIssuedAt,proto3,oneof" json:"last_issued_at,omitempty"`
+	// Timestamp of the most recent renewal attempt (success or failure).
+	// Compare against last_issued_at to detect "renewal ran but didn't
+	// actually issue a new cert" — those should never diverge if the
+	// renewal scheduler is healthy.
+	LastRenewalAt *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=last_renewal_at,json=lastRenewalAt,proto3,oneof" json:"last_renewal_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *IssuedCertificateInfo) Reset() {
@@ -498,6 +507,20 @@ func (x *IssuedCertificateInfo) GetCreatedAt() *timestamppb.Timestamp {
 func (x *IssuedCertificateInfo) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *IssuedCertificateInfo) GetLastIssuedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastIssuedAt
+	}
+	return nil
+}
+
+func (x *IssuedCertificateInfo) GetLastRenewalAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastRenewalAt
 	}
 	return nil
 }
@@ -1009,7 +1032,7 @@ const file_lcm_service_v1_issued_certificate_proto_rawDesc = "" +
 	"\x10_certificate_pemB\x15\n" +
 	"\x13_ca_certificate_pemB\x12\n" +
 	"\x10_private_key_pemB\x17\n" +
-	"\x15_server_generated_key\"\x8c\x05\n" +
+	"\x15_server_generated_key\"\xc3\x06\n" +
 	"\x15IssuedCertificateInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vcommon_name\x18\x02 \x01(\tR\n" +
@@ -1031,9 +1054,13 @@ const file_lcm_service_v1_issued_certificate_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\r\n" +
+	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12E\n" +
+	"\x0elast_issued_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampH\x02R\flastIssuedAt\x88\x01\x01\x12G\n" +
+	"\x0flast_renewal_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\x03R\rlastRenewalAt\x88\x01\x01B\r\n" +
 	"\v_expires_atB\x10\n" +
-	"\x0e_error_message\"N\n" +
+	"\x0e_error_messageB\x11\n" +
+	"\x0f_last_issued_atB\x12\n" +
+	"\x10_last_renewal_at\"N\n" +
 	"\x1cForceRenewCertificateRequest\x12.\n" +
 	"\x02id\x18\x01 \x01(\tB\x1e\xe0A\x02\xbaH\x18r\x16\x10\x01\x18$2\x10^[a-fA-F0-9\\-]+$R\x02id\"X\n" +
 	"\x1dForceRenewCertificateResponse\x12\x1d\n" +
@@ -1123,25 +1150,27 @@ var file_lcm_service_v1_issued_certificate_proto_depIdxs = []int32{
 	15, // 4: lcm.service.v1.IssuedCertificateInfo.expires_at:type_name -> google.protobuf.Timestamp
 	15, // 5: lcm.service.v1.IssuedCertificateInfo.created_at:type_name -> google.protobuf.Timestamp
 	15, // 6: lcm.service.v1.IssuedCertificateInfo.updated_at:type_name -> google.protobuf.Timestamp
-	5,  // 7: lcm.service.v1.UpdateIssuedCertificateResponse.certificate:type_name -> lcm.service.v1.IssuedCertificateInfo
-	13, // 8: lcm.service.v1.ListDeploymentTargetsResponse.targets:type_name -> lcm.service.v1.DeploymentTargetInfo
-	1,  // 9: lcm.service.v1.LcmIssuedCertificateService.ListIssuedCertificates:input_type -> lcm.service.v1.ListIssuedCertificatesRequest
-	3,  // 10: lcm.service.v1.LcmIssuedCertificateService.GetIssuedCertificate:input_type -> lcm.service.v1.GetIssuedCertificateRequest
-	8,  // 11: lcm.service.v1.LcmIssuedCertificateService.UpdateIssuedCertificate:input_type -> lcm.service.v1.UpdateIssuedCertificateRequest
-	6,  // 12: lcm.service.v1.LcmIssuedCertificateService.ForceRenewCertificate:input_type -> lcm.service.v1.ForceRenewCertificateRequest
-	10, // 13: lcm.service.v1.LcmIssuedCertificateService.DeployCertificate:input_type -> lcm.service.v1.DeployCertificateRequest
-	12, // 14: lcm.service.v1.LcmIssuedCertificateService.ListDeploymentTargets:input_type -> lcm.service.v1.ListDeploymentTargetsRequest
-	2,  // 15: lcm.service.v1.LcmIssuedCertificateService.ListIssuedCertificates:output_type -> lcm.service.v1.ListIssuedCertificatesResponse
-	4,  // 16: lcm.service.v1.LcmIssuedCertificateService.GetIssuedCertificate:output_type -> lcm.service.v1.GetIssuedCertificateResponse
-	9,  // 17: lcm.service.v1.LcmIssuedCertificateService.UpdateIssuedCertificate:output_type -> lcm.service.v1.UpdateIssuedCertificateResponse
-	7,  // 18: lcm.service.v1.LcmIssuedCertificateService.ForceRenewCertificate:output_type -> lcm.service.v1.ForceRenewCertificateResponse
-	11, // 19: lcm.service.v1.LcmIssuedCertificateService.DeployCertificate:output_type -> lcm.service.v1.DeployCertificateResponse
-	14, // 20: lcm.service.v1.LcmIssuedCertificateService.ListDeploymentTargets:output_type -> lcm.service.v1.ListDeploymentTargetsResponse
-	15, // [15:21] is the sub-list for method output_type
-	9,  // [9:15] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	15, // 7: lcm.service.v1.IssuedCertificateInfo.last_issued_at:type_name -> google.protobuf.Timestamp
+	15, // 8: lcm.service.v1.IssuedCertificateInfo.last_renewal_at:type_name -> google.protobuf.Timestamp
+	5,  // 9: lcm.service.v1.UpdateIssuedCertificateResponse.certificate:type_name -> lcm.service.v1.IssuedCertificateInfo
+	13, // 10: lcm.service.v1.ListDeploymentTargetsResponse.targets:type_name -> lcm.service.v1.DeploymentTargetInfo
+	1,  // 11: lcm.service.v1.LcmIssuedCertificateService.ListIssuedCertificates:input_type -> lcm.service.v1.ListIssuedCertificatesRequest
+	3,  // 12: lcm.service.v1.LcmIssuedCertificateService.GetIssuedCertificate:input_type -> lcm.service.v1.GetIssuedCertificateRequest
+	8,  // 13: lcm.service.v1.LcmIssuedCertificateService.UpdateIssuedCertificate:input_type -> lcm.service.v1.UpdateIssuedCertificateRequest
+	6,  // 14: lcm.service.v1.LcmIssuedCertificateService.ForceRenewCertificate:input_type -> lcm.service.v1.ForceRenewCertificateRequest
+	10, // 15: lcm.service.v1.LcmIssuedCertificateService.DeployCertificate:input_type -> lcm.service.v1.DeployCertificateRequest
+	12, // 16: lcm.service.v1.LcmIssuedCertificateService.ListDeploymentTargets:input_type -> lcm.service.v1.ListDeploymentTargetsRequest
+	2,  // 17: lcm.service.v1.LcmIssuedCertificateService.ListIssuedCertificates:output_type -> lcm.service.v1.ListIssuedCertificatesResponse
+	4,  // 18: lcm.service.v1.LcmIssuedCertificateService.GetIssuedCertificate:output_type -> lcm.service.v1.GetIssuedCertificateResponse
+	9,  // 19: lcm.service.v1.LcmIssuedCertificateService.UpdateIssuedCertificate:output_type -> lcm.service.v1.UpdateIssuedCertificateResponse
+	7,  // 20: lcm.service.v1.LcmIssuedCertificateService.ForceRenewCertificate:output_type -> lcm.service.v1.ForceRenewCertificateResponse
+	11, // 21: lcm.service.v1.LcmIssuedCertificateService.DeployCertificate:output_type -> lcm.service.v1.DeployCertificateResponse
+	14, // 22: lcm.service.v1.LcmIssuedCertificateService.ListDeploymentTargets:output_type -> lcm.service.v1.ListDeploymentTargetsResponse
+	17, // [17:23] is the sub-list for method output_type
+	11, // [11:17] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_lcm_service_v1_issued_certificate_proto_init() }

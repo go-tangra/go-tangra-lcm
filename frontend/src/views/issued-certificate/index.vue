@@ -178,6 +178,18 @@ const gridOptions: VxeGridProps<IssuedCertificateInfo> = {
       width: 110,
     },
     {
+      title: $t('lcm.page.issuedCertificate.lastIssuedAt'),
+      field: 'lastIssuedAt',
+      formatter: 'formatDateTime',
+      width: 160,
+    },
+    {
+      title: $t('lcm.page.issuedCertificate.lastRenewalAt'),
+      field: 'lastRenewalAt',
+      formatter: 'formatDateTime',
+      width: 160,
+    },
+    {
       title: $t('lcm.page.issuedCertificate.expiresAt'),
       field: 'expiresAt',
       formatter: 'formatDateTime',

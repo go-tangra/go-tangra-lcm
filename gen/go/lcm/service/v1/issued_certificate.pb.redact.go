@@ -210,6 +210,10 @@ func (x *IssuedCertificateInfo) Redact() string {
 	// Safe field: CreatedAt
 
 	// Safe field: UpdatedAt
+
+	// Safe field: LastIssuedAt
+
+	// Safe field: LastRenewalAt
 	return x.String()
 }
 
