@@ -88,6 +88,12 @@ func newApp(
 		MaxRetries:        60,
 	})
 
+	// Tell the scheduler which lcm:* task types we can execute.
+	// Background goroutine with retry — no error to propagate; if the
+	// scheduler is unreachable the task simply won't fire until LCM
+	// registers successfully on a later attempt.
+	lcmService.RegisterTasksWithScheduler(ctx.GetLogger())
+
 	// Register the bootstrap gRPC server (:9101) alongside the main
 	// mTLS server. NewApp accepts a variadic list of transport
 	// servers; passing the embedded *grpc.Server makes kratos start

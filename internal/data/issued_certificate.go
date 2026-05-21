@@ -345,6 +345,35 @@ func (r *IssuedCertificateRepo) ListByIssuerName(ctx context.Context, issuerName
 	return entities, nil
 }
 
+// ListExpiringWithin returns all issued certificates whose expires_at falls
+// between now and (now + horizon). Returns only status=issued certs — pending,
+// failed, revoked and expired are excluded since they don't need an
+// expiry-soon nudge.
+//
+// Unlike FindCertificatesDueForRenewal this does NOT filter by
+// auto_renew_enabled: the whole point of the expiring-soon notification
+// is to surface certs the operator may have to act on manually. A cert
+// with auto-renew disabled is, if anything, more important to flag.
+func (r *IssuedCertificateRepo) ListExpiringWithin(ctx context.Context, horizon time.Duration) ([]*ent.IssuedCertificate, error) {
+	now := time.Now()
+	deadline := now.Add(horizon)
+
+	entities, err := r.entClient.Client().IssuedCertificate.Query().
+		Where(
+			issuedcertificate.StatusEQ(issuedcertificate.StatusIssued),
+			issuedcertificate.ExpiresAtNotNil(),
+			issuedcertificate.ExpiresAtGTE(now),
+			issuedcertificate.ExpiresAtLTE(deadline),
+		).
+		Order(ent.Asc(issuedcertificate.FieldExpiresAt)).
+		All(ctx)
+	if err != nil {
+		r.log.Errorf("list expiring issued certificates failed: %s", err.Error())
+		return nil, lcmV1.ErrorInternalServerError("list expiring issued certificates failed")
+	}
+	return entities, nil
+}
+
 // ListFilter represents filters for listing issued certificates
 type ListFilter struct {
 	TenantID         *uint32

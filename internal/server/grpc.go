@@ -109,6 +109,7 @@ func NewGRPCServer(
 	statisticsSvc *service.StatisticsService,
 	backupSvc *service.BackupService,
 	bootstrapSvc *service.BootstrapService,
+	taskExecutor *service.TaskExecutor,
 ) *grpc.Server {
 	cfg := ctx.GetConfig()
 	logger := ctx.GetLogger()
@@ -152,6 +153,7 @@ func NewGRPCServer(
 	lcmV1.RegisterRedactedLcmStatisticsServiceServer(srv, statisticsSvc, nil)
 	lcmV1.RegisterRedactedBackupServiceServer(srv, backupSvc, nil)
 	commonV1.RegisterLcmBootstrapServiceServer(srv, bootstrapSvc)
+	commonV1.RegisterTaskExecutorServiceServer(srv, taskExecutor)
 	l.Info("gRPC server configured with TLS and all LCM services")
 
 	return srv

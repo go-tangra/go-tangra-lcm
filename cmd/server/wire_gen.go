@@ -10,6 +10,7 @@ import (
 	gocontext "context"
 
 	"github.com/go-kratos/kratos/v2"
+	"github.com/go-kratos/kratos/v2/log"
 	appViewer "github.com/go-tangra/go-tangra-common/viewer"
 	bootstrap2 "github.com/go-tangra/go-tangra-lcm/internal/bootstrap"
 	"github.com/go-tangra/go-tangra-lcm/internal/cert"
@@ -125,7 +126,9 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	statisticsService := service.NewStatisticsService(context, statisticsRepo)
 	backupService := service.NewBackupService(context, entClient)
 	bootstrapService := service.NewBootstrapService(context, lcm, mtlsCertificateRepo, lcmClientRepo)
-	grpcServer := server.NewGRPCServer(context, certManager, collector, auditLogRepo, mtlsCertificateRepo, systemService, lcmClientService, issuerService, certificateJobService, issuedCertificateService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService, backupService, bootstrapService)
+	taskExecutorNotifHelper := service.NewNotificationHelper(log.NewHelper(log.With(context.GetLogger(), "module", "task-executor")), notificationClient, recipientResolver)
+	taskExecutor := service.NewTaskExecutor(context, issuedCertificateRepo, taskExecutorNotifHelper)
+	grpcServer := server.NewGRPCServer(context, certManager, collector, auditLogRepo, mtlsCertificateRepo, systemService, lcmClientService, issuerService, certificateJobService, issuedCertificateService, tenantSecretService, auditLogService, mtlsCertService, certificatePermissionService, mtlsCertificateRequestService, statisticsService, backupService, bootstrapService, taskExecutor)
 	signCertificateService := service.NewSignCertificateService(context, lcm, mtlsCertificateRepo, lcmClientRepo, bootstrapService)
 	bootstrapGRPCServer := server.NewBootstrapGRPCServer(context, certManager, signCertificateService)
 	httpServer := server.NewHTTPServer(context)

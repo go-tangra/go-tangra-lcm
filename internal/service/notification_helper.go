@@ -16,10 +16,11 @@ import (
 
 // Template names registered in the notification service.
 const (
-	templateNameCertIssued  = "lcm-cert-issued-template"
-	templateNameCertRenewed = "lcm-cert-renewed-template"
-	templateNameCertFailed  = "lcm-cert-failed-template"
-	notifChannelName        = "Default SMTP"
+	templateNameCertIssued   = "lcm-cert-issued-template"
+	templateNameCertRenewed  = "lcm-cert-renewed-template"
+	templateNameCertFailed   = "lcm-cert-failed-template"
+	templateNameCertExpiring = "lcm-cert-expiring-template"
+	notifChannelName         = "Default SMTP"
 )
 
 // --- Certificate Issued template ---
@@ -91,6 +92,29 @@ var certFailedBody = `<!DOCTYPE html>
 </body>
 </html>`
 
+// --- Certificate Expiring template ---
+
+var certExpiringSubject = `Certificate expiring in {{.DaysRemaining}} day(s): {{.CommonName}}`
+
+var certExpiringBody = `<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <h2 style="color: #FA8C16;">Certificate Expiring Soon</h2>
+  <p>Hello,</p>
+  <p>The TLS certificate for <strong>{{.CommonName}}</strong> will expire in <strong>{{.DaysRemaining}} day(s)</strong>.</p>
+  <table style="border-collapse: collapse; width: 100%; margin: 16px 0;">
+    <tr><td style="padding: 8px; border: 1px solid #eee; font-weight: bold;">Common Name</td><td style="padding: 8px; border: 1px solid #eee;">{{.CommonName}}</td></tr>
+    <tr><td style="padding: 8px; border: 1px solid #eee; font-weight: bold;">Domains</td><td style="padding: 8px; border: 1px solid #eee;">{{.Domains}}</td></tr>
+    <tr><td style="padding: 8px; border: 1px solid #eee; font-weight: bold;">Issuer</td><td style="padding: 8px; border: 1px solid #eee;">{{.IssuerName}}</td></tr>
+    <tr><td style="padding: 8px; border: 1px solid #eee; font-weight: bold; color: #FA8C16;">Expires At</td><td style="padding: 8px; border: 1px solid #eee; color: #FA8C16;">{{.ExpiresAt}}</td></tr>
+    <tr><td style="padding: 8px; border: 1px solid #eee; font-weight: bold;">Auto-Renew</td><td style="padding: 8px; border: 1px solid #eee;">{{.AutoRenew}}</td></tr>
+  </table>
+  <p>If auto-renew is disabled or has been failing, trigger a manual renewal from the LCM dashboard.</p>
+  <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+  <p style="color: #999; font-size: 11px;">This is an automated message from GoTangra Certificate Lifecycle Management.</p>
+</body>
+</html>`
+
 // templateDef defines a notification template to be lazily registered.
 type templateDef struct {
 	name      string
@@ -117,6 +141,12 @@ var lcmTemplateDefs = map[string]templateDef{
 		subject:   certFailedSubject,
 		body:      certFailedBody,
 		variables: "CommonName,Domains,IssuerName,Operation,ErrorMessage",
+	},
+	templateNameCertExpiring: {
+		name:      templateNameCertExpiring,
+		subject:   certExpiringSubject,
+		body:      certExpiringBody,
+		variables: "CommonName,Domains,IssuerName,ExpiresAt,DaysRemaining,AutoRenew",
 	},
 }
 
@@ -310,6 +340,17 @@ func (h *NotificationHelper) NotifyCertificateFailed(ctx context.Context, recipi
 		return nil
 	}
 	_, err := h.notifyAll(ctx, "cert-failed", templateNameCertFailed, recipients, vars)
+	return err
+}
+
+// NotifyCertificateExpiring sends a "certificate expiring soon" notification
+// to every recipient. Fired by the scheduler-driven lcm:check-expiring
+// task — see internal/service/task_executor.go.
+func (h *NotificationHelper) NotifyCertificateExpiring(ctx context.Context, recipients []string, vars map[string]string) error {
+	if h == nil {
+		return nil
+	}
+	_, err := h.notifyAll(ctx, "cert-expiring", templateNameCertExpiring, recipients, vars)
 	return err
 }
 
