@@ -45,6 +45,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/internal/event"
 	"github.com/go-tangra/go-tangra-lcm/internal/metrics"
 	"github.com/go-tangra/go-tangra-lcm/pkg/client"
+	"github.com/go-tangra/go-tangra-lcm/pkg/dns"
 	"github.com/go-tangra/go-tangra-lcm/pkg/dns/registry"
 )
 
@@ -1194,6 +1195,29 @@ func (s *CertificateJobService) issueACMECertificate(ctx context.Context, issuer
 	}
 
 	s.log.Infof("Requesting ACME certificate for domains: %v", domains)
+
+	// Remove any "_acme-challenge" TXT records left behind by previous failed
+	// runs before starting a new order. A stale record whose value matches a
+	// CA-reused authorization makes the provider reject the new record (on
+	// Cloudflare: error 81058 "an identical record already exists"). An apex
+	// and its wildcard (e.g. factory.bg and *.factory.bg) share the same
+	// challenge name, so distinct FQDNs are de-duplicated and cleaned once.
+	// Best-effort: failures are logged and do not abort issuance.
+	if cleaner, ok := dnsProvider.(dns.OrphanedChallengeCleaner); ok {
+		cleaned := make(map[string]struct{}, len(domains))
+		for _, d := range domains {
+			fqdn := dns.ChallengeFQDN(d)
+			if _, done := cleaned[fqdn]; done {
+				continue
+			}
+			cleaned[fqdn] = struct{}{}
+			if err := cleaner.CleanupOrphanedChallengeRecords(ctx, fqdn); err != nil {
+				s.log.Warnf("Pre-order cleanup of orphaned challenge records for %s failed (continuing): %v", fqdn, err)
+			} else {
+				s.log.Infof("Pre-order cleanup of orphaned challenge records for %s complete", fqdn)
+			}
+		}
+	}
 
 	// Request the certificate
 	request := certificate.ObtainRequest{
