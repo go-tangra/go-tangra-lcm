@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -353,8 +354,13 @@ func (s *RenewalScheduler) processRenewal(ctx context.Context, renewal *ent.Cert
 		return &renewalError{message: "issuer not found", permanent: true}
 	}
 
-	// Get common name from domains
-	commonName := getCommonNameFromDomains(renewal.Domains)
+	// Preserve the original certificate's identity on renewal. The renewal
+	// row only carries Domains (= the cert's SANs), not the CN — picking
+	// the first SAN as the new CN silently rewrites the cert: an apex CN
+	// gets demoted to a wildcard if the SAN list happens to lead with one.
+	// Use cert.CommonName when set, and make sure it also appears in the
+	// SAN list (most ACME CAs require the CN to match a SAN).
+	commonName, dnsNames := renewalIdentity(cert.CommonName, renewal.Domains)
 
 	// Generate new key and CSR for renewal. Prefer the existing cert's SPKI
 	// as the source of truth — the stored key_type/key_size columns may lie
@@ -381,7 +387,7 @@ func (s *RenewalScheduler) processRenewal(ctx context.Context, renewal *ent.Cert
 		}
 	}
 
-	privateKeyPEM, csrPEM, err := generateKeyAndCSR(commonName, renewal.Domains, nil, keyType, keySize)
+	privateKeyPEM, csrPEM, err := generateKeyAndCSR(commonName, dnsNames, nil, keyType, keySize)
 	if err != nil {
 		return &renewalError{message: "failed to generate key/CSR: " + err.Error(), permanent: false}
 	}
@@ -392,7 +398,7 @@ func (s *RenewalScheduler) processRenewal(ctx context.Context, renewal *ent.Cert
 		ClientID:   renewal.ClientID,
 		IssuerName: renewal.IssuerName,
 		IssuerType: string(issuerEntity.Type),
-		DNSNames:   renewal.Domains,
+		DNSNames:   dnsNames,
 		CommonName: commonName,
 	}
 
@@ -665,6 +671,35 @@ func getCommonNameFromDomains(domains []string) string {
 		return domains[0]
 	}
 	return ""
+}
+
+// renewalIdentity returns the (CN, SANs) pair the renewal CSR should request.
+// Rules:
+//   - The CN is preserved from the original certificate. Only when the stored
+//     CN is empty do we fall back to the first SAN (legacy behaviour).
+//   - The CN is guaranteed to appear in the SAN list so the issued cert
+//     satisfies SAN-matches-CN. CAs that ignore the CSR's CN (and use only
+//     SANs) will still produce a cert whose first SAN matches the CN.
+//   - The original SAN ordering is preserved when the CN was already present,
+//     so this is a no-op for well-formed renewals.
+func renewalIdentity(certCN string, sans []string) (commonName string, dnsNames []string) {
+	commonName = strings.TrimSpace(certCN)
+	if commonName == "" {
+		commonName = getCommonNameFromDomains(sans)
+	}
+	dnsNames = sans
+	if commonName == "" {
+		return commonName, dnsNames
+	}
+	if slices.Contains(dnsNames, commonName) {
+		return commonName, dnsNames
+	}
+	// Prepend so the CN is the first SAN — matches what most CAs put as the
+	// "primary" SAN when they ignore the CSR's CN.
+	out := make([]string, 0, len(dnsNames)+1)
+	out = append(out, commonName)
+	out = append(out, dnsNames...)
+	return commonName, out
 }
 
 // ManualRenewal triggers a manual renewal for a specific certificate
