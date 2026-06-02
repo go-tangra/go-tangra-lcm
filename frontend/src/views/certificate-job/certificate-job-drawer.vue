@@ -475,8 +475,9 @@ function closePrivateKeyModal() {
               </DescriptionsItem>
               <DescriptionsItem v-if="jobResult.privateKeyPem" :label="$t('lcm.page.certificateJob.privateKeyPem')">
                 <Paragraph
+                  class="bg-muted text-foreground"
                   :copyable="{ text: jobResult.privateKeyPem }"
-                  style="margin-bottom: 0; font-family: monospace; font-size: 11px; max-height: 150px; overflow: auto; background: #fff7e6;"
+                  style="margin-bottom: 0; font-family: monospace; font-size: 11px; max-height: 150px; overflow: auto;"
                 >
                   <pre style="margin: 0; white-space: pre-wrap; word-break: break-all;">{{ jobResult.privateKeyPem }}</pre>
                 </Paragraph>
@@ -503,8 +504,9 @@ function closePrivateKeyModal() {
     </div>
     <Paragraph
       v-if="generatedPrivateKey"
+      class="bg-muted text-foreground"
       :copyable="{ text: generatedPrivateKey }"
-      style="margin-bottom: 0; font-family: monospace; font-size: 11px; background: #f5f5f5; padding: 12px; border-radius: 4px;"
+      style="margin-bottom: 0; font-family: monospace; font-size: 11px; padding: 12px; border-radius: 4px;"
     >
       <pre style="margin: 0; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow: auto;">{{ generatedPrivateKey }}</pre>
     </Paragraph>
