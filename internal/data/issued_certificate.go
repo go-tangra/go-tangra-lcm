@@ -383,6 +383,17 @@ type ListFilter struct {
 	AutoRenewEnabled *bool
 	Page             uint32
 	PageSize         uint32
+
+	// Expiry-window predicates used to filter by the derived EXPIRED /
+	// EXPIRING_SOON / ISSUED statuses, which are not stored in the status
+	// column. When set, only certificates whose expires_at falls in the
+	// requested range are returned.
+	ExpiresBefore *time.Time
+	ExpiresAfter  *time.Time
+	// IncludeNullExpiry makes ExpiresAfter also match rows with no expiry,
+	// used for the plain "issued" filter (valid certs with a far-off or
+	// unknown expiry).
+	IncludeNullExpiry bool
 }
 
 // CreateJobRequest contains all data needed to create a new certificate job
@@ -501,6 +512,19 @@ func (r *IssuedCertificateRepo) List(ctx context.Context, filter *ListFilter) ([
 		}
 		if filter.Status != nil {
 			query = query.Where(issuedcertificate.StatusEQ(*filter.Status))
+		}
+		if filter.ExpiresBefore != nil {
+			query = query.Where(issuedcertificate.ExpiresAtLT(*filter.ExpiresBefore))
+		}
+		if filter.ExpiresAfter != nil {
+			if filter.IncludeNullExpiry {
+				query = query.Where(issuedcertificate.Or(
+					issuedcertificate.ExpiresAtIsNil(),
+					issuedcertificate.ExpiresAtGTE(*filter.ExpiresAfter),
+				))
+			} else {
+				query = query.Where(issuedcertificate.ExpiresAtGTE(*filter.ExpiresAfter))
+			}
 		}
 		if filter.IssuerName != "" {
 			query = query.Where(issuedcertificate.IssuerNameEQ(filter.IssuerName))

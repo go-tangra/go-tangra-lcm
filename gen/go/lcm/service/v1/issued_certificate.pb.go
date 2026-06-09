@@ -37,6 +37,9 @@ const (
 	IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_REVOKED     IssuedCertificateStatus = 5
 	IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_FAILED      IssuedCertificateStatus = 6
 	IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_RENEWED     IssuedCertificateStatus = 7
+	// Derived at response time: certificate is still valid but expires within
+	// the next 30 days. Never persisted to the database.
+	IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON IssuedCertificateStatus = 8
 )
 
 // Enum value maps for IssuedCertificateStatus.
@@ -50,16 +53,18 @@ var (
 		5: "ISSUED_CERTIFICATE_STATUS_REVOKED",
 		6: "ISSUED_CERTIFICATE_STATUS_FAILED",
 		7: "ISSUED_CERTIFICATE_STATUS_RENEWED",
+		8: "ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON",
 	}
 	IssuedCertificateStatus_value = map[string]int32{
-		"ISSUED_CERTIFICATE_STATUS_UNSPECIFIED": 0,
-		"ISSUED_CERTIFICATE_STATUS_PENDING":     1,
-		"ISSUED_CERTIFICATE_STATUS_PROCESSING":  2,
-		"ISSUED_CERTIFICATE_STATUS_ISSUED":      3,
-		"ISSUED_CERTIFICATE_STATUS_EXPIRED":     4,
-		"ISSUED_CERTIFICATE_STATUS_REVOKED":     5,
-		"ISSUED_CERTIFICATE_STATUS_FAILED":      6,
-		"ISSUED_CERTIFICATE_STATUS_RENEWED":     7,
+		"ISSUED_CERTIFICATE_STATUS_UNSPECIFIED":   0,
+		"ISSUED_CERTIFICATE_STATUS_PENDING":       1,
+		"ISSUED_CERTIFICATE_STATUS_PROCESSING":    2,
+		"ISSUED_CERTIFICATE_STATUS_ISSUED":        3,
+		"ISSUED_CERTIFICATE_STATUS_EXPIRED":       4,
+		"ISSUED_CERTIFICATE_STATUS_REVOKED":       5,
+		"ISSUED_CERTIFICATE_STATUS_FAILED":        6,
+		"ISSUED_CERTIFICATE_STATUS_RENEWED":       7,
+		"ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON": 8,
 	}
 )
 
@@ -1091,7 +1096,7 @@ const file_lcm_service_v1_issued_certificate_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12/\n" +
 	"\x13configuration_count\x18\x04 \x01(\x05R\x12configurationCount\"_\n" +
 	"\x1dListDeploymentTargetsResponse\x12>\n" +
-	"\atargets\x18\x01 \x03(\v2$.lcm.service.v1.DeploymentTargetInfoR\atargets*\xd6\x02\n" +
+	"\atargets\x18\x01 \x03(\v2$.lcm.service.v1.DeploymentTargetInfoR\atargets*\x83\x03\n" +
 	"\x17IssuedCertificateStatus\x12)\n" +
 	"%ISSUED_CERTIFICATE_STATUS_UNSPECIFIED\x10\x00\x12%\n" +
 	"!ISSUED_CERTIFICATE_STATUS_PENDING\x10\x01\x12(\n" +
@@ -1100,7 +1105,8 @@ const file_lcm_service_v1_issued_certificate_proto_rawDesc = "" +
 	"!ISSUED_CERTIFICATE_STATUS_EXPIRED\x10\x04\x12%\n" +
 	"!ISSUED_CERTIFICATE_STATUS_REVOKED\x10\x05\x12$\n" +
 	" ISSUED_CERTIFICATE_STATUS_FAILED\x10\x06\x12%\n" +
-	"!ISSUED_CERTIFICATE_STATUS_RENEWED\x10\a2\xd0\a\n" +
+	"!ISSUED_CERTIFICATE_STATUS_RENEWED\x10\a\x12+\n" +
+	"'ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON\x10\b2\xd0\a\n" +
 	"\x1bLcmIssuedCertificateService\x12\x98\x01\n" +
 	"\x16ListIssuedCertificates\x12-.lcm.service.v1.ListIssuedCertificatesRequest\x1a..lcm.service.v1.ListIssuedCertificatesResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/v1/issued-certificates\x12\x97\x01\n" +
 	"\x14GetIssuedCertificate\x12+.lcm.service.v1.GetIssuedCertificateRequest\x1a,.lcm.service.v1.GetIssuedCertificateResponse\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/v1/issued-certificates/{id}\x12\xa3\x01\n" +

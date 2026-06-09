@@ -26,6 +26,7 @@ const statusList = computed(() => [
   { value: 'ISSUED_CERTIFICATE_STATUS_PENDING', label: $t('lcm.enum.issuedCertStatus.pending') },
   { value: 'ISSUED_CERTIFICATE_STATUS_PROCESSING', label: $t('lcm.enum.issuedCertStatus.processing') },
   { value: 'ISSUED_CERTIFICATE_STATUS_ISSUED', label: $t('lcm.enum.issuedCertStatus.issued') },
+  { value: 'ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON', label: $t('lcm.enum.issuedCertStatus.expiringSoon') },
   { value: 'ISSUED_CERTIFICATE_STATUS_FAILED', label: $t('lcm.enum.issuedCertStatus.failed') },
   { value: 'ISSUED_CERTIFICATE_STATUS_EXPIRED', label: $t('lcm.enum.issuedCertStatus.expired') },
   { value: 'ISSUED_CERTIFICATE_STATUS_REVOKED', label: $t('lcm.enum.issuedCertStatus.revoked') },
@@ -62,6 +63,8 @@ function statusToColor(status: string | undefined) {
       return '#1890FF'; // blue
     case 'ISSUED_CERTIFICATE_STATUS_FAILED':
       return '#FF4D4F'; // red
+    case 'ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON':
+      return '#FA8C16'; // orange (warning)
     case 'ISSUED_CERTIFICATE_STATUS_EXPIRED':
       return '#FF4D4F'; // red
     case 'ISSUED_CERTIFICATE_STATUS_REVOKED':
@@ -81,11 +84,13 @@ function statusToName(status: string | undefined) {
 function isIssued(row: IssuedCertificateInfo) {
   return row.status === 'ISSUED_CERTIFICATE_STATUS_ISSUED' ||
          row.status === 'ISSUED_CERTIFICATE_STATUS_RENEWED' ||
+         row.status === 'ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON' ||
          row.status === 'ISSUED_CERTIFICATE_STATUS_EXPIRED';
 }
 
 function canRenew(row: IssuedCertificateInfo) {
   return row.status === 'ISSUED_CERTIFICATE_STATUS_ISSUED' ||
+         row.status === 'ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON' ||
          row.status === 'ISSUED_CERTIFICATE_STATUS_EXPIRED';
 }
 

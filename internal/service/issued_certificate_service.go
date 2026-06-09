@@ -138,10 +138,30 @@ func (s *IssuedCertificateService) ListIssuedCertificates(ctx context.Context, r
 		filter.TenantID = &tenantID
 	}
 
-	// Map proto status to database status
+	// Map proto status to database filter. EXPIRED / EXPIRING_SOON / ISSUED are
+	// derived from expires_at (see deriveIssuedCertStatus), so they translate to
+	// an expiry-window predicate over "issued" rows rather than a status match.
 	if req.Status != nil && *req.Status != lcmV1.IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_UNSPECIFIED {
-		dbStatus := mapIssuedCertProtoStatusToDB(*req.Status)
-		filter.Status = &dbStatus
+		now := time.Now()
+		issued := issuedcertificate.StatusIssued
+		switch *req.Status {
+		case lcmV1.IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_EXPIRED:
+			filter.Status = &issued
+			filter.ExpiresBefore = &now
+		case lcmV1.IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON:
+			cutoff := now.Add(expiringSoonWindow)
+			filter.Status = &issued
+			filter.ExpiresAfter = &now
+			filter.ExpiresBefore = &cutoff
+		case lcmV1.IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_ISSUED:
+			cutoff := now.Add(expiringSoonWindow)
+			filter.Status = &issued
+			filter.ExpiresAfter = &cutoff
+			filter.IncludeNullExpiry = true
+		default:
+			dbStatus := mapIssuedCertProtoStatusToDB(*req.Status)
+			filter.Status = &dbStatus
+		}
 	}
 
 	// Auto-renew filter
@@ -445,7 +465,7 @@ func mapIssuedCertToProto(cert *ent.IssuedCertificate) *lcmV1.IssuedCertificateI
 		Domains:                   cert.Domains,
 		IssuerName:                cert.IssuerName,
 		IssuerType:                cert.IssuerType,
-		Status:                    mapIssuedCertDBStatusToProto(cert.Status),
+		Status:                    deriveIssuedCertStatus(cert, time.Now()),
 		AutoRenewEnabled:          cert.AutoRenewEnabled,
 		AutoRenewDaysBeforeExpiry: cert.AutoRenewDaysBeforeExpiry,
 		KeyType:                   keyType,
@@ -468,6 +488,38 @@ func mapIssuedCertToProto(cert *ent.IssuedCertificate) *lcmV1.IssuedCertificateI
 	}
 
 	return info
+}
+
+// expiringSoonWindow is how far ahead of expiry a still-valid certificate is
+// reported as EXPIRING_SOON instead of ISSUED.
+const expiringSoonWindow = 30 * 24 * time.Hour
+
+// deriveIssuedCertStatus computes the effective status reported to clients.
+//
+// The stored status column only ever advances to "issued"; it is never updated
+// when a certificate later crosses its expiry date. So an active certificate is
+// reclassified at read time based on its expires_at:
+//   - expires_at in the past            -> EXPIRED
+//   - expires_at within the next 30 days -> EXPIRING_SOON
+//   - otherwise                          -> the stored status (ISSUED)
+//
+// Only "issued" certificates are reclassified; pending/processing/failed/
+// revoked rows are returned as-is.
+func deriveIssuedCertStatus(cert *ent.IssuedCertificate, now time.Time) lcmV1.IssuedCertificateStatus {
+	base := mapIssuedCertDBStatusToProto(cert.Status)
+	if base != lcmV1.IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_ISSUED {
+		return base
+	}
+	if cert.ExpiresAt.IsZero() {
+		return base
+	}
+	if cert.ExpiresAt.Before(now) {
+		return lcmV1.IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_EXPIRED
+	}
+	if cert.ExpiresAt.Before(now.Add(expiringSoonWindow)) {
+		return lcmV1.IssuedCertificateStatus_ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON
+	}
+	return base
 }
 
 // mapIssuedCertDBStatusToProto maps a database status to a proto status

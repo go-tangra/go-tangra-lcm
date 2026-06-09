@@ -31,6 +31,8 @@ function statusToColor(status: string | undefined) {
       return '#1890FF';
     case 'ISSUED_CERTIFICATE_STATUS_FAILED':
       return '#FF4D4F';
+    case 'ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON':
+      return '#FA8C16';
     case 'ISSUED_CERTIFICATE_STATUS_EXPIRED':
       return '#FF4D4F';
     case 'ISSUED_CERTIFICATE_STATUS_REVOKED':
@@ -52,6 +54,8 @@ function statusToName(status: string | undefined) {
       return $t('lcm.enum.issuedCertStatus.processing');
     case 'ISSUED_CERTIFICATE_STATUS_FAILED':
       return $t('lcm.enum.issuedCertStatus.failed');
+    case 'ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON':
+      return $t('lcm.enum.issuedCertStatus.expiringSoon');
     case 'ISSUED_CERTIFICATE_STATUS_EXPIRED':
       return $t('lcm.enum.issuedCertStatus.expired');
     case 'ISSUED_CERTIFICATE_STATUS_REVOKED':

@@ -66,6 +66,9 @@ enum IssuedCertificateStatus {
   ISSUED_CERTIFICATE_STATUS_REVOKED = 5;
   ISSUED_CERTIFICATE_STATUS_FAILED = 6;
   ISSUED_CERTIFICATE_STATUS_RENEWED = 7;
+  // Derived at response time: certificate is still valid but expires within
+  // the next 30 days. Never persisted to the database.
+  ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON = 8;
 }
 
 // Request to list issued certificates

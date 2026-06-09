@@ -351,6 +351,7 @@
       "processing": "Processing",
       "failed": "Failed",
       "expired": "Expired",
+      "expiringSoon": "Expiring Soon",
       "revoked": "Revoked",
       "renewed": "Renewed"
     },
