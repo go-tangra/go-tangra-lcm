@@ -224,19 +224,16 @@ func (s *CertificateJobService) RequestCertificate(ctx context.Context, req *lcm
 	}
 
 	// An ACME directory URL override marks this as an externally-adopted
-	// certificate (e.g. a DigiCert order-specific renew URL). External certs are
-	// tenant-scoped and not owned by a tangra-client, so we do not bind a client.
+	// certificate (e.g. a DigiCert order-specific renew URL). The certificate is
+	// still owned by the requesting client (so it appears in their list); renewal
+	// of these certs derives its tenant from the cert row, not a client edge.
 	acmeDirURLOverride := strings.TrimSpace(req.GetAcmeDirectoryUrl())
 	isExternal := acmeDirURLOverride != ""
-	effectiveClientID := clientID
-	if isExternal {
-		effectiveClientID = ""
-	}
 
 	// Create certificate request
 	certReq := &biz.CertificateRequest{
 		TenantID:                 tenantID,
-		ClientID:                 effectiveClientID,
+		ClientID:                 clientID,
 		IssuerName:               req.GetIssuerName(),
 		IssuerType:               string(issuerEntity.Type),
 		DNSNames:                 req.GetDnsNames(),
@@ -257,7 +254,7 @@ func (s *CertificateJobService) RequestCertificate(ctx context.Context, req *lcm
 	_, err = s.issuedCertRepo.CreateJob(ctx, &data.CreateJobRequest{
 		ID:                        jobID,
 		TenantID:                  tenantID,
-		ClientID:                  effectiveClientID,
+		ClientID:                  clientID,
 		IssuerName:                req.GetIssuerName(),
 		IssuerType:                string(issuerEntity.Type),
 		CommonName:                req.GetCommonName(),
