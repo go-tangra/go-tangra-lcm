@@ -138,6 +138,12 @@ func (x *RequestCertificateRequest) Redact() string {
 	// Safe field: ValidityDays
 
 	// Safe field: Metadata
+
+	// Safe field: AcmeDirectoryUrl
+
+	// Safe field: AutoRenewEnabled
+
+	// Safe field: AutoRenewDaysBeforeExpiry
 	return x.String()
 }
 

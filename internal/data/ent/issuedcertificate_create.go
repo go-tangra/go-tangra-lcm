@@ -156,6 +156,34 @@ func (_c *IssuedCertificateCreate) SetNillableServerGeneratedKey(v *bool) *Issue
 	return _c
 }
 
+// SetIsExternal sets the "is_external" field.
+func (_c *IssuedCertificateCreate) SetIsExternal(v bool) *IssuedCertificateCreate {
+	_c.mutation.SetIsExternal(v)
+	return _c
+}
+
+// SetNillableIsExternal sets the "is_external" field if the given value is not nil.
+func (_c *IssuedCertificateCreate) SetNillableIsExternal(v *bool) *IssuedCertificateCreate {
+	if v != nil {
+		_c.SetIsExternal(*v)
+	}
+	return _c
+}
+
+// SetAcmeDirectoryURLOverride sets the "acme_directory_url_override" field.
+func (_c *IssuedCertificateCreate) SetAcmeDirectoryURLOverride(v string) *IssuedCertificateCreate {
+	_c.mutation.SetAcmeDirectoryURLOverride(v)
+	return _c
+}
+
+// SetNillableAcmeDirectoryURLOverride sets the "acme_directory_url_override" field if the given value is not nil.
+func (_c *IssuedCertificateCreate) SetNillableAcmeDirectoryURLOverride(v *string) *IssuedCertificateCreate {
+	if v != nil {
+		_c.SetAcmeDirectoryURLOverride(*v)
+	}
+	return _c
+}
+
 // SetCaCertPem sets the "ca_cert_pem" field.
 func (_c *IssuedCertificateCreate) SetCaCertPem(v string) *IssuedCertificateCreate {
 	_c.mutation.SetCaCertPem(v)
@@ -496,6 +524,10 @@ func (_c *IssuedCertificateCreate) defaults() {
 		v := issuedcertificate.DefaultServerGeneratedKey
 		_c.mutation.SetServerGeneratedKey(v)
 	}
+	if _, ok := _c.mutation.IsExternal(); !ok {
+		v := issuedcertificate.DefaultIsExternal
+		_c.mutation.SetIsExternal(v)
+	}
 	if _, ok := _c.mutation.AutoRenewEnabled(); !ok {
 		v := issuedcertificate.DefaultAutoRenewEnabled
 		_c.mutation.SetAutoRenewEnabled(v)
@@ -549,6 +581,9 @@ func (_c *IssuedCertificateCreate) check() error {
 	}
 	if _, ok := _c.mutation.ServerGeneratedKey(); !ok {
 		return &ValidationError{Name: "server_generated_key", err: errors.New(`ent: missing required field "IssuedCertificate.server_generated_key"`)}
+	}
+	if _, ok := _c.mutation.IsExternal(); !ok {
+		return &ValidationError{Name: "is_external", err: errors.New(`ent: missing required field "IssuedCertificate.is_external"`)}
 	}
 	if v, ok := _c.mutation.KeyType(); ok {
 		if err := issuedcertificate.KeyTypeValidator(v); err != nil {
@@ -651,6 +686,14 @@ func (_c *IssuedCertificateCreate) createSpec() (*IssuedCertificate, *sqlgraph.C
 	if value, ok := _c.mutation.ServerGeneratedKey(); ok {
 		_spec.SetField(issuedcertificate.FieldServerGeneratedKey, field.TypeBool, value)
 		_node.ServerGeneratedKey = value
+	}
+	if value, ok := _c.mutation.IsExternal(); ok {
+		_spec.SetField(issuedcertificate.FieldIsExternal, field.TypeBool, value)
+		_node.IsExternal = value
+	}
+	if value, ok := _c.mutation.AcmeDirectoryURLOverride(); ok {
+		_spec.SetField(issuedcertificate.FieldAcmeDirectoryURLOverride, field.TypeString, value)
+		_node.AcmeDirectoryURLOverride = value
 	}
 	if value, ok := _c.mutation.CaCertPem(); ok {
 		_spec.SetField(issuedcertificate.FieldCaCertPem, field.TypeString, value)
@@ -998,6 +1041,36 @@ func (u *IssuedCertificateUpsert) SetServerGeneratedKey(v bool) *IssuedCertifica
 // UpdateServerGeneratedKey sets the "server_generated_key" field to the value that was provided on create.
 func (u *IssuedCertificateUpsert) UpdateServerGeneratedKey() *IssuedCertificateUpsert {
 	u.SetExcluded(issuedcertificate.FieldServerGeneratedKey)
+	return u
+}
+
+// SetIsExternal sets the "is_external" field.
+func (u *IssuedCertificateUpsert) SetIsExternal(v bool) *IssuedCertificateUpsert {
+	u.Set(issuedcertificate.FieldIsExternal, v)
+	return u
+}
+
+// UpdateIsExternal sets the "is_external" field to the value that was provided on create.
+func (u *IssuedCertificateUpsert) UpdateIsExternal() *IssuedCertificateUpsert {
+	u.SetExcluded(issuedcertificate.FieldIsExternal)
+	return u
+}
+
+// SetAcmeDirectoryURLOverride sets the "acme_directory_url_override" field.
+func (u *IssuedCertificateUpsert) SetAcmeDirectoryURLOverride(v string) *IssuedCertificateUpsert {
+	u.Set(issuedcertificate.FieldAcmeDirectoryURLOverride, v)
+	return u
+}
+
+// UpdateAcmeDirectoryURLOverride sets the "acme_directory_url_override" field to the value that was provided on create.
+func (u *IssuedCertificateUpsert) UpdateAcmeDirectoryURLOverride() *IssuedCertificateUpsert {
+	u.SetExcluded(issuedcertificate.FieldAcmeDirectoryURLOverride)
+	return u
+}
+
+// ClearAcmeDirectoryURLOverride clears the value of the "acme_directory_url_override" field.
+func (u *IssuedCertificateUpsert) ClearAcmeDirectoryURLOverride() *IssuedCertificateUpsert {
+	u.SetNull(issuedcertificate.FieldAcmeDirectoryURLOverride)
 	return u
 }
 
@@ -1559,6 +1632,41 @@ func (u *IssuedCertificateUpsertOne) SetServerGeneratedKey(v bool) *IssuedCertif
 func (u *IssuedCertificateUpsertOne) UpdateServerGeneratedKey() *IssuedCertificateUpsertOne {
 	return u.Update(func(s *IssuedCertificateUpsert) {
 		s.UpdateServerGeneratedKey()
+	})
+}
+
+// SetIsExternal sets the "is_external" field.
+func (u *IssuedCertificateUpsertOne) SetIsExternal(v bool) *IssuedCertificateUpsertOne {
+	return u.Update(func(s *IssuedCertificateUpsert) {
+		s.SetIsExternal(v)
+	})
+}
+
+// UpdateIsExternal sets the "is_external" field to the value that was provided on create.
+func (u *IssuedCertificateUpsertOne) UpdateIsExternal() *IssuedCertificateUpsertOne {
+	return u.Update(func(s *IssuedCertificateUpsert) {
+		s.UpdateIsExternal()
+	})
+}
+
+// SetAcmeDirectoryURLOverride sets the "acme_directory_url_override" field.
+func (u *IssuedCertificateUpsertOne) SetAcmeDirectoryURLOverride(v string) *IssuedCertificateUpsertOne {
+	return u.Update(func(s *IssuedCertificateUpsert) {
+		s.SetAcmeDirectoryURLOverride(v)
+	})
+}
+
+// UpdateAcmeDirectoryURLOverride sets the "acme_directory_url_override" field to the value that was provided on create.
+func (u *IssuedCertificateUpsertOne) UpdateAcmeDirectoryURLOverride() *IssuedCertificateUpsertOne {
+	return u.Update(func(s *IssuedCertificateUpsert) {
+		s.UpdateAcmeDirectoryURLOverride()
+	})
+}
+
+// ClearAcmeDirectoryURLOverride clears the value of the "acme_directory_url_override" field.
+func (u *IssuedCertificateUpsertOne) ClearAcmeDirectoryURLOverride() *IssuedCertificateUpsertOne {
+	return u.Update(func(s *IssuedCertificateUpsert) {
+		s.ClearAcmeDirectoryURLOverride()
 	})
 }
 
@@ -2337,6 +2445,41 @@ func (u *IssuedCertificateUpsertBulk) SetServerGeneratedKey(v bool) *IssuedCerti
 func (u *IssuedCertificateUpsertBulk) UpdateServerGeneratedKey() *IssuedCertificateUpsertBulk {
 	return u.Update(func(s *IssuedCertificateUpsert) {
 		s.UpdateServerGeneratedKey()
+	})
+}
+
+// SetIsExternal sets the "is_external" field.
+func (u *IssuedCertificateUpsertBulk) SetIsExternal(v bool) *IssuedCertificateUpsertBulk {
+	return u.Update(func(s *IssuedCertificateUpsert) {
+		s.SetIsExternal(v)
+	})
+}
+
+// UpdateIsExternal sets the "is_external" field to the value that was provided on create.
+func (u *IssuedCertificateUpsertBulk) UpdateIsExternal() *IssuedCertificateUpsertBulk {
+	return u.Update(func(s *IssuedCertificateUpsert) {
+		s.UpdateIsExternal()
+	})
+}
+
+// SetAcmeDirectoryURLOverride sets the "acme_directory_url_override" field.
+func (u *IssuedCertificateUpsertBulk) SetAcmeDirectoryURLOverride(v string) *IssuedCertificateUpsertBulk {
+	return u.Update(func(s *IssuedCertificateUpsert) {
+		s.SetAcmeDirectoryURLOverride(v)
+	})
+}
+
+// UpdateAcmeDirectoryURLOverride sets the "acme_directory_url_override" field to the value that was provided on create.
+func (u *IssuedCertificateUpsertBulk) UpdateAcmeDirectoryURLOverride() *IssuedCertificateUpsertBulk {
+	return u.Update(func(s *IssuedCertificateUpsert) {
+		s.UpdateAcmeDirectoryURLOverride()
+	})
+}
+
+// ClearAcmeDirectoryURLOverride clears the value of the "acme_directory_url_override" field.
+func (u *IssuedCertificateUpsertBulk) ClearAcmeDirectoryURLOverride() *IssuedCertificateUpsertBulk {
+	return u.Update(func(s *IssuedCertificateUpsert) {
+		s.ClearAcmeDirectoryURLOverride()
 	})
 }
 

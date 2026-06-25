@@ -846,6 +846,15 @@ export interface components {
             metadata?: {
                 [key: string]: string;
             };
+            /** @description Optional per-certificate ACME directory URL override (e.g. a DigiCert order-specific renew URL). Marks the certificate external and is replayed on renewal. */
+            acmeDirectoryUrl?: string;
+            /** @description Enable automatic renewal for the resulting certificate. */
+            autoRenewEnabled?: boolean;
+            /**
+             * Format: int32
+             * @description Days before expiry to start auto-renewal (defaults to 30 when unset).
+             */
+            autoRenewDaysBeforeExpiry?: number;
         };
         /** @description Response with job ID for tracking */
         RequestCertificateResponse: {

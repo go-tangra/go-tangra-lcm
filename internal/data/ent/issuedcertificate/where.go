@@ -105,6 +105,16 @@ func ServerGeneratedKey(v bool) predicate.IssuedCertificate {
 	return predicate.IssuedCertificate(sql.FieldEQ(FieldServerGeneratedKey, v))
 }
 
+// IsExternal applies equality check predicate on the "is_external" field. It's identical to IsExternalEQ.
+func IsExternal(v bool) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldEQ(FieldIsExternal, v))
+}
+
+// AcmeDirectoryURLOverride applies equality check predicate on the "acme_directory_url_override" field. It's identical to AcmeDirectoryURLOverrideEQ.
+func AcmeDirectoryURLOverride(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldEQ(FieldAcmeDirectoryURLOverride, v))
+}
+
 // CaCertPem applies equality check predicate on the "ca_cert_pem" field. It's identical to CaCertPemEQ.
 func CaCertPem(v string) predicate.IssuedCertificate {
 	return predicate.IssuedCertificate(sql.FieldEQ(FieldCaCertPem, v))
@@ -713,6 +723,91 @@ func ServerGeneratedKeyEQ(v bool) predicate.IssuedCertificate {
 // ServerGeneratedKeyNEQ applies the NEQ predicate on the "server_generated_key" field.
 func ServerGeneratedKeyNEQ(v bool) predicate.IssuedCertificate {
 	return predicate.IssuedCertificate(sql.FieldNEQ(FieldServerGeneratedKey, v))
+}
+
+// IsExternalEQ applies the EQ predicate on the "is_external" field.
+func IsExternalEQ(v bool) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldEQ(FieldIsExternal, v))
+}
+
+// IsExternalNEQ applies the NEQ predicate on the "is_external" field.
+func IsExternalNEQ(v bool) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldNEQ(FieldIsExternal, v))
+}
+
+// AcmeDirectoryURLOverrideEQ applies the EQ predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideEQ(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldEQ(FieldAcmeDirectoryURLOverride, v))
+}
+
+// AcmeDirectoryURLOverrideNEQ applies the NEQ predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideNEQ(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldNEQ(FieldAcmeDirectoryURLOverride, v))
+}
+
+// AcmeDirectoryURLOverrideIn applies the In predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideIn(vs ...string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldIn(FieldAcmeDirectoryURLOverride, vs...))
+}
+
+// AcmeDirectoryURLOverrideNotIn applies the NotIn predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideNotIn(vs ...string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldNotIn(FieldAcmeDirectoryURLOverride, vs...))
+}
+
+// AcmeDirectoryURLOverrideGT applies the GT predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideGT(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldGT(FieldAcmeDirectoryURLOverride, v))
+}
+
+// AcmeDirectoryURLOverrideGTE applies the GTE predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideGTE(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldGTE(FieldAcmeDirectoryURLOverride, v))
+}
+
+// AcmeDirectoryURLOverrideLT applies the LT predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideLT(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldLT(FieldAcmeDirectoryURLOverride, v))
+}
+
+// AcmeDirectoryURLOverrideLTE applies the LTE predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideLTE(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldLTE(FieldAcmeDirectoryURLOverride, v))
+}
+
+// AcmeDirectoryURLOverrideContains applies the Contains predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideContains(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldContains(FieldAcmeDirectoryURLOverride, v))
+}
+
+// AcmeDirectoryURLOverrideHasPrefix applies the HasPrefix predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideHasPrefix(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldHasPrefix(FieldAcmeDirectoryURLOverride, v))
+}
+
+// AcmeDirectoryURLOverrideHasSuffix applies the HasSuffix predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideHasSuffix(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldHasSuffix(FieldAcmeDirectoryURLOverride, v))
+}
+
+// AcmeDirectoryURLOverrideIsNil applies the IsNil predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideIsNil() predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldIsNull(FieldAcmeDirectoryURLOverride))
+}
+
+// AcmeDirectoryURLOverrideNotNil applies the NotNil predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideNotNil() predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldNotNull(FieldAcmeDirectoryURLOverride))
+}
+
+// AcmeDirectoryURLOverrideEqualFold applies the EqualFold predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideEqualFold(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldEqualFold(FieldAcmeDirectoryURLOverride, v))
+}
+
+// AcmeDirectoryURLOverrideContainsFold applies the ContainsFold predicate on the "acme_directory_url_override" field.
+func AcmeDirectoryURLOverrideContainsFold(v string) predicate.IssuedCertificate {
+	return predicate.IssuedCertificate(sql.FieldContainsFold(FieldAcmeDirectoryURLOverride, v))
 }
 
 // CaCertPemEQ applies the EQ predicate on the "ca_cert_pem" field.

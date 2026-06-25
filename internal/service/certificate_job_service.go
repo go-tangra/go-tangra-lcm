@@ -223,17 +223,28 @@ func (s *CertificateJobService) RequestCertificate(ctx context.Context, req *lcm
 		}
 	}
 
+	// An ACME directory URL override marks this as an externally-adopted
+	// certificate (e.g. a DigiCert order-specific renew URL). External certs are
+	// tenant-scoped and not owned by a tangra-client, so we do not bind a client.
+	acmeDirURLOverride := strings.TrimSpace(req.GetAcmeDirectoryUrl())
+	isExternal := acmeDirURLOverride != ""
+	effectiveClientID := clientID
+	if isExternal {
+		effectiveClientID = ""
+	}
+
 	// Create certificate request
 	certReq := &biz.CertificateRequest{
-		TenantID:     tenantID,
-		ClientID:     clientID,
-		IssuerName:   req.GetIssuerName(),
-		IssuerType:   string(issuerEntity.Type),
-		DNSNames:     req.GetDnsNames(),
-		IPAddresses:  req.GetIpAddresses(),
-		CommonName:   req.GetCommonName(),
-		KeyType:      "ecdsa",
-		ValidityDays: 90, // Default
+		TenantID:                 tenantID,
+		ClientID:                 effectiveClientID,
+		IssuerName:               req.GetIssuerName(),
+		IssuerType:               string(issuerEntity.Type),
+		DNSNames:                 req.GetDnsNames(),
+		IPAddresses:              req.GetIpAddresses(),
+		CommonName:               req.GetCommonName(),
+		KeyType:                  "ecdsa",
+		ValidityDays:             90, // Default
+		ACMEDirectoryURLOverride: acmeDirURLOverride,
 	}
 	if req.ValidityDays != nil && *req.ValidityDays > 0 {
 		certReq.ValidityDays = int(*req.ValidityDays)
@@ -244,19 +255,23 @@ func (s *CertificateJobService) RequestCertificate(ctx context.Context, req *lcm
 
 	// Persist job to database
 	_, err = s.issuedCertRepo.CreateJob(ctx, &data.CreateJobRequest{
-		ID:           jobID,
-		TenantID:     tenantID,
-		ClientID:     clientID,
-		IssuerName:   req.GetIssuerName(),
-		IssuerType:   string(issuerEntity.Type),
-		CommonName:   req.GetCommonName(),
-		DNSNames:     req.GetDnsNames(),
-		IPAddresses:  req.GetIpAddresses(),
-		CSR:          csrPEM,
-		PrivateKey:   privateKeyPEM,
-		KeyType:      certReq.KeyType,
-		KeySize:      int32(certReq.KeySize),
-		ServerGenKey: privateKeyPEM != "",
+		ID:                        jobID,
+		TenantID:                  tenantID,
+		ClientID:                  effectiveClientID,
+		IssuerName:                req.GetIssuerName(),
+		IssuerType:                string(issuerEntity.Type),
+		CommonName:                req.GetCommonName(),
+		DNSNames:                  req.GetDnsNames(),
+		IPAddresses:               req.GetIpAddresses(),
+		CSR:                       csrPEM,
+		PrivateKey:                privateKeyPEM,
+		KeyType:                   certReq.KeyType,
+		KeySize:                   int32(certReq.KeySize),
+		ServerGenKey:              privateKeyPEM != "",
+		IsExternal:                isExternal,
+		ACMEDirectoryURLOverride:  acmeDirURLOverride,
+		AutoRenewEnabled:          req.GetAutoRenewEnabled(),
+		AutoRenewDaysBeforeExpiry: req.GetAutoRenewDaysBeforeExpiry(),
 	})
 	if err != nil {
 		s.log.Errorf("Failed to persist job to database: %v", err)
@@ -553,16 +568,19 @@ func (s *CertificateJobService) RetryJob(ctx context.Context, req *lcmV1.RetryJo
 		return nil, lcmV1.ErrorBadRequest("issuer '%s' is not active", cert.IssuerName)
 	}
 
-	// Reconstruct certificate request from stored fields
+	// Reconstruct certificate request from stored fields. Preserve the ACME
+	// directory URL override so a retried external-cert job still targets its
+	// order-specific renew URL.
 	certReq := &biz.CertificateRequest{
-		TenantID:    cert.TenantID,
-		ClientID:    cert.ClientID,
-		IssuerName:  cert.IssuerName,
-		IssuerType:  cert.IssuerType,
-		DNSNames:    cert.Domains,
-		IPAddresses: cert.IPAddresses,
-		CommonName:  cert.CommonName,
-		KeyType:     string(cert.KeyType),
+		TenantID:                 cert.TenantID,
+		ClientID:                 cert.ClientID,
+		IssuerName:               cert.IssuerName,
+		IssuerType:               cert.IssuerType,
+		DNSNames:                 cert.Domains,
+		IPAddresses:              cert.IPAddresses,
+		CommonName:               cert.CommonName,
+		KeyType:                  string(cert.KeyType),
+		ACMEDirectoryURLOverride: cert.AcmeDirectoryURLOverride,
 	}
 
 	// Reset job status to pending
@@ -1052,6 +1070,17 @@ func (u *acmeUser) GetPrivateKey() crypto.PrivateKey {
 	return u.key
 }
 
+// resolveACMEDirectoryURL returns the per-certificate ACME directory URL
+// override when one is set (e.g. a DigiCert order-specific renew URL), otherwise
+// the issuer's configured endpoint. This is the single decision point that lets
+// LCM adopt and renew externally-issued certificates against their own order URL.
+func resolveACMEDirectoryURL(issuerEndpoint, override string) string {
+	if strings.TrimSpace(override) != "" {
+		return override
+	}
+	return issuerEndpoint
+}
+
 // issueACMECertificate issues a certificate using ACME protocol
 func (s *CertificateJobService) issueACMECertificate(ctx context.Context, issuerEntity *ent.Issuer, certReq *biz.CertificateRequest, csrPEM, privateKeyPEM string) (*biz.IssuedCertificate, error) {
 	// Get ACME configuration
@@ -1075,9 +1104,14 @@ func (s *CertificateJobService) issueACMECertificate(ctx context.Context, issuer
 		key:   accountKey,
 	}
 
-	// Configure lego
+	// Configure lego. A per-certificate directory URL override (e.g. a DigiCert
+	// order-specific renew URL) takes precedence over the issuer endpoint so that
+	// externally-issued certificates can be adopted and renewed.
 	config := lego.NewConfig(user)
-	config.CADirURL = acmeConfig.Endpoint
+	config.CADirURL = resolveACMEDirectoryURL(acmeConfig.Endpoint, certReq.ACMEDirectoryURLOverride)
+	if config.CADirURL != acmeConfig.Endpoint {
+		s.log.Infof("Using per-certificate ACME directory URL override: %s", config.CADirURL)
+	}
 
 	// Set key type for the certificate
 	switch acmeConfig.KeyType {

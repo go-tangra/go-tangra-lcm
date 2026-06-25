@@ -339,8 +339,10 @@ func (s *RenewalScheduler) processRenewal(ctx context.Context, renewal *ent.Cert
 		return &renewalError{message: "certificate not found", permanent: true}
 	}
 
-	// Get the client's tenant ID
-	var tenantID uint32 = 0
+	// Get the certificate's tenant ID. Prefer the owning client's tenant, but
+	// fall back to the cert's own tenant_id for client-less certificates (e.g.
+	// externally-adopted certs that belong to a tenant, not a tangra-client).
+	tenantID := cert.TenantID
 	if cert.Edges.LcmClient != nil && cert.Edges.LcmClient.TenantID != nil {
 		tenantID = *cert.Edges.LcmClient.TenantID
 	}
@@ -392,14 +394,17 @@ func (s *RenewalScheduler) processRenewal(ctx context.Context, renewal *ent.Cert
 		return &renewalError{message: "failed to generate key/CSR: " + err.Error(), permanent: false}
 	}
 
-	// Create certificate request for the service methods
+	// Create certificate request for the service methods. Replay the cert's ACME
+	// directory URL override (e.g. a DigiCert order-specific renew URL) so each
+	// scheduled renewal targets the same external order, not the issuer default.
 	certReq := &biz.CertificateRequest{
-		TenantID:   tenantID,
-		ClientID:   renewal.ClientID,
-		IssuerName: renewal.IssuerName,
-		IssuerType: string(issuerEntity.Type),
-		DNSNames:   dnsNames,
-		CommonName: commonName,
+		TenantID:                 tenantID,
+		ClientID:                 renewal.ClientID,
+		IssuerName:               renewal.IssuerName,
+		IssuerType:               string(issuerEntity.Type),
+		DNSNames:                 dnsNames,
+		CommonName:               commonName,
+		ACMEDirectoryURLOverride: cert.AcmeDirectoryURLOverride,
 	}
 
 	// Issue the new certificate synchronously

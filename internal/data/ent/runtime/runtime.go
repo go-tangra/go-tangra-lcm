@@ -297,32 +297,36 @@ func init() {
 	issuedcertificateDescServerGeneratedKey := issuedcertificateFields[11].Descriptor()
 	// issuedcertificate.DefaultServerGeneratedKey holds the default value on creation for the server_generated_key field.
 	issuedcertificate.DefaultServerGeneratedKey = issuedcertificateDescServerGeneratedKey.Default.(bool)
+	// issuedcertificateDescIsExternal is the schema descriptor for is_external field.
+	issuedcertificateDescIsExternal := issuedcertificateFields[12].Descriptor()
+	// issuedcertificate.DefaultIsExternal holds the default value on creation for the is_external field.
+	issuedcertificate.DefaultIsExternal = issuedcertificateDescIsExternal.Default.(bool)
 	// issuedcertificateDescAutoRenewEnabled is the schema descriptor for auto_renew_enabled field.
-	issuedcertificateDescAutoRenewEnabled := issuedcertificateFields[18].Descriptor()
+	issuedcertificateDescAutoRenewEnabled := issuedcertificateFields[20].Descriptor()
 	// issuedcertificate.DefaultAutoRenewEnabled holds the default value on creation for the auto_renew_enabled field.
 	issuedcertificate.DefaultAutoRenewEnabled = issuedcertificateDescAutoRenewEnabled.Default.(bool)
 	// issuedcertificateDescAutoRenewDaysBeforeExpiry is the schema descriptor for auto_renew_days_before_expiry field.
-	issuedcertificateDescAutoRenewDaysBeforeExpiry := issuedcertificateFields[19].Descriptor()
+	issuedcertificateDescAutoRenewDaysBeforeExpiry := issuedcertificateFields[21].Descriptor()
 	// issuedcertificate.DefaultAutoRenewDaysBeforeExpiry holds the default value on creation for the auto_renew_days_before_expiry field.
 	issuedcertificate.DefaultAutoRenewDaysBeforeExpiry = issuedcertificateDescAutoRenewDaysBeforeExpiry.Default.(int32)
 	// issuedcertificateDescAutoRenewMaxAttempts is the schema descriptor for auto_renew_max_attempts field.
-	issuedcertificateDescAutoRenewMaxAttempts := issuedcertificateFields[20].Descriptor()
+	issuedcertificateDescAutoRenewMaxAttempts := issuedcertificateFields[22].Descriptor()
 	// issuedcertificate.DefaultAutoRenewMaxAttempts holds the default value on creation for the auto_renew_max_attempts field.
 	issuedcertificate.DefaultAutoRenewMaxAttempts = issuedcertificateDescAutoRenewMaxAttempts.Default.(int32)
 	// issuedcertificateDescAutoRenewRetryIntervalSeconds is the schema descriptor for auto_renew_retry_interval_seconds field.
-	issuedcertificateDescAutoRenewRetryIntervalSeconds := issuedcertificateFields[21].Descriptor()
+	issuedcertificateDescAutoRenewRetryIntervalSeconds := issuedcertificateFields[23].Descriptor()
 	// issuedcertificate.DefaultAutoRenewRetryIntervalSeconds holds the default value on creation for the auto_renew_retry_interval_seconds field.
 	issuedcertificate.DefaultAutoRenewRetryIntervalSeconds = issuedcertificateDescAutoRenewRetryIntervalSeconds.Default.(int64)
 	// issuedcertificateDescRenewalAttempts is the schema descriptor for renewal_attempts field.
-	issuedcertificateDescRenewalAttempts := issuedcertificateFields[23].Descriptor()
+	issuedcertificateDescRenewalAttempts := issuedcertificateFields[25].Descriptor()
 	// issuedcertificate.DefaultRenewalAttempts holds the default value on creation for the renewal_attempts field.
 	issuedcertificate.DefaultRenewalAttempts = issuedcertificateDescRenewalAttempts.Default.(int32)
 	// issuedcertificateDescCreatedAt is the schema descriptor for created_at field.
-	issuedcertificateDescCreatedAt := issuedcertificateFields[27].Descriptor()
+	issuedcertificateDescCreatedAt := issuedcertificateFields[29].Descriptor()
 	// issuedcertificate.DefaultCreatedAt holds the default value on creation for the created_at field.
 	issuedcertificate.DefaultCreatedAt = issuedcertificateDescCreatedAt.Default.(func() time.Time)
 	// issuedcertificateDescUpdatedAt is the schema descriptor for updated_at field.
-	issuedcertificateDescUpdatedAt := issuedcertificateFields[28].Descriptor()
+	issuedcertificateDescUpdatedAt := issuedcertificateFields[30].Descriptor()
 	// issuedcertificate.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	issuedcertificate.DefaultUpdatedAt = issuedcertificateDescUpdatedAt.Default.(func() time.Time)
 	// issuedcertificate.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

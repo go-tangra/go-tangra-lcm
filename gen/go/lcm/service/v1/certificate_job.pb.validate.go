@@ -79,6 +79,18 @@ func (m *RequestCertificateRequest) validate(all bool) error {
 		// no validation rules for ValidityDays
 	}
 
+	if m.AcmeDirectoryUrl != nil {
+		// no validation rules for AcmeDirectoryUrl
+	}
+
+	if m.AutoRenewEnabled != nil {
+		// no validation rules for AutoRenewEnabled
+	}
+
+	if m.AutoRenewDaysBeforeExpiry != nil {
+		// no validation rules for AutoRenewDaysBeforeExpiry
+	}
+
 	if len(errors) > 0 {
 		return RequestCertificateRequestMultiError(errors)
 	}

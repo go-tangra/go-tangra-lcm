@@ -398,19 +398,27 @@ type ListFilter struct {
 
 // CreateJobRequest contains all data needed to create a new certificate job
 type CreateJobRequest struct {
-	ID             string
-	TenantID       uint32
-	ClientID       string
-	IssuerName     string
-	IssuerType     string
-	CommonName     string
-	DNSNames       []string
-	IPAddresses    []string
-	CSR            string
-	PrivateKey     string // Encrypted
-	KeyType        string
-	KeySize        int32
-	ServerGenKey   bool
+	ID           string
+	TenantID     uint32
+	ClientID     string
+	IssuerName   string
+	IssuerType   string
+	CommonName   string
+	DNSNames     []string
+	IPAddresses  []string
+	CSR          string
+	PrivateKey   string // Encrypted
+	KeyType      string
+	KeySize      int32
+	ServerGenKey bool
+
+	// External-CA adoption: when IsExternal is set the certificate is renewed
+	// against ACMEDirectoryURLOverride (e.g. a DigiCert order-specific renew URL)
+	// instead of the issuer's default endpoint.
+	IsExternal                bool
+	ACMEDirectoryURLOverride  string
+	AutoRenewEnabled          bool
+	AutoRenewDaysBeforeExpiry int32
 }
 
 // CreateJob creates a new certificate job record with pending status
@@ -418,14 +426,27 @@ func (r *IssuedCertificateRepo) CreateJob(ctx context.Context, req *CreateJobReq
 	builder := r.entClient.Client().IssuedCertificate.Create().
 		SetID(req.ID).
 		SetTenantID(req.TenantID).
-		SetClientID(req.ClientID).
 		SetIssuerName(req.IssuerName).
 		SetIssuerType(req.IssuerType).
 		SetCommonName(req.CommonName).
 		SetDomains(req.DNSNames).
 		SetIPAddresses(req.IPAddresses).
 		SetStatus(issuedcertificate.StatusPending).
-		SetServerGeneratedKey(req.ServerGenKey)
+		SetServerGeneratedKey(req.ServerGenKey).
+		SetIsExternal(req.IsExternal).
+		SetAutoRenewEnabled(req.AutoRenewEnabled)
+
+	// Guard the optional client link: external certs are tenant-scoped and not
+	// owned by any tangra-client, so leave client_id empty for them.
+	if req.ClientID != "" {
+		builder.SetClientID(req.ClientID)
+	}
+	if req.ACMEDirectoryURLOverride != "" {
+		builder.SetAcmeDirectoryURLOverride(req.ACMEDirectoryURLOverride)
+	}
+	if req.AutoRenewDaysBeforeExpiry > 0 {
+		builder.SetAutoRenewDaysBeforeExpiry(req.AutoRenewDaysBeforeExpiry)
+	}
 
 	if req.CSR != "" {
 		builder.SetCsrPem(req.CSR)

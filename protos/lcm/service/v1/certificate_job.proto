@@ -168,6 +168,33 @@ message RequestCertificateRequest {
       }
     }
   ];
+
+  // Optional per-certificate ACME directory URL. When set, this overrides the
+  // issuer's configured ACME endpoint for this request — used to adopt and renew
+  // certificates against an external CA's order-specific URL (e.g. DigiCert's
+  // ".../acme/v2/directory?action=renew&orderId=..."). The certificate is marked
+  // external and renewals replay this same URL.
+  optional string acme_directory_url = 10 [
+    json_name = "acmeDirectoryUrl",
+    (buf.validate.field).string = {
+      max_len: 2048
+      pattern: "^https://[\\s\\S]*$"
+    }
+  ];
+
+  // Enable automatic renewal for the resulting certificate. Defaults to false
+  // for normal requests; set true when adopting an external cert you want LCM to
+  // keep renewing.
+  optional bool auto_renew_enabled = 11 [json_name = "autoRenewEnabled"];
+
+  // Days before expiry to start auto-renewal (defaults to 30 when unset).
+  optional int32 auto_renew_days_before_expiry = 12 [
+    json_name = "autoRenewDaysBeforeExpiry",
+    (buf.validate.field).int32 = {
+      gte: 1
+      lte: 90
+    }
+  ];
 }
 
 // Response with job ID for tracking

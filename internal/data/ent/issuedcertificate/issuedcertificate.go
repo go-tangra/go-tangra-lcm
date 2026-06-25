@@ -37,6 +37,10 @@ const (
 	FieldPrivateKeyPem = "private_key_pem"
 	// FieldServerGeneratedKey holds the string denoting the server_generated_key field in the database.
 	FieldServerGeneratedKey = "server_generated_key"
+	// FieldIsExternal holds the string denoting the is_external field in the database.
+	FieldIsExternal = "is_external"
+	// FieldAcmeDirectoryURLOverride holds the string denoting the acme_directory_url_override field in the database.
+	FieldAcmeDirectoryURLOverride = "acme_directory_url_override"
 	// FieldCaCertPem holds the string denoting the ca_cert_pem field in the database.
 	FieldCaCertPem = "ca_cert_pem"
 	// FieldCsrPem holds the string denoting the csr_pem field in the database.
@@ -116,6 +120,8 @@ var Columns = []string{
 	FieldCertPem,
 	FieldPrivateKeyPem,
 	FieldServerGeneratedKey,
+	FieldIsExternal,
+	FieldAcmeDirectoryURLOverride,
 	FieldCaCertPem,
 	FieldCsrPem,
 	FieldCertificateFingerprint,
@@ -161,6 +167,8 @@ var (
 	IssuerNameValidator func(string) error
 	// DefaultServerGeneratedKey holds the default value on creation for the "server_generated_key" field.
 	DefaultServerGeneratedKey bool
+	// DefaultIsExternal holds the default value on creation for the "is_external" field.
+	DefaultIsExternal bool
 	// DefaultAutoRenewEnabled holds the default value on creation for the "auto_renew_enabled" field.
 	DefaultAutoRenewEnabled bool
 	// DefaultAutoRenewDaysBeforeExpiry holds the default value on creation for the "auto_renew_days_before_expiry" field.
@@ -288,6 +296,16 @@ func ByPrivateKeyPem(opts ...sql.OrderTermOption) OrderOption {
 // ByServerGeneratedKey orders the results by the server_generated_key field.
 func ByServerGeneratedKey(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldServerGeneratedKey, opts...).ToFunc()
+}
+
+// ByIsExternal orders the results by the is_external field.
+func ByIsExternal(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsExternal, opts...).ToFunc()
+}
+
+// ByAcmeDirectoryURLOverride orders the results by the acme_directory_url_override field.
+func ByAcmeDirectoryURLOverride(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAcmeDirectoryURLOverride, opts...).ToFunc()
 }
 
 // ByCaCertPem orders the results by the ca_cert_pem field.

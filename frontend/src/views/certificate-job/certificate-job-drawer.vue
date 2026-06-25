@@ -205,6 +205,40 @@ const [Form, formApi] = useVbenForm({
         max: 825,
       },
     },
+    {
+      component: 'Textarea',
+      fieldName: 'acmeDirectoryUrl',
+      label: $t('lcm.page.certificateJob.acmeDirectoryUrl'),
+      componentProps: {
+        placeholder:
+          'https://one.digicert.com/mpki/api/v1/acme/v2/directory?action=renew&orderId=...',
+        rows: 2,
+      },
+      help: $t('lcm.page.certificateJob.acmeDirectoryUrlHelp'),
+    },
+    {
+      component: 'Switch',
+      fieldName: 'autoRenewEnabled',
+      label: $t('lcm.page.certificateJob.autoRenewEnabled'),
+      help: $t('lcm.page.certificateJob.autoRenewEnabledHelp'),
+    },
+    {
+      component: 'InputNumber',
+      fieldName: 'autoRenewDaysBeforeExpiry',
+      label: $t('lcm.page.certificateJob.autoRenewDaysBeforeExpiry'),
+      componentProps: {
+        placeholder: '30',
+        min: 1,
+        max: 90,
+      },
+      dependencies: {
+        triggerFields: ['autoRenewEnabled'],
+        if(values: Record<string, any>) {
+          return values.autoRenewEnabled === true;
+        },
+        show: true,
+      },
+    },
   ],
 });
 
@@ -279,6 +313,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
           }
         }
 
+        const acmeDirectoryUrl = values.acmeDirectoryUrl?.trim() || undefined;
+
         await certificateJobStore.requestCertificate({
           issuerName: values.issuerName,
           commonName: values.commonName,
@@ -288,6 +324,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
           keyType: isClientGenerated ? undefined : values.keyType,
           keySize: isClientGenerated ? undefined : values.keySize,
           validityDays: values.validityDays,
+          acmeDirectoryUrl,
+          autoRenewEnabled: values.autoRenewEnabled || undefined,
+          autoRenewDaysBeforeExpiry: values.autoRenewEnabled
+            ? values.autoRenewDaysBeforeExpiry
+            : undefined,
           metadata: undefined,
         });
 

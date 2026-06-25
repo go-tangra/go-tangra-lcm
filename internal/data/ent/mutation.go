@@ -11655,6 +11655,8 @@ type IssuedCertificateMutation struct {
 	cert_pem                             *string
 	private_key_pem                      *string
 	server_generated_key                 *bool
+	is_external                          *bool
+	acme_directory_url_override          *string
 	ca_cert_pem                          *string
 	csr_pem                              *string
 	certificate_fingerprint              *string
@@ -12331,6 +12333,91 @@ func (m *IssuedCertificateMutation) OldServerGeneratedKey(ctx context.Context) (
 // ResetServerGeneratedKey resets all changes to the "server_generated_key" field.
 func (m *IssuedCertificateMutation) ResetServerGeneratedKey() {
 	m.server_generated_key = nil
+}
+
+// SetIsExternal sets the "is_external" field.
+func (m *IssuedCertificateMutation) SetIsExternal(b bool) {
+	m.is_external = &b
+}
+
+// IsExternal returns the value of the "is_external" field in the mutation.
+func (m *IssuedCertificateMutation) IsExternal() (r bool, exists bool) {
+	v := m.is_external
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsExternal returns the old "is_external" field's value of the IssuedCertificate entity.
+// If the IssuedCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IssuedCertificateMutation) OldIsExternal(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsExternal is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsExternal requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsExternal: %w", err)
+	}
+	return oldValue.IsExternal, nil
+}
+
+// ResetIsExternal resets all changes to the "is_external" field.
+func (m *IssuedCertificateMutation) ResetIsExternal() {
+	m.is_external = nil
+}
+
+// SetAcmeDirectoryURLOverride sets the "acme_directory_url_override" field.
+func (m *IssuedCertificateMutation) SetAcmeDirectoryURLOverride(s string) {
+	m.acme_directory_url_override = &s
+}
+
+// AcmeDirectoryURLOverride returns the value of the "acme_directory_url_override" field in the mutation.
+func (m *IssuedCertificateMutation) AcmeDirectoryURLOverride() (r string, exists bool) {
+	v := m.acme_directory_url_override
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAcmeDirectoryURLOverride returns the old "acme_directory_url_override" field's value of the IssuedCertificate entity.
+// If the IssuedCertificate object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IssuedCertificateMutation) OldAcmeDirectoryURLOverride(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAcmeDirectoryURLOverride is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAcmeDirectoryURLOverride requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAcmeDirectoryURLOverride: %w", err)
+	}
+	return oldValue.AcmeDirectoryURLOverride, nil
+}
+
+// ClearAcmeDirectoryURLOverride clears the value of the "acme_directory_url_override" field.
+func (m *IssuedCertificateMutation) ClearAcmeDirectoryURLOverride() {
+	m.acme_directory_url_override = nil
+	m.clearedFields[issuedcertificate.FieldAcmeDirectoryURLOverride] = struct{}{}
+}
+
+// AcmeDirectoryURLOverrideCleared returns if the "acme_directory_url_override" field was cleared in this mutation.
+func (m *IssuedCertificateMutation) AcmeDirectoryURLOverrideCleared() bool {
+	_, ok := m.clearedFields[issuedcertificate.FieldAcmeDirectoryURLOverride]
+	return ok
+}
+
+// ResetAcmeDirectoryURLOverride resets all changes to the "acme_directory_url_override" field.
+func (m *IssuedCertificateMutation) ResetAcmeDirectoryURLOverride() {
+	m.acme_directory_url_override = nil
+	delete(m.clearedFields, issuedcertificate.FieldAcmeDirectoryURLOverride)
 }
 
 // SetCaCertPem sets the "ca_cert_pem" field.
@@ -13384,7 +13471,7 @@ func (m *IssuedCertificateMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *IssuedCertificateMutation) Fields() []string {
-	fields := make([]string, 0, 28)
+	fields := make([]string, 0, 30)
 	if m.client_id != nil {
 		fields = append(fields, issuedcertificate.FieldClientID)
 	}
@@ -13417,6 +13504,12 @@ func (m *IssuedCertificateMutation) Fields() []string {
 	}
 	if m.server_generated_key != nil {
 		fields = append(fields, issuedcertificate.FieldServerGeneratedKey)
+	}
+	if m.is_external != nil {
+		fields = append(fields, issuedcertificate.FieldIsExternal)
+	}
+	if m.acme_directory_url_override != nil {
+		fields = append(fields, issuedcertificate.FieldAcmeDirectoryURLOverride)
 	}
 	if m.ca_cert_pem != nil {
 		fields = append(fields, issuedcertificate.FieldCaCertPem)
@@ -13499,6 +13592,10 @@ func (m *IssuedCertificateMutation) Field(name string) (ent.Value, bool) {
 		return m.PrivateKeyPem()
 	case issuedcertificate.FieldServerGeneratedKey:
 		return m.ServerGeneratedKey()
+	case issuedcertificate.FieldIsExternal:
+		return m.IsExternal()
+	case issuedcertificate.FieldAcmeDirectoryURLOverride:
+		return m.AcmeDirectoryURLOverride()
 	case issuedcertificate.FieldCaCertPem:
 		return m.CaCertPem()
 	case issuedcertificate.FieldCsrPem:
@@ -13564,6 +13661,10 @@ func (m *IssuedCertificateMutation) OldField(ctx context.Context, name string) (
 		return m.OldPrivateKeyPem(ctx)
 	case issuedcertificate.FieldServerGeneratedKey:
 		return m.OldServerGeneratedKey(ctx)
+	case issuedcertificate.FieldIsExternal:
+		return m.OldIsExternal(ctx)
+	case issuedcertificate.FieldAcmeDirectoryURLOverride:
+		return m.OldAcmeDirectoryURLOverride(ctx)
 	case issuedcertificate.FieldCaCertPem:
 		return m.OldCaCertPem(ctx)
 	case issuedcertificate.FieldCsrPem:
@@ -13683,6 +13784,20 @@ func (m *IssuedCertificateMutation) SetField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetServerGeneratedKey(v)
+		return nil
+	case issuedcertificate.FieldIsExternal:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsExternal(v)
+		return nil
+	case issuedcertificate.FieldAcmeDirectoryURLOverride:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAcmeDirectoryURLOverride(v)
 		return nil
 	case issuedcertificate.FieldCaCertPem:
 		v, ok := value.(string)
@@ -13929,6 +14044,9 @@ func (m *IssuedCertificateMutation) ClearedFields() []string {
 	if m.FieldCleared(issuedcertificate.FieldPrivateKeyPem) {
 		fields = append(fields, issuedcertificate.FieldPrivateKeyPem)
 	}
+	if m.FieldCleared(issuedcertificate.FieldAcmeDirectoryURLOverride) {
+		fields = append(fields, issuedcertificate.FieldAcmeDirectoryURLOverride)
+	}
 	if m.FieldCleared(issuedcertificate.FieldCaCertPem) {
 		fields = append(fields, issuedcertificate.FieldCaCertPem)
 	}
@@ -14002,6 +14120,9 @@ func (m *IssuedCertificateMutation) ClearField(name string) error {
 		return nil
 	case issuedcertificate.FieldPrivateKeyPem:
 		m.ClearPrivateKeyPem()
+		return nil
+	case issuedcertificate.FieldAcmeDirectoryURLOverride:
+		m.ClearAcmeDirectoryURLOverride()
 		return nil
 	case issuedcertificate.FieldCaCertPem:
 		m.ClearCaCertPem()
@@ -14082,6 +14203,12 @@ func (m *IssuedCertificateMutation) ResetField(name string) error {
 		return nil
 	case issuedcertificate.FieldServerGeneratedKey:
 		m.ResetServerGeneratedKey()
+		return nil
+	case issuedcertificate.FieldIsExternal:
+		m.ResetIsExternal()
+		return nil
+	case issuedcertificate.FieldAcmeDirectoryURLOverride:
+		m.ResetAcmeDirectoryURLOverride()
 		return nil
 	case issuedcertificate.FieldCaCertPem:
 		m.ResetCaCertPem()

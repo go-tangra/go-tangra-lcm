@@ -232,6 +232,40 @@ func (_u *IssuedCertificateUpdate) SetNillableServerGeneratedKey(v *bool) *Issue
 	return _u
 }
 
+// SetIsExternal sets the "is_external" field.
+func (_u *IssuedCertificateUpdate) SetIsExternal(v bool) *IssuedCertificateUpdate {
+	_u.mutation.SetIsExternal(v)
+	return _u
+}
+
+// SetNillableIsExternal sets the "is_external" field if the given value is not nil.
+func (_u *IssuedCertificateUpdate) SetNillableIsExternal(v *bool) *IssuedCertificateUpdate {
+	if v != nil {
+		_u.SetIsExternal(*v)
+	}
+	return _u
+}
+
+// SetAcmeDirectoryURLOverride sets the "acme_directory_url_override" field.
+func (_u *IssuedCertificateUpdate) SetAcmeDirectoryURLOverride(v string) *IssuedCertificateUpdate {
+	_u.mutation.SetAcmeDirectoryURLOverride(v)
+	return _u
+}
+
+// SetNillableAcmeDirectoryURLOverride sets the "acme_directory_url_override" field if the given value is not nil.
+func (_u *IssuedCertificateUpdate) SetNillableAcmeDirectoryURLOverride(v *string) *IssuedCertificateUpdate {
+	if v != nil {
+		_u.SetAcmeDirectoryURLOverride(*v)
+	}
+	return _u
+}
+
+// ClearAcmeDirectoryURLOverride clears the value of the "acme_directory_url_override" field.
+func (_u *IssuedCertificateUpdate) ClearAcmeDirectoryURLOverride() *IssuedCertificateUpdate {
+	_u.mutation.ClearAcmeDirectoryURLOverride()
+	return _u
+}
+
 // SetCaCertPem sets the "ca_cert_pem" field.
 func (_u *IssuedCertificateUpdate) SetCaCertPem(v string) *IssuedCertificateUpdate {
 	_u.mutation.SetCaCertPem(v)
@@ -793,6 +827,15 @@ func (_u *IssuedCertificateUpdate) sqlSave(ctx context.Context) (_node int, err 
 	if value, ok := _u.mutation.ServerGeneratedKey(); ok {
 		_spec.SetField(issuedcertificate.FieldServerGeneratedKey, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.IsExternal(); ok {
+		_spec.SetField(issuedcertificate.FieldIsExternal, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.AcmeDirectoryURLOverride(); ok {
+		_spec.SetField(issuedcertificate.FieldAcmeDirectoryURLOverride, field.TypeString, value)
+	}
+	if _u.mutation.AcmeDirectoryURLOverrideCleared() {
+		_spec.ClearField(issuedcertificate.FieldAcmeDirectoryURLOverride, field.TypeString)
+	}
 	if value, ok := _u.mutation.CaCertPem(); ok {
 		_spec.SetField(issuedcertificate.FieldCaCertPem, field.TypeString, value)
 	}
@@ -1216,6 +1259,40 @@ func (_u *IssuedCertificateUpdateOne) SetNillableServerGeneratedKey(v *bool) *Is
 	if v != nil {
 		_u.SetServerGeneratedKey(*v)
 	}
+	return _u
+}
+
+// SetIsExternal sets the "is_external" field.
+func (_u *IssuedCertificateUpdateOne) SetIsExternal(v bool) *IssuedCertificateUpdateOne {
+	_u.mutation.SetIsExternal(v)
+	return _u
+}
+
+// SetNillableIsExternal sets the "is_external" field if the given value is not nil.
+func (_u *IssuedCertificateUpdateOne) SetNillableIsExternal(v *bool) *IssuedCertificateUpdateOne {
+	if v != nil {
+		_u.SetIsExternal(*v)
+	}
+	return _u
+}
+
+// SetAcmeDirectoryURLOverride sets the "acme_directory_url_override" field.
+func (_u *IssuedCertificateUpdateOne) SetAcmeDirectoryURLOverride(v string) *IssuedCertificateUpdateOne {
+	_u.mutation.SetAcmeDirectoryURLOverride(v)
+	return _u
+}
+
+// SetNillableAcmeDirectoryURLOverride sets the "acme_directory_url_override" field if the given value is not nil.
+func (_u *IssuedCertificateUpdateOne) SetNillableAcmeDirectoryURLOverride(v *string) *IssuedCertificateUpdateOne {
+	if v != nil {
+		_u.SetAcmeDirectoryURLOverride(*v)
+	}
+	return _u
+}
+
+// ClearAcmeDirectoryURLOverride clears the value of the "acme_directory_url_override" field.
+func (_u *IssuedCertificateUpdateOne) ClearAcmeDirectoryURLOverride() *IssuedCertificateUpdateOne {
+	_u.mutation.ClearAcmeDirectoryURLOverride()
 	return _u
 }
 
@@ -1809,6 +1886,15 @@ func (_u *IssuedCertificateUpdateOne) sqlSave(ctx context.Context) (_node *Issue
 	}
 	if value, ok := _u.mutation.ServerGeneratedKey(); ok {
 		_spec.SetField(issuedcertificate.FieldServerGeneratedKey, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.IsExternal(); ok {
+		_spec.SetField(issuedcertificate.FieldIsExternal, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.AcmeDirectoryURLOverride(); ok {
+		_spec.SetField(issuedcertificate.FieldAcmeDirectoryURLOverride, field.TypeString, value)
+	}
+	if _u.mutation.AcmeDirectoryURLOverrideCleared() {
+		_spec.ClearField(issuedcertificate.FieldAcmeDirectoryURLOverride, field.TypeString)
 	}
 	if value, ok := _u.mutation.CaCertPem(); ok {
 		_spec.SetField(issuedcertificate.FieldCaCertPem, field.TypeString, value)

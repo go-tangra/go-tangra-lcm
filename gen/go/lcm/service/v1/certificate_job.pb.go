@@ -105,9 +105,21 @@ type RequestCertificateRequest struct {
 	// Certificate validity in days
 	ValidityDays *int32 `protobuf:"varint,8,opt,name=validity_days,json=validityDays,proto3,oneof" json:"validity_days,omitempty"`
 	// Custom metadata
-	Metadata      map[string]string `protobuf:"bytes,9,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Metadata map[string]string `protobuf:"bytes,9,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Optional per-certificate ACME directory URL. When set, this overrides the
+	// issuer's configured ACME endpoint for this request — used to adopt and renew
+	// certificates against an external CA's order-specific URL (e.g. DigiCert's
+	// ".../acme/v2/directory?action=renew&orderId=..."). The certificate is marked
+	// external and renewals replay this same URL.
+	AcmeDirectoryUrl *string `protobuf:"bytes,10,opt,name=acme_directory_url,json=acmeDirectoryUrl,proto3,oneof" json:"acme_directory_url,omitempty"`
+	// Enable automatic renewal for the resulting certificate. Defaults to false
+	// for normal requests; set true when adopting an external cert you want LCM to
+	// keep renewing.
+	AutoRenewEnabled *bool `protobuf:"varint,11,opt,name=auto_renew_enabled,json=autoRenewEnabled,proto3,oneof" json:"auto_renew_enabled,omitempty"`
+	// Days before expiry to start auto-renewal (defaults to 30 when unset).
+	AutoRenewDaysBeforeExpiry *int32 `protobuf:"varint,12,opt,name=auto_renew_days_before_expiry,json=autoRenewDaysBeforeExpiry,proto3,oneof" json:"auto_renew_days_before_expiry,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *RequestCertificateRequest) Reset() {
@@ -201,6 +213,27 @@ func (x *RequestCertificateRequest) GetMetadata() map[string]string {
 		return x.Metadata
 	}
 	return nil
+}
+
+func (x *RequestCertificateRequest) GetAcmeDirectoryUrl() string {
+	if x != nil && x.AcmeDirectoryUrl != nil {
+		return *x.AcmeDirectoryUrl
+	}
+	return ""
+}
+
+func (x *RequestCertificateRequest) GetAutoRenewEnabled() bool {
+	if x != nil && x.AutoRenewEnabled != nil {
+		return *x.AutoRenewEnabled
+	}
+	return false
+}
+
+func (x *RequestCertificateRequest) GetAutoRenewDaysBeforeExpiry() int32 {
+	if x != nil && x.AutoRenewDaysBeforeExpiry != nil {
+		return *x.AutoRenewDaysBeforeExpiry
+	}
+	return 0
 }
 
 // Response with job ID for tracking
@@ -1026,7 +1059,7 @@ var File_lcm_service_v1_certificate_job_proto protoreflect.FileDescriptor
 
 const file_lcm_service_v1_certificate_job_proto_rawDesc = "" +
 	"\n" +
-	"$lcm/service/v1/certificate_job.proto\x12\x0elcm.service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x16redact/v3/redact.proto\"\x9d\a\n" +
+	"$lcm/service/v1/certificate_job.proto\x12\x0elcm.service.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x16redact/v3/redact.proto\"\xc2\t\n" +
 	"\x19RequestCertificateRequest\x12@\n" +
 	"\vissuer_name\x18\x01 \x01(\tB\x1f\xe0A\x02\xbaH\x19r\x17\x10\x01\x18d2\x11^[a-zA-Z0-9\\-_]+$R\n" +
 	"issuerName\x12P\n" +
@@ -1039,7 +1072,11 @@ const file_lcm_service_v1_certificate_job_proto_rawDesc = "" +
 	"\bkey_size\x18\a \x01(\x05B\v\xbaH\b\x1a\x06\x18\x80 (\x80\x02H\x02R\akeySize\x88\x01\x01\x124\n" +
 	"\rvalidity_days\x18\b \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xb9\x06(\x01H\x03R\fvalidityDays\x88\x01\x01\x12\x85\x01\n" +
-	"\bmetadata\x18\t \x03(\v27.lcm.service.v1.RequestCertificateRequest.MetadataEntryB0\xbaH-\x9a\x01*\x102\"\x1fr\x1d\x10\x01\x18@2\x17^[a-zA-Z][a-zA-Z0-9_]*$*\x05r\x03\x18\x80\x04R\bmetadata\x1a;\n" +
+	"\bmetadata\x18\t \x03(\v27.lcm.service.v1.RequestCertificateRequest.MetadataEntryB0\xbaH-\x9a\x01*\x102\"\x1fr\x1d\x10\x01\x18@2\x17^[a-zA-Z][a-zA-Z0-9_]*$*\x05r\x03\x18\x80\x04R\bmetadata\x12N\n" +
+	"\x12acme_directory_url\x18\n" +
+	" \x01(\tB\x1b\xbaH\x18r\x16\x18\x80\x102\x11^https://[\\s\\S]*$H\x04R\x10acmeDirectoryUrl\x88\x01\x01\x121\n" +
+	"\x12auto_renew_enabled\x18\v \x01(\bH\x05R\x10autoRenewEnabled\x88\x01\x01\x12P\n" +
+	"\x1dauto_renew_days_before_expiry\x18\f \x01(\x05B\t\xbaH\x06\x1a\x04\x18Z(\x01H\x06R\x19autoRenewDaysBeforeExpiry\x88\x01\x01\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\n" +
@@ -1047,7 +1084,10 @@ const file_lcm_service_v1_certificate_job_proto_rawDesc = "" +
 	"\b_csr_pemB\v\n" +
 	"\t_key_typeB\v\n" +
 	"\t_key_sizeB\x10\n" +
-	"\x0e_validity_days\"\x8b\x01\n" +
+	"\x0e_validity_daysB\x15\n" +
+	"\x13_acme_directory_urlB\x15\n" +
+	"\x13_auto_renew_enabledB \n" +
+	"\x1e_auto_renew_days_before_expiry\"\x8b\x01\n" +
 	"\x1aRequestCertificateResponse\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12<\n" +
 	"\x06status\x18\x02 \x01(\x0e2$.lcm.service.v1.CertificateJobStatusR\x06status\x12\x18\n" +

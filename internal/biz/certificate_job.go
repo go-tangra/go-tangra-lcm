@@ -20,23 +20,23 @@ const (
 
 // CertificateJob represents a certificate signing job in progress
 type CertificateJob struct {
-	ID          string                 // Unique job ID
-	TenantID    uint32                 // Tenant that owns this job
-	ClientID    string                 // Associated client
-	IssuerName  string                 // Name of the issuer to use
-	IssuerType  string                 // self-signed, acme, etc.
-	DNSNames    []string               // Certificate domains
-	IPAddresses []string               // Certificate IPs
-	CommonName  string                 // Certificate common name
-	Status      JobStatus              // pending, processing, completed, failed
-	CreatedAt   time.Time              // Job creation time
-	UpdatedAt   time.Time              // Last update time
-	CompletedAt *time.Time             // Completion timestamp
-	Result      *IssuedCertificate     // Certificate result
-	Error       string                 // Error message if failed
-	PrivateKey  string                 // Stored PEM format (sensitive)
-	CSR         string                 // Certificate Signing Request PEM
-	Metadata    map[string]string      // Additional metadata
+	ID          string             // Unique job ID
+	TenantID    uint32             // Tenant that owns this job
+	ClientID    string             // Associated client
+	IssuerName  string             // Name of the issuer to use
+	IssuerType  string             // self-signed, acme, etc.
+	DNSNames    []string           // Certificate domains
+	IPAddresses []string           // Certificate IPs
+	CommonName  string             // Certificate common name
+	Status      JobStatus          // pending, processing, completed, failed
+	CreatedAt   time.Time          // Job creation time
+	UpdatedAt   time.Time          // Last update time
+	CompletedAt *time.Time         // Completion timestamp
+	Result      *IssuedCertificate // Certificate result
+	Error       string             // Error message if failed
+	PrivateKey  string             // Stored PEM format (sensitive)
+	CSR         string             // Certificate Signing Request PEM
+	Metadata    map[string]string  // Additional metadata
 }
 
 // IssuedCertificate represents the result of a successful certificate issuance
@@ -61,16 +61,21 @@ type IssuedCertificate struct {
 
 // CertificateRequest represents a request to issue a certificate
 type CertificateRequest struct {
-	TenantID    uint32
-	ClientID    string
-	IssuerName  string
-	IssuerType  string
-	DNSNames    []string
-	IPAddresses []string
-	CommonName  string
-	KeyType     string // ecdsa or rsa
-	KeySize     int    // Key size in bits
-	ValidityDays int   // Certificate validity in days
+	TenantID     uint32
+	ClientID     string
+	IssuerName   string
+	IssuerType   string
+	DNSNames     []string
+	IPAddresses  []string
+	CommonName   string
+	KeyType      string // ecdsa or rsa
+	KeySize      int    // Key size in bits
+	ValidityDays int    // Certificate validity in days
+
+	// ACMEDirectoryURLOverride, when set, replaces the issuer's ACME directory
+	// endpoint for this request (e.g. a DigiCert order-specific renew URL). Used
+	// to adopt and renew externally-issued certificates.
+	ACMEDirectoryURLOverride string
 }
 
 // CertificateJobManager manages async certificate signing jobs

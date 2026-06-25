@@ -6,65 +6,6 @@ info:
     title: ""
     version: 0.0.1
 paths:
-    /api/v1/lcm/statistics:
-        get:
-            tags:
-                - LcmStatisticsService
-            description: GetStatistics returns comprehensive statistics about the LCM system
-            operationId: LcmStatisticsService_GetStatistics
-            parameters:
-                - name: expireSoonDays
-                  in: query
-                  description: 'Number of days to consider for "expire soon" certificates (default: 30)'
-                  schema:
-                    type: integer
-                    format: int32
-                - name: recentErrorsLimit
-                  in: query
-                  description: 'Number of recent errors to return (default: 10)'
-                  schema:
-                    type: integer
-                    format: int32
-                - name: tenantId
-                  in: query
-                  description: Filter by specific tenant ID (optional, admin only)
-                  schema:
-                    type: integer
-                    format: uint32
-            responses:
-                "200":
-                    description: OK
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/GetStatisticsResponse'
-    /api/v1/lcm/statistics/tenant/{tenantId}:
-        get:
-            tags:
-                - LcmStatisticsService
-            description: GetTenantStatistics returns statistics for a specific tenant
-            operationId: LcmStatisticsService_GetTenantStatistics
-            parameters:
-                - name: tenantId
-                  in: path
-                  description: Tenant ID to get statistics for
-                  required: true
-                  schema:
-                    type: integer
-                    format: uint32
-                - name: expireSoonDays
-                  in: query
-                  description: 'Number of days for expire soon calculation (default: 30)'
-                  schema:
-                    type: integer
-                    format: int32
-            responses:
-                "200":
-                    description: OK
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/TenantStatistics'
     /v1/audit-logs:
         get:
             tags:
@@ -199,6 +140,46 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/GetAuditLogResponse'
+    /v1/backup/export:
+        get:
+            tags:
+                - BackupService
+            operationId: BackupService_ExportBackup
+            parameters:
+                - name: tenantId
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: includeSecrets
+                  in: query
+                  schema:
+                    type: boolean
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ExportBackupResponse'
+    /v1/backup/import:
+        post:
+            tags:
+                - BackupService
+            operationId: BackupService_ImportBackup
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ImportBackupRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ImportBackupResponse'
     /v1/certificate-jobs:
         get:
             tags:
@@ -725,6 +706,19 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/RevokeMtlsCertificateResponse'
+    /v1/deployment-targets:
+        get:
+            tags:
+                - LcmIssuedCertificateService
+            description: List available deployment targets from the deployer module
+            operationId: LcmIssuedCertificateService_ListDeploymentTargets
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListDeploymentTargetsResponse'
     /v1/dns-providers:
         get:
             tags:
@@ -787,6 +781,7 @@ paths:
                         - ISSUED_CERTIFICATE_STATUS_REVOKED
                         - ISSUED_CERTIFICATE_STATUS_FAILED
                         - ISSUED_CERTIFICATE_STATUS_RENEWED
+                        - ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON
                     type: string
                     format: enum
                 - name: issuerName
@@ -838,6 +833,55 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/GetIssuedCertificateResponse'
+        patch:
+            tags:
+                - LcmIssuedCertificateService
+            description: Update an issued certificate (e.g. auto-renew settings)
+            operationId: LcmIssuedCertificateService_UpdateIssuedCertificate
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateIssuedCertificateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateIssuedCertificateResponse'
+    /v1/issued-certificates/{id}/deploy:
+        post:
+            tags:
+                - LcmIssuedCertificateService
+            description: Deploy a certificate via the deployer module
+            operationId: LcmIssuedCertificateService_DeployCertificate
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/DeployCertificateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DeployCertificateResponse'
     /v1/issued-certificates/{id}/renew:
         post:
             tags:
@@ -1132,6 +1176,65 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/RejectMtlsCertificateRequestResponse'
+    /v1/statistics:
+        get:
+            tags:
+                - LcmStatisticsService
+            description: GetStatistics returns comprehensive statistics about the LCM system
+            operationId: LcmStatisticsService_GetStatistics
+            parameters:
+                - name: expireSoonDays
+                  in: query
+                  description: 'Number of days to consider for "expire soon" certificates (default: 30)'
+                  schema:
+                    type: integer
+                    format: int32
+                - name: recentErrorsLimit
+                  in: query
+                  description: 'Number of recent errors to return (default: 10)'
+                  schema:
+                    type: integer
+                    format: int32
+                - name: tenantId
+                  in: query
+                  description: Filter by specific tenant ID (optional, admin only)
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetStatisticsResponse'
+    /v1/statistics/tenant/{tenantId}:
+        get:
+            tags:
+                - LcmStatisticsService
+            description: GetTenantStatistics returns statistics for a specific tenant
+            operationId: LcmStatisticsService_GetTenantStatistics
+            parameters:
+                - name: tenantId
+                  in: path
+                  description: Tenant ID to get statistics for
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: expireSoonDays
+                  in: query
+                  description: 'Number of days for expire soon calculation (default: 30)'
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TenantStatistics'
     /v1/tenant-secrets:
         get:
             tags:
@@ -1761,6 +1864,41 @@ components:
             properties:
                 mtlsCertificate:
                     $ref: '#/components/schemas/MtlsCertificate'
+        DeployCertificateRequest:
+            required:
+                - id
+            type: object
+            properties:
+                id:
+                    type: string
+                deploymentTargetId:
+                    type: string
+                    description: Deploy to a target group (creates parent + child jobs)
+                targetConfigurationId:
+                    type: string
+                    description: Deploy to a single target configuration
+            description: Request to deploy a certificate
+        DeployCertificateResponse:
+            type: object
+            properties:
+                jobId:
+                    type: string
+                message:
+                    type: string
+            description: Response for deploying a certificate
+        DeploymentTargetInfo:
+            type: object
+            properties:
+                id:
+                    type: string
+                name:
+                    type: string
+                description:
+                    type: string
+                configurationCount:
+                    type: integer
+                    format: int32
+            description: Deployment target info
         DnsProviderInfo:
             type: object
             properties:
@@ -1785,6 +1923,44 @@ components:
                     type: string
                 caCertificatePem:
                     type: string
+        EntityImportResult:
+            type: object
+            properties:
+                entityType:
+                    type: string
+                total:
+                    type: string
+                created:
+                    type: string
+                updated:
+                    type: string
+                skipped:
+                    type: string
+                failed:
+                    type: string
+        ExportBackupResponse:
+            type: object
+            properties:
+                data:
+                    type: string
+                    format: bytes
+                module:
+                    type: string
+                version:
+                    type: string
+                exportedAt:
+                    type: string
+                    format: date-time
+                tenantId:
+                    type: integer
+                    format: uint32
+                entityCounts:
+                    type: object
+                    additionalProperties:
+                        type: string
+                schemaVersion:
+                    type: integer
+                    format: int32
         ForceRenewCertificateRequest:
             required:
                 - id
@@ -2035,6 +2211,40 @@ components:
                     type: boolean
                 message:
                     type: string
+        ImportBackupRequest:
+            type: object
+            properties:
+                data:
+                    type: string
+                    format: bytes
+                mode:
+                    enum:
+                        - RESTORE_MODE_SKIP
+                        - RESTORE_MODE_OVERWRITE
+                    type: string
+                    format: enum
+        ImportBackupResponse:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                results:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/EntityImportResult'
+                warnings:
+                    type: array
+                    items:
+                        type: string
+                sourceVersion:
+                    type: integer
+                    format: int32
+                targetVersion:
+                    type: integer
+                    format: int32
+                migrationsApplied:
+                    type: integer
+                    format: int32
         IssueMtlsCertificateRequest:
             required:
                 - clientId
@@ -2108,6 +2318,7 @@ components:
                         - ISSUED_CERTIFICATE_STATUS_REVOKED
                         - ISSUED_CERTIFICATE_STATUS_FAILED
                         - ISSUED_CERTIFICATE_STATUS_RENEWED
+                        - ISSUED_CERTIFICATE_STATUS_EXPIRING_SOON
                     type: string
                     format: enum
                 expiresAt:
@@ -2133,12 +2344,19 @@ components:
                     format: date-time
                 lastIssuedAt:
                     type: string
+                    description: |-
+                        NotBefore from the actual X.509 cert. Truth source for "when was
+                         this cert issued" — created_at only reflects when the DB row was
+                         first inserted and does not change across renewals.
                     format: date-time
-                    description: NotBefore from the actual X.509 cert; advances on every renewal.
                 lastRenewalAt:
                     type: string
+                    description: |-
+                        Timestamp of the most recent renewal attempt (success or failure).
+                         Compare against last_issued_at to detect "renewal ran but didn't
+                         actually issue a new cert" — those should never diverge if the
+                         renewal scheduler is healthy.
                     format: date-time
-                    description: Most recent renewal attempt timestamp (success or failure).
             description: Issued certificate info
         IssuedCertificateStatistics:
             type: object
@@ -2333,6 +2551,14 @@ components:
                         $ref: '#/components/schemas/AuditLog'
                 total:
                     type: string
+        ListDeploymentTargetsResponse:
+            type: object
+            properties:
+                targets:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/DeploymentTargetInfo'
+            description: Response for listing deployment targets
         ListDnsProvidersResponse:
             type: object
             properties:
@@ -2776,6 +3002,24 @@ components:
                     additionalProperties:
                         type: string
                     description: Custom metadata
+                acmeDirectoryUrl:
+                    type: string
+                    description: |-
+                        Optional per-certificate ACME directory URL. When set, this overrides the
+                         issuer's configured ACME endpoint for this request — used to adopt and renew
+                         certificates against an external CA's order-specific URL (e.g. DigiCert's
+                         ".../acme/v2/directory?action=renew&orderId=..."). The certificate is marked
+                         external and renewals replay this same URL.
+                autoRenewEnabled:
+                    type: boolean
+                    description: |-
+                        Enable automatic renewal for the resulting certificate. Defaults to false
+                         for normal requests; set true when adopting an external cert you want LCM to
+                         keep renewing.
+                autoRenewDaysBeforeExpiry:
+                    type: integer
+                    description: Days before expiry to start auto-renewal (defaults to 30 when unset).
+                    format: int32
             description: Request to create a new certificate
         RequestCertificateResponse:
             type: object
@@ -2958,6 +3202,27 @@ components:
                         - $ref: '#/components/schemas/MtlsCertificateStatistics'
                     description: MTLS certificate statistics for this tenant
             description: TenantStatistics provides statistics for a specific tenant
+        UpdateIssuedCertificateRequest:
+            required:
+                - id
+            type: object
+            properties:
+                id:
+                    type: string
+                autoRenewEnabled:
+                    type: boolean
+                    description: Enable or disable auto-renewal
+                autoRenewDaysBeforeExpiry:
+                    type: integer
+                    description: Number of days before expiry to trigger renewal
+                    format: int32
+            description: Request to update an issued certificate
+        UpdateIssuedCertificateResponse:
+            type: object
+            properties:
+                certificate:
+                    $ref: '#/components/schemas/IssuedCertificateInfo'
+            description: Response for updating an issued certificate
         UpdateIssuerRequest:
             type: object
             properties:
@@ -3050,6 +3315,7 @@ components:
 tags:
     - name: AuditLogService
       description: Audit Log Service - provides access to audit logs
+    - name: BackupService
     - name: CertificatePermissionService
       description: Certificate Permission Service - manages certificate access grants between clients
     - name: LcmCertificateJobService
