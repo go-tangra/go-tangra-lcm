@@ -278,7 +278,7 @@ var (
 	// CertificateRenewalsColumns holds the columns for the "certificate_renewals" table.
 	CertificateRenewalsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "client_id", Type: field.TypeString, Comment: "Client who owns the certificate"},
+		{Name: "client_id", Type: field.TypeString, Nullable: true, Comment: "Client who owns the certificate (empty for client-less certs, e.g. external/frontend certs)"},
 		{Name: "status", Type: field.TypeEnum, Comment: "Current renewal status", Enums: []string{"pending", "processing", "completed", "failed", "cancelled"}, Default: "pending"},
 		{Name: "scheduled_at", Type: field.TypeTime, Comment: "When the renewal is scheduled to run"},
 		{Name: "started_at", Type: field.TypeTime, Nullable: true, Comment: "When the renewal process actually started"},

@@ -100,8 +100,6 @@ func ValidColumn(column string) bool {
 var (
 	// CertificateIDValidator is a validator for the "certificate_id" field. It is called by the builders before save.
 	CertificateIDValidator func(string) error
-	// ClientIDValidator is a validator for the "client_id" field. It is called by the builders before save.
-	ClientIDValidator func(string) error
 	// DefaultAttemptNumber holds the default value on creation for the "attempt_number" field.
 	DefaultAttemptNumber int32
 	// DefaultMaxAttempts holds the default value on creation for the "max_attempts" field.

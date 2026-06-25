@@ -35,6 +35,14 @@ func (_c *CertificateRenewalCreate) SetClientID(v string) *CertificateRenewalCre
 	return _c
 }
 
+// SetNillableClientID sets the "client_id" field if the given value is not nil.
+func (_c *CertificateRenewalCreate) SetNillableClientID(v *string) *CertificateRenewalCreate {
+	if v != nil {
+		_c.SetClientID(*v)
+	}
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *CertificateRenewalCreate) SetStatus(v certificaterenewal.Status) *CertificateRenewalCreate {
 	_c.mutation.SetStatus(v)
@@ -297,14 +305,6 @@ func (_c *CertificateRenewalCreate) check() error {
 			return &ValidationError{Name: "certificate_id", err: fmt.Errorf(`ent: validator failed for field "CertificateRenewal.certificate_id": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.ClientID(); !ok {
-		return &ValidationError{Name: "client_id", err: errors.New(`ent: missing required field "CertificateRenewal.client_id"`)}
-	}
-	if v, ok := _c.mutation.ClientID(); ok {
-		if err := certificaterenewal.ClientIDValidator(v); err != nil {
-			return &ValidationError{Name: "client_id", err: fmt.Errorf(`ent: validator failed for field "CertificateRenewal.client_id": %w`, err)}
-		}
-	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "CertificateRenewal.status"`)}
 	}
@@ -530,6 +530,12 @@ func (u *CertificateRenewalUpsert) SetClientID(v string) *CertificateRenewalUpse
 // UpdateClientID sets the "client_id" field to the value that was provided on create.
 func (u *CertificateRenewalUpsert) UpdateClientID() *CertificateRenewalUpsert {
 	u.SetExcluded(certificaterenewal.FieldClientID)
+	return u
+}
+
+// ClearClientID clears the value of the "client_id" field.
+func (u *CertificateRenewalUpsert) ClearClientID() *CertificateRenewalUpsert {
+	u.SetNull(certificaterenewal.FieldClientID)
 	return u
 }
 
@@ -837,6 +843,13 @@ func (u *CertificateRenewalUpsertOne) SetClientID(v string) *CertificateRenewalU
 func (u *CertificateRenewalUpsertOne) UpdateClientID() *CertificateRenewalUpsertOne {
 	return u.Update(func(s *CertificateRenewalUpsert) {
 		s.UpdateClientID()
+	})
+}
+
+// ClearClientID clears the value of the "client_id" field.
+func (u *CertificateRenewalUpsertOne) ClearClientID() *CertificateRenewalUpsertOne {
+	return u.Update(func(s *CertificateRenewalUpsert) {
+		s.ClearClientID()
 	})
 }
 
@@ -1349,6 +1362,13 @@ func (u *CertificateRenewalUpsertBulk) SetClientID(v string) *CertificateRenewal
 func (u *CertificateRenewalUpsertBulk) UpdateClientID() *CertificateRenewalUpsertBulk {
 	return u.Update(func(s *CertificateRenewalUpsert) {
 		s.UpdateClientID()
+	})
+}
+
+// ClearClientID clears the value of the "client_id" field.
+func (u *CertificateRenewalUpsertBulk) ClearClientID() *CertificateRenewalUpsertBulk {
+	return u.Update(func(s *CertificateRenewalUpsert) {
+		s.ClearClientID()
 	})
 }
 

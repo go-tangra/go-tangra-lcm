@@ -181,10 +181,6 @@ func init() {
 	certificaterenewalDescCertificateID := certificaterenewalFields[0].Descriptor()
 	// certificaterenewal.CertificateIDValidator is a validator for the "certificate_id" field. It is called by the builders before save.
 	certificaterenewal.CertificateIDValidator = certificaterenewalDescCertificateID.Validators[0].(func(string) error)
-	// certificaterenewalDescClientID is the schema descriptor for client_id field.
-	certificaterenewalDescClientID := certificaterenewalFields[1].Descriptor()
-	// certificaterenewal.ClientIDValidator is a validator for the "client_id" field. It is called by the builders before save.
-	certificaterenewal.ClientIDValidator = certificaterenewalDescClientID.Validators[0].(func(string) error)
 	// certificaterenewalDescAttemptNumber is the schema descriptor for attempt_number field.
 	certificaterenewalDescAttemptNumber := certificaterenewalFields[6].Descriptor()
 	// certificaterenewal.DefaultAttemptNumber holds the default value on creation for the attempt_number field.

@@ -29,6 +29,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
 
+	appViewer "github.com/go-tangra/go-tangra-common/viewer"
 	"github.com/go-tangra/go-tangra-lcm/internal/recipients"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -622,7 +623,10 @@ func (s *CertificateJobService) processCertificateJob(jobID string, issuerEntity
 		timeout = 5 * time.Minute
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	// Run under a system viewer context: this goroutine is detached from the
+	// request, so without it tenant-scoped repo queries (e.g. issuer lookup in
+	// the failure-notification path) fail with "missing ViewerContext".
+	ctx, cancel := context.WithTimeout(appViewer.NewSystemViewerContext(context.Background()), timeout)
 	defer cancel()
 
 	s.log.Infof("Processing certificate job: id=%s, type=%s, timeout=%s", jobID, issuerEntity.Type, timeout)

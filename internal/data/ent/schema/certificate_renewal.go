@@ -31,70 +31,70 @@ func (CertificateRenewal) Fields() []ent.Field {
 		field.String("certificate_id").
 			NotEmpty().
 			Comment("ID of the certificate to be renewed"),
-		
+
 		field.String("client_id").
-			NotEmpty().
-			Comment("Client who owns the certificate"),
-		
+			Optional().
+			Comment("Client who owns the certificate (empty for client-less certs, e.g. external/frontend certs)"),
+
 		field.Enum("status").
 			Values("pending", "processing", "completed", "failed", "cancelled").
 			Default("pending").
 			Comment("Current renewal status"),
-		
+
 		field.Time("scheduled_at").
 			Comment("When the renewal is scheduled to run"),
-		
+
 		field.Time("started_at").
 			Optional().
 			Comment("When the renewal process actually started"),
-		
+
 		field.Time("completed_at").
 			Optional().
 			Comment("When the renewal process completed"),
-		
+
 		field.Int32("attempt_number").
 			Default(1).
 			Comment("Current attempt number (for retries)"),
-		
+
 		field.Int32("max_attempts").
 			Default(3).
 			Comment("Maximum number of attempts allowed"),
-		
+
 		field.String("error_message").
 			Optional().
 			Comment("Error message if renewal failed"),
-		
+
 		field.String("worker_id").
 			Optional().
 			Comment("ID of the worker processing this renewal"),
-		
+
 		field.Time("locked_at").
 			Optional().
 			Comment("When this renewal was locked by a worker"),
-		
+
 		field.Time("lock_expires_at").
 			Optional().
 			Comment("When the worker lock expires"),
-		
+
 		field.JSON("renewal_config", map[string]interface{}{}).
 			Optional().
 			Comment("Renewal configuration snapshot"),
-		
+
 		field.String("issuer_name").
 			NotEmpty().
 			Comment("Issuer to use for renewal"),
-		
+
 		field.JSON("domains", []string{}).
 			Comment("Domains to renew certificate for"),
-		
+
 		field.Time("original_expires_at").
 			Comment("Original certificate expiration time"),
-		
+
 		field.Time("created_at").
 			Default(time.Now).
 			Immutable().
 			Comment("When the renewal was scheduled"),
-		
+
 		field.Time("updated_at").
 			Default(time.Now).
 			UpdateDefault(time.Now).

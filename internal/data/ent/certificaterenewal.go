@@ -21,7 +21,7 @@ type CertificateRenewal struct {
 	ID int `json:"id,omitempty"`
 	// ID of the certificate to be renewed
 	CertificateID string `json:"certificate_id,omitempty"`
-	// Client who owns the certificate
+	// Client who owns the certificate (empty for client-less certs, e.g. external/frontend certs)
 	ClientID string `json:"client_id,omitempty"`
 	// Current renewal status
 	Status certificaterenewal.Status `json:"status,omitempty"`

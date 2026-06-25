@@ -6823,9 +6823,22 @@ func (m *CertificateRenewalMutation) OldClientID(ctx context.Context) (v string,
 	return oldValue.ClientID, nil
 }
 
+// ClearClientID clears the value of the "client_id" field.
+func (m *CertificateRenewalMutation) ClearClientID() {
+	m.client_id = nil
+	m.clearedFields[certificaterenewal.FieldClientID] = struct{}{}
+}
+
+// ClientIDCleared returns if the "client_id" field was cleared in this mutation.
+func (m *CertificateRenewalMutation) ClientIDCleared() bool {
+	_, ok := m.clearedFields[certificaterenewal.FieldClientID]
+	return ok
+}
+
 // ResetClientID resets all changes to the "client_id" field.
 func (m *CertificateRenewalMutation) ResetClientID() {
 	m.client_id = nil
+	delete(m.clearedFields, certificaterenewal.FieldClientID)
 }
 
 // SetStatus sets the "status" field.
@@ -7960,6 +7973,9 @@ func (m *CertificateRenewalMutation) AddField(name string, value ent.Value) erro
 // mutation.
 func (m *CertificateRenewalMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(certificaterenewal.FieldClientID) {
+		fields = append(fields, certificaterenewal.FieldClientID)
+	}
 	if m.FieldCleared(certificaterenewal.FieldStartedAt) {
 		fields = append(fields, certificaterenewal.FieldStartedAt)
 	}
@@ -7995,6 +8011,9 @@ func (m *CertificateRenewalMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *CertificateRenewalMutation) ClearField(name string) error {
 	switch name {
+	case certificaterenewal.FieldClientID:
+		m.ClearClientID()
+		return nil
 	case certificaterenewal.FieldStartedAt:
 		m.ClearStartedAt()
 		return nil

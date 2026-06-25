@@ -59,6 +59,12 @@ func (_u *CertificateRenewalUpdate) SetNillableClientID(v *string) *CertificateR
 	return _u
 }
 
+// ClearClientID clears the value of the "client_id" field.
+func (_u *CertificateRenewalUpdate) ClearClientID() *CertificateRenewalUpdate {
+	_u.mutation.ClearClientID()
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *CertificateRenewalUpdate) SetStatus(v certificaterenewal.Status) *CertificateRenewalUpdate {
 	_u.mutation.SetStatus(v)
@@ -372,11 +378,6 @@ func (_u *CertificateRenewalUpdate) check() error {
 			return &ValidationError{Name: "certificate_id", err: fmt.Errorf(`ent: validator failed for field "CertificateRenewal.certificate_id": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.ClientID(); ok {
-		if err := certificaterenewal.ClientIDValidator(v); err != nil {
-			return &ValidationError{Name: "client_id", err: fmt.Errorf(`ent: validator failed for field "CertificateRenewal.client_id": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := certificaterenewal.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "CertificateRenewal.status": %w`, err)}
@@ -413,6 +414,9 @@ func (_u *CertificateRenewalUpdate) sqlSave(ctx context.Context) (_node int, err
 	}
 	if value, ok := _u.mutation.ClientID(); ok {
 		_spec.SetField(certificaterenewal.FieldClientID, field.TypeString, value)
+	}
+	if _u.mutation.ClientIDCleared() {
+		_spec.ClearField(certificaterenewal.FieldClientID, field.TypeString)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(certificaterenewal.FieldStatus, field.TypeEnum, value)
@@ -567,6 +571,12 @@ func (_u *CertificateRenewalUpdateOne) SetNillableClientID(v *string) *Certifica
 	if v != nil {
 		_u.SetClientID(*v)
 	}
+	return _u
+}
+
+// ClearClientID clears the value of the "client_id" field.
+func (_u *CertificateRenewalUpdateOne) ClearClientID() *CertificateRenewalUpdateOne {
+	_u.mutation.ClearClientID()
 	return _u
 }
 
@@ -896,11 +906,6 @@ func (_u *CertificateRenewalUpdateOne) check() error {
 			return &ValidationError{Name: "certificate_id", err: fmt.Errorf(`ent: validator failed for field "CertificateRenewal.certificate_id": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.ClientID(); ok {
-		if err := certificaterenewal.ClientIDValidator(v); err != nil {
-			return &ValidationError{Name: "client_id", err: fmt.Errorf(`ent: validator failed for field "CertificateRenewal.client_id": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := certificaterenewal.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "CertificateRenewal.status": %w`, err)}
@@ -954,6 +959,9 @@ func (_u *CertificateRenewalUpdateOne) sqlSave(ctx context.Context) (_node *Cert
 	}
 	if value, ok := _u.mutation.ClientID(); ok {
 		_spec.SetField(certificaterenewal.FieldClientID, field.TypeString, value)
+	}
+	if _u.mutation.ClientIDCleared() {
+		_spec.ClearField(certificaterenewal.FieldClientID, field.TypeString)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(certificaterenewal.FieldStatus, field.TypeEnum, value)

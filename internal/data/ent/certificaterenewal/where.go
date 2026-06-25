@@ -250,6 +250,16 @@ func ClientIDHasSuffix(v string) predicate.CertificateRenewal {
 	return predicate.CertificateRenewal(sql.FieldHasSuffix(FieldClientID, v))
 }
 
+// ClientIDIsNil applies the IsNil predicate on the "client_id" field.
+func ClientIDIsNil() predicate.CertificateRenewal {
+	return predicate.CertificateRenewal(sql.FieldIsNull(FieldClientID))
+}
+
+// ClientIDNotNil applies the NotNil predicate on the "client_id" field.
+func ClientIDNotNil() predicate.CertificateRenewal {
+	return predicate.CertificateRenewal(sql.FieldNotNull(FieldClientID))
+}
+
 // ClientIDEqualFold applies the EqualFold predicate on the "client_id" field.
 func ClientIDEqualFold(v string) predicate.CertificateRenewal {
 	return predicate.CertificateRenewal(sql.FieldEqualFold(FieldClientID, v))
