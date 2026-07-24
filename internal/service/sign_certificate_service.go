@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/subtle"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/hex"
@@ -13,7 +14,9 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,6 +48,18 @@ const (
 	signCertRateBurst  = 5
 )
 
+// CN-binding rollout: bind the signed CommonName to the claimed module_id so
+// LCM will not mint a cert for an arbitrary identity (e.g. CN=lcm-admin) on the
+// shared bootstrap secret. off | warn | enforce (default warn).
+const (
+	EnvCNBindingMode     = "LCM_CN_BINDING_MODE"
+	EnvCNBindingExtraCNs = "LCM_CN_BINDING_EXTRA_CNS"
+
+	cnBindingOff     = "off"
+	cnBindingWarn    = "warn"
+	cnBindingEnforce = "enforce"
+)
+
 // signCertMaxLifetime caps the issued cert lifetime regardless of
 // what the client requested. Matches the existing CA cert validity
 // (1 year) — re-issuance happens through cert.Ensure() at the 30-day
@@ -72,6 +87,13 @@ type SignCertificateService struct {
 	// no LRU needed.
 	rateMu       sync.Mutex
 	rateBuckets  map[string]*rate.Limiter
+
+	// cnBindingMode gates whether the CSR CommonName must match the
+	// claimed module_id (off/warn/enforce). cnBindingExtraCNs is an
+	// operator escape hatch for legitimate exceptions (e.g. "lcm-server").
+	cnBindingMode     string
+	cnBindingExtraCNs []string
+
 	cachedCABytes []byte
 	cachedCAFp    string
 	caLoadOnce    sync.Once
@@ -89,13 +111,25 @@ func NewSignCertificateService(
 	clientRepo *data.LcmClientRepo,
 	legacy *BootstrapService,
 ) *SignCertificateService {
+	mode := os.Getenv(EnvCNBindingMode)
+	if mode == "" {
+		mode = cnBindingWarn
+	}
+	var extra []string
+	for cn := range strings.SplitSeq(os.Getenv(EnvCNBindingExtraCNs), ",") {
+		if cn = strings.TrimSpace(cn); cn != "" {
+			extra = append(extra, cn)
+		}
+	}
 	return &SignCertificateService{
-		config:      config,
-		certRepo:    certRepo,
-		clientRepo:  clientRepo,
-		legacy:      legacy,
-		log:         ctx.NewLoggerHelper("lcm/sign-certificate-service"),
-		rateBuckets: make(map[string]*rate.Limiter),
+		config:            config,
+		certRepo:          certRepo,
+		clientRepo:        clientRepo,
+		legacy:            legacy,
+		log:               ctx.NewLoggerHelper("lcm/sign-certificate-service"),
+		rateBuckets:       make(map[string]*rate.Limiter),
+		cnBindingMode:     mode,
+		cnBindingExtraCNs: extra,
 	}
 }
 
@@ -118,7 +152,15 @@ func (s *SignCertificateService) SignModuleCertificate(
 	ctx context.Context,
 	req *commonV1.SignModuleCertificateRequest,
 ) (*commonV1.SignModuleCertificateResponse, error) {
-	if req.GetSecret() != s.config.GetModuleRegistrationSecret() {
+	expectedSecret := s.config.GetModuleRegistrationSecret()
+	if expectedSecret == "" {
+		// Fail closed: with an empty configured secret a plaintext `!=`
+		// compare would accept an empty request secret and sign for anyone.
+		s.log.Error("module_registration_secret is not configured; refusing to sign certificates")
+		return nil, status.Errorf(codes.Unauthenticated, "invalid module bootstrap secret")
+	}
+	// Constant-time compare so the secret can't be recovered by timing.
+	if subtle.ConstantTimeCompare([]byte(req.GetSecret()), []byte(expectedSecret)) != 1 {
 		// Non-leaking error: the caller is unauthenticated, no need
 		// to distinguish between "wrong secret" and "no secret set".
 		return nil, status.Errorf(codes.Unauthenticated, "invalid module bootstrap secret")
@@ -145,6 +187,14 @@ func (s *SignCertificateService) SignModuleCertificate(
 	}
 	if err := csr.CheckSignature(); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "csr signature invalid: %v", err)
+	}
+
+	// Bind the requested identity to the claimed module_id: a SERVER cert must
+	// be CN "<module>-service" and a CLIENT cert CN "lcm-<module>". Without this
+	// the shared secret lets any holder mint a cert with an arbitrary CN
+	// (e.g. lcm-admin) and defeat the mTLS peer-identity allow-list downstream.
+	if err := s.checkCertIdentity(moduleID, req.GetKind(), csr.Subject.CommonName); err != nil {
+		return nil, err
 	}
 
 	ctx = appViewer.NewSystemViewerContext(ctx)
@@ -249,6 +299,53 @@ func (s *SignCertificateService) GetCABundle(
 		CaCertificatePem:    string(pemBytes),
 		CaFingerprintSha256: fp,
 	}, nil
+}
+
+// expectedCN returns the CommonName a legitimate module must request for the
+// given certificate kind, matching go-tangra-common/cert conventions:
+// server certs are "<module>-service", client certs "lcm-<module>".
+func expectedCN(moduleID string, kind commonV1.CertificateKind) string {
+	switch kind {
+	case commonV1.CertificateKind_CERTIFICATE_KIND_SERVER:
+		return moduleID + "-service"
+	case commonV1.CertificateKind_CERTIFICATE_KIND_CLIENT:
+		return "lcm-" + moduleID
+	default:
+		return ""
+	}
+}
+
+// cnMatchesModule reports whether cn is an acceptable identity for moduleID and
+// kind — either the convention CN or one of the operator-allowed extras.
+func cnMatchesModule(moduleID string, kind commonV1.CertificateKind, cn string, extra []string) bool {
+	if want := expectedCN(moduleID, kind); want != "" && cn == want {
+		return true
+	}
+	return slices.Contains(extra, cn)
+}
+
+// checkCertIdentity enforces the CSR CommonName against the claimed module_id.
+// In "off" mode it is a no-op; in "warn" it logs a mismatch but signs; in
+// "enforce" it rejects the request. Default is "warn" so a legitimate but
+// non-conventional CN (discovered from logs) can be added to
+// LCM_CN_BINDING_EXTRA_CNS before flipping to enforce.
+func (s *SignCertificateService) checkCertIdentity(moduleID string, kind commonV1.CertificateKind, cn string) error {
+	if s.cnBindingMode == cnBindingOff {
+		return nil
+	}
+	if cnMatchesModule(moduleID, kind, cn, s.cnBindingExtraCNs) {
+		return nil
+	}
+	want := expectedCN(moduleID, kind)
+	if s.cnBindingMode == cnBindingEnforce {
+		s.log.Warnf("refusing to sign %s cert for module %q: CSR CN %q != expected %q",
+			kindSlug(kind), moduleID, cn, want)
+		return status.Errorf(codes.PermissionDenied,
+			"CSR CommonName %q is not a valid identity for module %q", cn, moduleID)
+	}
+	s.log.Warnf("CSR CN %q != expected %q for module %q (%s); signing anyway (mode=warn)",
+		cn, want, moduleID, kindSlug(kind))
+	return nil
 }
 
 // allow returns true when the bucket for moduleID has a token. New
