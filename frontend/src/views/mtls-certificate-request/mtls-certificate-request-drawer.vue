@@ -8,6 +8,7 @@ import { Descriptions, DescriptionsItem, Tag, Divider, Typography } from 'ant-de
 // MtlsCertificateRequest type from store
 import type { MtlsCertificateRequest } from '../../stores/lcm-mtls-certificate-request.state';
 import { $t } from 'shell/locales';
+import { formatDateTime as formatDateTimeShared } from '../../datetime';
 
 const { Paragraph, Text } = Typography;
 
@@ -63,7 +64,7 @@ function certTypeToName(certType: string | undefined) {
 function formatDateTime(value: string | undefined) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString();
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }

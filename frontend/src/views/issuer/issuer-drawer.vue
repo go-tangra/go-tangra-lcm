@@ -27,6 +27,7 @@ import {
 } from '../../api/services';
 import { $t } from 'shell/locales';
 import { useLcmIssuerStore } from '../../stores/lcm-issuer.state';
+import { formatDateTime as formatDateTimeShared } from '../../datetime';
 
 const issuerStore = useLcmIssuerStore();
 
@@ -141,7 +142,7 @@ function typeToName(type: string | undefined) {
 function formatDateTime(value: string | undefined) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString();
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }

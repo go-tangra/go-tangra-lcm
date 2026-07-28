@@ -10,6 +10,7 @@ import {
   type GetIssuedCertificateResponse,
 } from '../../api/services';
 import { $t } from 'shell/locales';
+import { formatDateTime as formatDateTimeShared } from '../../datetime';
 import { useLcmIssuedCertificateStore } from '../../stores/lcm-issued-certificate.state';
 import { downloadFile } from '../../utils';
 
@@ -70,7 +71,7 @@ function statusToName(status: string | undefined) {
 function formatDateTime(value: string | undefined) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString();
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }

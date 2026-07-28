@@ -11,6 +11,7 @@ import { notification } from 'ant-design-vue';
 import { useVbenVxeGrid } from 'shell/adapter/vxe-table';
 import { type CertificatePermission } from '../../api/services';
 import { $t } from 'shell/locales';
+import { formatDateTime as formatDateTimeShared } from '../../datetime';
 import { useLcmCertificatePermissionStore } from '../../stores/lcm-certificate-permission.state';
 
 import PermissionDrawer from './permission-drawer.vue';
@@ -45,7 +46,7 @@ function permissionTypeToName(type: string | undefined) {
 function formatDateTime(value: string | undefined) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString();
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }

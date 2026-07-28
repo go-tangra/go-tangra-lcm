@@ -6,6 +6,7 @@ import { useVbenDrawer } from 'shell/vben/common-ui';
 import { Descriptions, DescriptionsItem, Tag, Divider, Typography } from 'ant-design-vue';
 
 import { $t } from 'shell/locales';
+import { formatDateTime as formatDateTimeShared } from '../../datetime';
 
 interface AuditLog {
   id?: number;
@@ -55,7 +56,7 @@ function successToName(success: boolean | undefined) {
 function formatDateTime(value: string | undefined) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString();
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }

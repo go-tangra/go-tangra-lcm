@@ -11,6 +11,7 @@ import { Descriptions, DescriptionsItem, Tag, TypographyText } from 'ant-design-
 
 import { type CertificatePermission } from '../../api/services';
 import { $t } from 'shell/locales';
+import { formatDateTime as formatDateTimeShared } from '../../datetime';
 
 const data = ref<{ row: CertificatePermission }>();
 
@@ -45,7 +46,7 @@ function permissionTypeToName(type: string | undefined) {
 function formatDateTime(value: string | undefined) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString();
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }

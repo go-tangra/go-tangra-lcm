@@ -7,6 +7,7 @@ import { Descriptions, DescriptionsItem, Tag, Divider, Typography } from 'ant-de
 
 import { type TenantSecret } from '../../api/services';
 import { $t } from 'shell/locales';
+import { formatDateTime as formatDateTimeShared } from '../../datetime';
 
 const { Text } = Typography;
 
@@ -39,7 +40,7 @@ function statusToName(status: string | undefined) {
 function formatDateTime(value: string | undefined) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString();
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }

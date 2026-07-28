@@ -19,6 +19,7 @@ import {
   StatisticsService,
   type GetStatisticsResponse,
 } from '../../api/services';
+import { formatDateTime, formatTime } from '../../datetime';
 
 // 30s auto-refresh matches the deployer dashboard cadence. Operators
 // can hit Refresh for an immediate fetch when watching an in-progress
@@ -102,7 +103,7 @@ const autoRenew = computed(() => num(issued.value?.autoRenewEnabledCount));
 
 const lastUpdatedLabel = computed(() => {
   if (!lastUpdated.value) return '';
-  return lastUpdated.value.toLocaleTimeString();
+  return formatTime(lastUpdated.value);
 });
 </script>
 
@@ -260,7 +261,7 @@ const lastUpdatedLabel = computed(() => {
             >
               <div class="flex justify-between text-sm">
                 <span><b>{{ e.commonName || e.issuerName || e.jobId }}</b></span>
-                <span class="text-gray-500">{{ e.occurredAt ? new Date(e.occurredAt).toLocaleString() : '' }}</span>
+                <span class="text-gray-500">{{ e.occurredAt ? formatDateTime(e.occurredAt) : '' }}</span>
               </div>
               <div class="text-xs text-red-600 truncate">{{ e.errorMessage }}</div>
             </li>

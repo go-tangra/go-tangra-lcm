@@ -7,6 +7,7 @@ import { Descriptions, DescriptionsItem, Tag, Divider, Typography } from 'ant-de
 
 import { $t } from 'shell/locales';
 import { type MtlsCertificate } from '../../stores/lcm-certificate.state';
+import { formatDateTime as formatDateTimeShared } from '../../datetime';
 
 const { Paragraph, Text } = Typography;
 
@@ -47,7 +48,7 @@ function statusToName(status: string | undefined) {
 function formatDateTime(value: string | undefined) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString();
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }
