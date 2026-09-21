@@ -1,0 +1,46 @@
+# Development configuration for the lcm module on the platform stack.
+# Never use these values outside a workstation.
+service_name: lcm
+trust_domain: example.org
+env: dev
+identity:
+  provider: file
+  file: { cert: ../../.dev/ca/lcm.pem, key: ../../.dev/ca/lcm.key, bundle: ../../.dev/ca/ca.pem }
+authz: { source: file, path: deploy/policy.yaml }
+server: { grpc_addr: 127.0.0.1:9945, http_addr: 127.0.0.1:9946 }
+admin: { addr: 127.0.0.1:9591 }
+discovery:
+  static:
+    gateway: ["127.0.0.1:9643"]
+    auth: ["127.0.0.1:9543"]
+limits:
+  max_request_bytes: 16842752 # backup uploads (16 MiB + slack)
+limits_lcm:
+  backup_max_bytes: 16777216
+  csr_max_bytes: 16384
+  webhook_max_bytes: 65536
+  streams_per_user: 5
+  streams_per_tenant: 2000
+  replay_window_seconds: 300
+db:
+  dsn: postgres://lcm_app:dev@127.0.0.1:5432/lcm?sslmode=disable
+  migrate_dsn: postgres://postgres:dev@127.0.0.1:5432/lcm?sslmode=disable
+valkey:
+  addresses: ["127.0.0.1:6379"]
+  username: lcm
+  password: dev
+  allow_plaintext: true
+kek:
+  source: file
+  path: deploy/kek.dev
+renewal:
+  interval_seconds: 15
+  lease_seconds: 60
+  workers: 4
+  short_lived_fraction: 0.5   # renew short SVIDs at half their TTL remaining
+  long_lived_days: 30         # renew longer certs this many days before expiry
+gateway:
+  service: gateway
+  issuer: https://localhost:8443
+acme:
+  allow_plaintext_dns: true   # development mock DNS/ACME (never in production)

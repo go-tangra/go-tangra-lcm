@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "lcm tenant backup",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "exported_at", "tenant", "issuers", "certificates", "permissions"],
+  "properties": {
+    "version": { "const": 1 },
+    "exported_at": { "type": "string", "format": "date-time" },
+    "tenant": { "type": "string" },
+    "includes_credentials": { "type": "boolean" },
+    "issuers": {
+      "type": "array", "maxItems": 1000,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "type", "trust_domain"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "type": { "enum": ["self_signed", "acme"] },
+          "trust_domain": { "type": "string" },
+          "is_default": { "type": "boolean" },
+          "settings": { "type": "object" },
+          "credentials": { "type": "object", "description": "present only when includes_credentials" }
+        }
+      }
+    },
+    "certificates": {
+      "type": "array", "maxItems": 100000,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["serial", "spiffe_id", "issuer", "not_before", "not_after", "status"],
+        "properties": {
+          "serial": { "type": "string" },
+          "spiffe_id": { "type": "string" },
+          "issuer": { "type": "string" },
+          "subject": { "type": "string" },
+          "sans": { "type": "array", "items": { "type": "string" } },
+          "not_before": { "type": "string", "format": "date-time" },
+          "not_after": { "type": "string", "format": "date-time" },
+          "fingerprint_sha256": { "type": "string" },
+          "status": { "enum": ["active", "expiring", "expired", "revoked"] },
+          "cert_pem": { "type": "string" },
+          "chain_pem": { "type": "string" }
+        }
+      }
+    },
+    "tenant_secrets": {
+      "type": "array", "maxItems": 1000,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "kind"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "kind": { "enum": ["acme_account", "dns_credential"] },
+          "value": { "type": "string", "description": "present only when includes_credentials" }
+        }
+      }
+    },
+    "permissions": {
+      "type": "array", "maxItems": 100000,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["resource_type", "resource_ref", "subject_type", "relation"],
+        "properties": {
+          "resource_type": { "enum": ["certificate", "issuer"] },
+          "resource_ref": { "type": "string", "description": "serial or issuer name" },
+          "subject_type": { "enum": ["user", "role", "tenant"] },
+          "subject_id": { "type": "string" },
+          "relation": { "enum": ["owner", "editor", "viewer", "sharer"] },
+          "expires_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    }
+  }
+}
