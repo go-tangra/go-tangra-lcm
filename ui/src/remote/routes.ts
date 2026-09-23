@@ -1,4 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
+import '@/main.css'
 
 // Routes mounted by the platform shell under their own error boundary. They
 // mirror lcmmanifest.Nav (services/lcm/pkg/lcmmanifest/manifest.go).

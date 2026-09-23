@@ -1,37 +1,59 @@
 <script setup lang="ts">
-import { onMounted, reactive } from 'vue'
+import { computed, onMounted, watch } from 'vue'
+import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiButton, UiDataTable, UiStatusChip, type Column } from '@freya/ui'
+import { useZodForm } from '@freya/ui/forms'
 import { useOps } from '@/stores/ops'
-import AuditTable from '@/components/AuditTable.vue'
+import { useDirectory } from '@/stores/directory'
+import { auditFilterSchema } from '@/schemas'
+import type { AuditItem } from '@/api/types'
 
+// Module-specific audit view: actors resolve through the auth directory
+// (users, roles and mesh services) rather than showing raw ids.
 const ops = useOps()
-const filter = reactive({ event_type: '', actor_id: '', from: '', to: '' })
-
-function apply(): void {
-  void ops.loadAudit({
-    event_type: filter.event_type || undefined,
-    actor_id: filter.actor_id || undefined,
-    from: filter.from || undefined,
-    to: filter.to || undefined,
-  })
+const dir = useDirectory()
+const filter = useZodForm(auditFilterSchema, {
+  initial: { event_type: '', actor_id: '', from: '', to: '' },
+  onSubmit: (f) => ops.loadAudit({ event_type: f.event_type || undefined, actor_id: f.actor_id || undefined, from: f.from, to: f.to }),
+})
+const apply = () => void filter.submit()
+const more = () => {
+  const f = filter.validate()
+  if (f) void ops.loadAudit({ event_type: f.event_type || undefined, actor_id: f.actor_id || undefined, from: f.from, to: f.to }, ops.auditNext)
 }
-
-onMounted(() => apply())
+onMounted(async () => {
+  await dir.loadRoles()
+  apply()
+})
+watch(() => ops.audit, (items) => dir.resolveUsers(items.map((i) => i.actor_id)))
+const actor = (i: AuditItem) => (i.actor_kind === 'system' ? 'system' : dir.userName(i.actor_id) || '')
+const rows = computed(() => ops.audit.map((i, n) => ({ ...i, id: i.ts + ':' + n })))
+const columns: Column<(typeof rows.value)[number]>[] = [
+  { key: 'ts', label: 'When', format: (i) => new Date(i.ts).toLocaleString() },
+  { key: 'event_type', label: 'Event' },
+  { key: 'actor', label: 'Actor', format: actor },
+  { key: 'subject', label: 'Subject', format: (i) => i.subject_name || i.subject_id || i.subject_kind || '', hideOnStack: true },
+  { key: 'outcome', label: 'Outcome', width: 'sm' },
+]
 </script>
 
 <template>
-  <div>
-    <h1 class="text-h5 mb-4">Audit</h1>
-    <v-row class="mb-2" dense>
-      <v-col cols="12" md="3"><v-text-field v-model="filter.event_type" label="Event type" density="compact" clearable data-test="audit-filter-event" @keyup.enter="apply" @click:clear="apply" /></v-col>
-      <v-col cols="12" md="3"><v-text-field v-model="filter.actor_id" label="Actor id" density="compact" clearable data-test="audit-filter-actor" @keyup.enter="apply" @click:clear="apply" /></v-col>
-      <v-col cols="12" md="2"><v-text-field v-model="filter.from" label="From (ISO)" density="compact" clearable data-test="audit-filter-from" @keyup.enter="apply" /></v-col>
-      <v-col cols="12" md="2"><v-text-field v-model="filter.to" label="To (ISO)" density="compact" clearable data-test="audit-filter-to" @keyup.enter="apply" /></v-col>
-      <v-col cols="12" md="2" class="d-flex align-center"><v-btn color="primary" size="small" data-test="audit-apply" @click="apply">Apply</v-btn></v-col>
-    </v-row>
-    <v-alert v-if="ops.error" type="error" variant="tonal" density="compact" class="mb-3">{{ ops.error }}</v-alert>
-    <AuditTable :items="ops.audit" />
-    <div v-if="ops.auditNext" class="mt-3 text-center">
-      <v-btn variant="text" data-test="audit-more" @click="ops.loadAudit({ event_type: filter.event_type || undefined, actor_id: filter.actor_id || undefined, from: filter.from || undefined, to: filter.to || undefined }, ops.auditNext)">Load more</v-btn>
-    </div>
-  </div>
+  <UiPage title="Audit">
+    <template #filters>
+      <UiForm :form="filter" class="w-full">
+        <div class="grid grid-cols-2 gap-2 md:grid-cols-12 md:items-end">
+          <div class="md:col-span-3"><UiInput v-bind="filter.field('event_type')" label="Event type" size="sm" data-test="audit-filter-event" @enter="apply" /></div>
+          <div class="md:col-span-3"><UiInput v-bind="filter.field('actor_id')" label="Actor id" size="sm" data-test="audit-filter-actor" @enter="apply" /></div>
+          <div class="md:col-span-2"><UiInput v-bind="filter.field('from')" label="From" type="date" size="sm" data-test="audit-filter-from" /></div>
+          <div class="md:col-span-2"><UiInput v-bind="filter.field('to')" label="To" type="date" size="sm" data-test="audit-filter-to" /></div>
+          <div class="col-span-2 md:col-span-2"><UiButton block size="sm" data-test="audit-apply" @click="apply">Apply</UiButton></div>
+        </div>
+      </UiForm>
+    </template>
+    <UiAlert v-if="ops.error" kind="error" class="mb-3">{{ ops.error }}</UiAlert>
+    <UiCard :padded="false">
+      <UiDataTable :items="rows" :columns="columns" :loading="ops.loading" caption="Audit events" empty-title="No events" :has-more="!!ops.auditNext" data-test="audit-table" @load-more="more">
+        <template #cell-outcome="{ row }"><UiStatusChip :status="row.outcome" :colors="{ ok: 'success', success: 'success', refused: 'warning', denied: 'error', failure: 'error' }" /></template>
+      </UiDataTable>
+    </UiCard>
+  </UiPage>
 </template>

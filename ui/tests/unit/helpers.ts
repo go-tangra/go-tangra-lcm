@@ -1,8 +1,6 @@
 import { vi } from 'vitest'
 import { type Plugin } from 'vue'
-import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import { abilitiesPlugin } from '@casl/vue'
 import { createMongoAbility } from '@casl/ability'
 
@@ -19,7 +17,8 @@ export function stubFetch(handler: (url: string, init?: RequestInit) => Reply) {
 }
 
 export function plugins(rules: Array<{ action: string; subject: string }> = [{ action: 'manage', subject: 'all' }]): Array<Plugin | [Plugin, ...unknown[]]> {
-  return [createVuetify({ components, directives }), [abilitiesPlugin as Plugin, createMongoAbility(rules), { useGlobalProperties: true }]]
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div/>' } }] })
+  return [router, [abilitiesPlugin as Plugin, createMongoAbility(rules), { useGlobalProperties: true }]]
 }
 
 export const perms = { read: true, write: true, delete: true, share: true, use: true }

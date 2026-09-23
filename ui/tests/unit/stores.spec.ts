@@ -68,7 +68,7 @@ describe('issuers store', () => {
   it('lists, loads dns providers, creates and moves the default on update', async () => {
     stubFetch((url, init) => {
       if (url.includes('/issuers?') && (!init || init.method === 'GET')) return { status: 200, body: { items: [issuer, { ...issuer, id: 'i2', name: 'second', is_default: false }] } }
-      if (url.endsWith('/dns-providers')) return { status: 200, body: [{ name: 'route53', display_name: 'AWS Route 53', fields: [{ key: 'access_key', label: 'Access key', secret: false, required: true }, { key: 'secret_key', label: 'Secret key', secret: true, required: true }] }] }
+      if (url.endsWith('/dns-providers')) return { status: 200, body: { items: [{ name: 'route53', display_name: 'AWS Route 53', fields: [{ key: 'access_key', label: 'Access key', secret: false, required: true }, { key: 'secret_key', label: 'Secret key', secret: true, required: true }] }] } }
       if (url.endsWith('/issuers') && init?.method === 'POST') return { status: 201, body: { ...issuer, id: 'i3', name: 'acme', type: 'acme', is_default: false } }
       if (url.endsWith('/issuers/i2') && init?.method === 'PUT') return { status: 200, body: { ...issuer, id: 'i2', name: 'second', is_default: true } }
       return { status: 404, body: { reason: 'not_found' } }

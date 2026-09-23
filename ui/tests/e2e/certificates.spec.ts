@@ -26,7 +26,7 @@ test('create a self-signed issuer, then issue a certificate against it', async (
   await page.getByTestId('cert-issue-open').click()
   await page.getByTestId('issue-spiffe').locator('input').fill('spiffe://example.org/service/e2e')
   await page.getByTestId('issue-submit').click()
-  await expect(page.getByTestId('issue-result')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('issue-queued')).toBeVisible({ timeout: 30_000 })
   await page.getByTestId('issue-done').click()
   await expect(page.getByText('spiffe://example.org/service/e2e')).toBeVisible()
 

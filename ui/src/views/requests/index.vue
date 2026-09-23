@@ -1,87 +1,70 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiStatusChip, UiTabs, UiForm, UiSelect, type Column, type SelectOption, type TabItem } from '@freya/ui'
+import { useZodForm } from '@freya/ui/forms'
 import { useRequests } from '@/stores/requests'
 import { describe } from '@/api/client'
-import type { RequestStatus } from '@/api/types'
+import { requestFilterSchema, REQUEST_STATUSES } from '@/schemas'
+import type { CertRequest, Job } from '@/api/types'
 
 const store = useRequests()
-const tab = ref<'requests' | 'jobs'>('requests')
-const err = ref('')
-const reqStatus = ref<RequestStatus | null>(null)
-const requestStatuses: RequestStatus[] = ['pending', 'approved', 'rejected', 'issued']
-
+const tab = ref('requests')
+const error = ref('')
 onMounted(async () => {
   await Promise.all([store.listRequests(), store.listJobs()])
 })
-
+const tabs = computed<TabItem[]>(() => [{ key: 'requests', label: 'Certificate requests', count: store.requests.length }, { key: 'jobs', label: 'Jobs', count: store.jobs.length }])
+const statusOptions: SelectOption[] = REQUEST_STATUSES.map((s) => ({ title: s, value: s }))
+const filter = useZodForm(requestFilterSchema, { onSubmit: (f) => store.listRequests(f.status) })
 async function act(fn: () => Promise<void>): Promise<void> {
-  err.value = ''
+  error.value = ''
   try {
     await fn()
   } catch (e) {
-    err.value = describe(e)
+    error.value = describe(e)
   }
 }
-
-function reqColor(s: string): string {
-  return s === 'issued' ? 'success' : s === 'approved' ? 'info' : s === 'rejected' ? 'error' : 'warning'
-}
-function jobColor(s: string): string {
-  return s === 'completed' ? 'success' : s === 'failed' ? 'error' : s === 'processing' ? 'info' : 'grey'
-}
+const requestColumns: Column<CertRequest>[] = [
+  { key: 'spiffe_id', label: 'SPIFFE ID' },
+  { key: 'status', label: 'Status', width: 'sm' },
+  { key: 'created_at', label: 'Requested', format: (r) => (r.created_at ? new Date(r.created_at).toLocaleString() : ''), hideOnStack: true },
+]
+const jobColumns: Column<Job>[] = [
+  { key: 'type', label: 'Type' },
+  { key: 'status', label: 'Status', width: 'sm' },
+  { key: 'attempts', label: 'Attempts', align: 'end', format: (j) => String(j.attempts ?? 0), hideOnStack: true },
+  { key: 'error', label: 'Error' },
+]
 </script>
 
 <template>
-  <div>
-    <h1 class="text-h5 mb-4">Requests</h1>
-    <v-alert v-if="err" type="error" variant="tonal" density="compact" class="mb-3" data-test="requests-error">{{ err }}</v-alert>
-    <v-tabs v-model="tab" class="mb-3">
-      <v-tab value="requests" data-test="tab-requests">Certificate requests</v-tab>
-      <v-tab value="jobs" data-test="tab-jobs">Jobs</v-tab>
-    </v-tabs>
-    <v-window v-model="tab">
-      <v-window-item value="requests">
-        <v-select v-model="reqStatus" :items="requestStatuses" label="Status" density="compact" clearable style="max-width: 240px" class="mb-2" data-test="requests-filter" @update:model-value="store.listRequests(reqStatus ?? undefined)" />
-        <v-table data-test="requests-table">
-          <thead>
-            <tr><th>SPIFFE ID</th><th>Status</th><th>Requested</th><th class="text-right">Actions</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in store.requests" :key="r.id" :data-test="'request-row-' + r.id">
-              <td class="text-truncate" style="max-width: 320px">{{ r.spiffe_id }}</td>
-              <td><v-chip size="x-small" :color="reqColor(r.status)" variant="tonal">{{ r.status }}</v-chip></td>
-              <td class="text-no-wrap">{{ r.created_at ? new Date(r.created_at).toLocaleString() : '—' }}</td>
-              <td class="text-right">
-                <template v-if="r.status === 'pending'">
-                  <v-btn size="x-small" color="success" variant="text" :data-test="'request-approve-' + r.id" @click="act(() => store.approve(r.id))">Approve</v-btn>
-                  <v-btn size="x-small" color="error" variant="text" :data-test="'request-reject-' + r.id" @click="act(() => store.reject(r.id))">Reject</v-btn>
-                </template>
-              </td>
-            </tr>
-            <tr v-if="!store.requests.length"><td colspan="4" class="text-medium-emphasis">No requests.</td></tr>
-          </tbody>
-        </v-table>
-      </v-window-item>
-      <v-window-item value="jobs">
-        <v-table data-test="jobs-table">
-          <thead>
-            <tr><th>Type</th><th>Status</th><th>Attempts</th><th>Error</th><th class="text-right">Actions</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="j in store.jobs" :key="j.id" :data-test="'job-row-' + j.id">
-              <td>{{ j.type ?? '—' }}</td>
-              <td><v-chip size="x-small" :color="jobColor(j.status)" variant="tonal">{{ j.status }}</v-chip></td>
-              <td>{{ j.attempts ?? 0 }}</td>
-              <td class="text-truncate" style="max-width: 220px">{{ j.error ?? '' }}</td>
-              <td class="text-right">
-                <v-btn v-if="j.status === 'failed'" size="x-small" color="primary" variant="text" :data-test="'job-retry-' + j.id" @click="act(() => store.retryJob(j.id))">Retry</v-btn>
-                <v-btn v-if="j.status === 'queued' || j.status === 'processing'" size="x-small" color="error" variant="text" :data-test="'job-cancel-' + j.id" @click="act(() => store.cancelJob(j.id))">Cancel</v-btn>
-              </td>
-            </tr>
-            <tr v-if="!store.jobs.length"><td colspan="5" class="text-medium-emphasis">No jobs.</td></tr>
-          </tbody>
-        </v-table>
-      </v-window-item>
-    </v-window>
-  </div>
+  <UiPage title="Requests">
+    <UiAlert v-if="error" kind="error" class="mb-3" data-test="requests-error">{{ error }}</UiAlert>
+    <UiTabs v-model="tab" :tabs="tabs" class="mb-3" />
+    <template v-if="tab === 'requests'">
+      <UiForm :form="filter" class="mb-3 max-w-xs">
+        <UiSelect v-bind="filter.field('status')" label="Status" :options="statusOptions" size="sm" data-test="requests-filter" @update:model-value="filter.submit()" />
+      </UiForm>
+      <UiCard :padded="false">
+        <UiDataTable :items="store.requests" :columns="requestColumns" caption="Certificate requests" empty-title="No requests" :row-attrs="(r) => ({ 'data-test': 'request-row-' + r.id })" data-test="requests-table">
+          <template #cell-status="{ row }"><UiStatusChip :status="row.status" :colors="{ approved: 'info', rejected: 'error', pending: 'warning' }" /></template>
+          <template #actions="{ row }">
+            <template v-if="row.status === 'pending'">
+              <UiButton size="xs" variant="text" color="success" :data-test="'request-approve-' + row.id" @click="act(() => store.approve(row.id))">Approve</UiButton>
+              <UiButton size="xs" variant="text" color="error" :data-test="'request-reject-' + row.id" @click="act(() => store.reject(row.id))">Reject</UiButton>
+            </template>
+          </template>
+        </UiDataTable>
+      </UiCard>
+    </template>
+    <UiCard v-else :padded="false">
+      <UiDataTable :items="store.jobs" :columns="jobColumns" caption="Jobs" empty-title="No jobs" :row-attrs="(j) => ({ 'data-test': 'job-row-' + j.id })" data-test="jobs-table">
+        <template #cell-status="{ row }"><UiStatusChip :status="row.status" :colors="{ processing: 'info', queued: 'neutral' }" /></template>
+        <template #actions="{ row }">
+          <UiButton v-if="row.status === 'failed'" size="xs" variant="text" :data-test="'job-retry-' + row.id" @click="act(() => store.retryJob(row.id))">Retry</UiButton>
+          <UiButton v-if="row.status === 'queued' || row.status === 'processing'" size="xs" variant="text" color="error" :data-test="'job-cancel-' + row.id" @click="act(() => store.cancelJob(row.id))">Cancel</UiButton>
+        </template>
+      </UiDataTable>
+    </UiCard>
+  </UiPage>
 </template>

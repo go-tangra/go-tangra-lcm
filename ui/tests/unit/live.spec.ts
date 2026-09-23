@@ -35,7 +35,7 @@ describe('live store', () => {
     const live = useLive()
     const release1 = live.connect()
     const release2 = live.connect() // shares the connection
-    expect(FakeES.last?.url).toContain('/api/lcm/v1/stream')
+    expect(FakeES.last?.url).toContain('/gateway/v1/stream')
     FakeES.last?.onopen?.()
     expect(live.connected).toBe(true)
 

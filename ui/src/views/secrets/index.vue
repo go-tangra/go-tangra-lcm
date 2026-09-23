@@ -1,103 +1,116 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiBadge, UiIcon, UiDrawer, UiForm, UiInput, UiSelect, UiTextarea, UiSecretField, useConfirm, type Column, type SelectOption } from '@freya/ui'
+import { useZodForm } from '@freya/ui/forms'
 import { useSecrets } from '@/stores/secrets'
 import { describe } from '@/api/client'
-import SecretDrawer from '@/components/SecretDrawer.vue'
-import type { Secret } from '@/api/types'
+import { secretSchema, webhookSchema, SECRET_KINDS } from '@/schemas'
+import type { Secret, Webhook } from '@/api/types'
 
 const store = useSecrets()
+const confirm = useConfirm()
 const drawer = ref(false)
 const selected = ref<Secret | null>(null)
-const err = ref('')
-const webhookForm = reactive({ name: '', url: '', event_types: '', secret: '' })
-
+const error = ref('')
 onMounted(async () => {
   await Promise.all([store.listSecrets(), store.listWebhooks()])
 })
+const kindOptions: SelectOption[] = SECRET_KINDS.map((k) => ({ title: k, value: k }))
 
+// The value is write-only: sent once, never displayed, cleared from the form after saving.
+const secretForm = useZodForm(secretSchema, {
+  onSubmit: async (v) => {
+    if (selected.value) {
+      if (Object.keys(v.value).length) await store.rotateSecret(selected.value.id, v.value)
+      else await store.updateSecret(selected.value.id, { name: v.name, kind: v.kind, value: v.value })
+    } else await store.createSecret({ name: v.name, kind: v.kind, value: v.value })
+  },
+  onSuccess: () => {
+    drawer.value = false
+    secretForm.reset({ name: '', kind: 'dns_credential', value: '' })
+    void store.listSecrets()
+  },
+})
 function open(s: Secret | null): void {
   selected.value = s
+  error.value = ''
+  secretForm.reset({ name: s?.name ?? '', kind: s?.kind ?? 'dns_credential', value: '' })
   drawer.value = true
 }
-
-async function addWebhook(): Promise<void> {
-  err.value = ''
+async function remove(): Promise<void> {
+  if (!selected.value || !(await confirm.ask({ title: `Delete ${selected.value.name}?`, text: 'Issuers referencing it stop working.', danger: true, confirmLabel: 'Delete' }))) return
   try {
-    await store.createWebhook({
-      name: webhookForm.name,
-      url: webhookForm.url,
-      event_types: webhookForm.event_types.split(',').map((s) => s.trim()).filter(Boolean),
-      ...(webhookForm.secret ? { secret: webhookForm.secret } : {}),
-    })
-    webhookForm.name = ''
-    webhookForm.url = ''
-    webhookForm.event_types = ''
-    webhookForm.secret = ''
+    await store.removeSecret(selected.value.id)
+    drawer.value = false
+    void store.listSecrets()
   } catch (e) {
-    err.value = describe(e)
+    error.value = describe(e)
   }
 }
-
-async function removeWebhook(id: string): Promise<void> {
-  err.value = ''
+const webhookForm = useZodForm(webhookSchema, {
+  initial: { name: '', url: '', event_types: '', secret: '' },
+  onSubmit: (v) => store.createWebhook({ name: v.name, url: v.url, event_types: v.event_types, ...(v.secret ? { secret: v.secret } : {}) }),
+  onSuccess: () => webhookForm.reset({ name: '', url: '', event_types: '', secret: '' }),
+})
+async function removeWebhook(w: Webhook): Promise<void> {
+  if (!(await confirm.ask({ title: `Remove webhook ${w.name}?`, danger: true, confirmLabel: 'Remove' }))) return
+  error.value = ''
   try {
-    await store.removeWebhook(id)
+    await store.removeWebhook(w.id)
   } catch (e) {
-    err.value = describe(e)
+    error.value = describe(e)
   }
 }
+const secretColumns: Column<Secret>[] = [
+  { key: 'name', label: 'Name', sortable: true },
+  { key: 'kind', label: 'Kind', width: 'sm' },
+  { key: 'in_use', label: 'In use', width: 'sm', format: (s) => (s.in_use ? 'yes' : '') },
+]
+const webhookColumns: Column<Webhook>[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'url', label: 'URL' },
+  { key: 'event_types', label: 'Events', format: (w) => w.event_types.join(', '), hideOnStack: true },
+]
 </script>
 
 <template>
-  <div>
-    <div class="d-flex align-center mb-4">
-      <h1 class="text-h5">Secrets</h1>
-      <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" data-test="secret-new" @click="open(null)">New secret</v-btn>
-    </div>
-    <v-alert v-if="store.error || err" type="error" variant="tonal" density="compact" class="mb-3">{{ store.error || err }}</v-alert>
-    <v-card title="Tenant secrets" data-test="secrets-card">
-      <v-table data-test="secrets-table">
-        <thead>
-          <tr><th>Name</th><th>Kind</th><th>In use</th><th class="text-right">Actions</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="s in store.secrets" :key="s.id" :data-test="'secret-row-' + s.id">
-            <td>{{ s.name }}</td>
-            <td><v-chip size="x-small" variant="tonal">{{ s.kind }}</v-chip></td>
-            <td><v-icon v-if="s.in_use" icon="mdi-link-variant" size="small" /></td>
-            <td class="text-right"><v-btn size="x-small" variant="text" :data-test="'secret-rotate-' + s.id" @click="open(s)">Rotate</v-btn></td>
-          </tr>
-          <tr v-if="!store.secrets.length"><td colspan="4" class="text-medium-emphasis">No secrets. Values are write-only and never returned.</td></tr>
-        </tbody>
-      </v-table>
-    </v-card>
-
-    <v-card class="mt-4" title="Webhooks" data-test="webhooks-card">
-      <v-card-text>
-        <v-row dense>
-          <v-col cols="12" md="3"><v-text-field v-model="webhookForm.name" label="Name" density="compact" data-test="webhook-name" /></v-col>
-          <v-col cols="12" md="4"><v-text-field v-model="webhookForm.url" label="URL" density="compact" data-test="webhook-url" /></v-col>
-          <v-col cols="12" md="3"><v-text-field v-model="webhookForm.event_types" label="Events (comma-separated)" density="compact" data-test="webhook-events" /></v-col>
-          <v-col cols="12" md="2" class="d-flex align-center"><v-btn color="primary" size="small" data-test="webhook-add" @click="addWebhook">Add</v-btn></v-col>
-        </v-row>
-        <v-table data-test="webhooks-table">
-          <thead>
-            <tr><th>Name</th><th>URL</th><th>Events</th><th class="text-right">Actions</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="w in store.webhooks" :key="w.id" :data-test="'webhook-row-' + w.id">
-              <td>{{ w.name }}</td>
-              <td class="text-truncate" style="max-width: 260px">{{ w.url }}</td>
-              <td>{{ w.event_types.join(', ') }}</td>
-              <td class="text-right"><v-btn icon="mdi-close" size="x-small" variant="text" :data-test="'webhook-remove-' + w.id" @click="removeWebhook(w.id)" /></td>
-            </tr>
-            <tr v-if="!store.webhooks.length"><td colspan="4" class="text-medium-emphasis">No webhooks. The signing secret is never shown after creation.</td></tr>
-          </tbody>
-        </v-table>
-      </v-card-text>
-    </v-card>
-
-    <SecretDrawer v-model="drawer" :secret="selected" @saved="store.listSecrets()" />
-  </div>
+  <UiPage title="Secrets">
+    <template #actions><UiButton icon="mdi-plus" data-test="secret-new" @click="open(null)">New secret</UiButton></template>
+    <UiAlert v-if="store.error || error" kind="error" class="mb-3">{{ store.error || error }}</UiAlert>
+    <UiCard title="Tenant secrets" subtitle="Values are write-only and never returned." :padded="false" class="mb-4" data-test="secrets-card">
+      <UiDataTable :items="store.secrets" :columns="secretColumns" caption="Tenant secrets" empty-title="No secrets" :row-attrs="(s) => ({ 'data-test': 'secret-row-' + s.id })" data-test="secrets-table">
+        <template #cell-kind="{ row }"><UiBadge>{{ row.kind }}</UiBadge></template>
+        <template #cell-in_use="{ row }"><UiIcon v-if="row.in_use" name="mdi-link-variant" size="sm" label="In use" /></template>
+        <template #actions="{ row }"><UiButton size="xs" variant="text" :data-test="'secret-rotate-' + row.id" @click="open(row)">Rotate</UiButton></template>
+      </UiDataTable>
+    </UiCard>
+    <UiCard title="Webhooks" subtitle="The signing secret is never shown after creation." data-test="webhooks-card">
+      <UiForm :form="webhookForm" class="mb-3">
+        <div class="grid grid-cols-1 gap-2 md:grid-cols-12 md:items-end">
+          <div class="md:col-span-3"><UiInput v-bind="webhookForm.field('name')" label="Name" size="sm" required data-test="webhook-name" /></div>
+          <div class="md:col-span-4"><UiInput v-bind="webhookForm.field('url')" label="URL" type="url" size="sm" required data-test="webhook-url" /></div>
+          <div class="md:col-span-3"><UiInput v-bind="webhookForm.field('event_types')" label="Events (comma-separated)" size="sm" required data-test="webhook-events" /></div>
+          <div class="md:col-span-2"><UiButton type="submit" block size="sm" :loading="webhookForm.submitting.value" data-test="webhook-add">Add</UiButton></div>
+          <div class="md:col-span-6"><UiSecretField v-bind="webhookForm.field('secret')" label="Signing secret (optional, write-only)" data-test="webhook-secret" /></div>
+        </div>
+      </UiForm>
+      <UiDataTable :items="store.webhooks" :columns="webhookColumns" caption="Webhooks" empty-title="No webhooks" :row-attrs="(w) => ({ 'data-test': 'webhook-row-' + w.id })" data-test="webhooks-table">
+        <template #actions="{ row }"><UiButton size="xs" variant="text" color="error" icon="mdi-close" icon-only label="Remove webhook" :data-test="'webhook-remove-' + row.id" @click="removeWebhook(row)" /></template>
+      </UiDataTable>
+    </UiCard>
+    <UiDrawer v-model="drawer" :title="selected ? 'Rotate secret' : 'New secret'" size="md" data-test="secret-drawer">
+      <UiForm :form="secretForm">
+        <div class="flex flex-col gap-3">
+          <UiInput v-bind="secretForm.field('name')" label="Name" :disabled="!!selected" required data-test="secret-name" />
+          <UiSelect v-bind="secretForm.field('kind')" label="Kind" :options="kindOptions" :clearable="false" :disabled="!!selected" required data-test="secret-kind" />
+          <UiTextarea v-bind="secretForm.field('value')" :label="selected ? 'New value (JSON, write-only)' : 'Value (JSON, write-only)'" :rows="4" hint="Never displayed after saving." data-test="secret-value" />
+        </div>
+      </UiForm>
+      <template #actions>
+        <UiButton v-if="selected" variant="text" color="error" data-test="secret-delete" @click="remove">Delete</UiButton>
+        <UiButton variant="text" @click="drawer = false">Cancel</UiButton>
+        <UiButton :loading="secretForm.submitting.value" data-test="secret-save" @click="secretForm.submit()">Save</UiButton>
+      </template>
+    </UiDrawer>
+  </UiPage>
 </template>

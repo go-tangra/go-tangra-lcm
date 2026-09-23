@@ -1,3 +1,4 @@
+import '@/main.css'
 import HeaderCert from '@/components/HeaderCert.vue'
 
 // The shell renders this in its app bar (contracts/shell-changes.md). It opens
