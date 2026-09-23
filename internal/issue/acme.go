@@ -171,7 +171,7 @@ func (s *Service) acmeClientFor(issuer store.Issuer) (*acme.Client, error) {
 	if err != nil {
 		return nil, invalid("acme_account_key", "issuer has no usable ACME account key")
 	}
-	provider, err := acme.NewProvider(issuer.DNSProvider, credsMap(settings["dns_credential"]))
+	provider, err := s.dnsProvider(issuer, settings)
 	if err != nil {
 		return nil, invalid("dns_provider", "DNS provider could not be built")
 	}
@@ -191,6 +191,16 @@ func (s *Service) acmeClientFor(issuer store.Issuer) (*acme.Client, error) {
 		AccountKey: accountKey, DNS: provider, AllowInsecure: isLoopbackURL(issuer.ACMEDirectoryURL),
 		EABKeyID: eabKID, EABHMACKey: eabHMAC,
 	})
+}
+
+// dnsProvider builds the issuer's DNS-01 provider; "freya-dns" acts for the
+// issuer's tenant through the DNS module (no stored credentials).
+func (s *Service) dnsProvider(issuer store.Issuer, settings sealed.Settings) (acme.DNSProvider, error) {
+	deps := acme.ProviderDeps{TenantID: issuer.TenantID}
+	if s.freyaDNS != nil {
+		deps.FreyaDNS = s.freyaDNS
+	}
+	return acme.NewProviderWith(issuer.DNSProvider, credsMap(settings["dns_credential"]), deps)
 }
 
 // decodeEABKey accepts an EAB HMAC key in base64url (preferred, per ACME) or

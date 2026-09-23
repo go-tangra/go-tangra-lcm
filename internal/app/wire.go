@@ -44,6 +44,10 @@ func Wire(a *App) error {
 		a.CA = ca.New(a.Repo, a.Envelope)
 	}
 	a.Issue = issue.New(a.Repo, a.CA, a.Envelope, a.Authz, a.Audit, nil)
+	if cfg.DNS.Service != "" {
+		// The "freya-dns" ACME provider publishes challenges through the DNS module.
+		a.Issue.SetFreyaDNS(&lazyDNS{app: a, service: cfg.DNS.Service})
+	}
 
 	a.Hub = stream.NewHub(a.KV, stream.Config{ReplayWindow: cfg.ReplayWindow(), StreamsPerUser: cfg.Limits.StreamsPerUser, StreamsPerTenant: cfg.Limits.StreamsPerTenant}, a.Log)
 	a.closers = append(a.closers, a.Hub.Close)

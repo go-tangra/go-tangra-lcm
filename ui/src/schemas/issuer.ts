@@ -5,6 +5,15 @@ import { SET_MARKER } from '@/api/types'
 export const ISSUER_TYPES = ['self_signed', 'acme'] as const
 export const KEY_TYPES = ['ecdsa-p256', 'ecdsa-p384', 'rsa-2048', 'rsa-4096'] as const
 
+/** The platform DNS module provider: no credentials (mesh identity), hosted zones only. */
+export const FREYA_DNS_PROVIDER = 'freya-dns'
+
+/** An explanatory hint for DNS providers that take no credential inputs. */
+export function providerHint(name: string | undefined): string {
+  if (name === FREYA_DNS_PROVIDER) return 'Challenges are published through the platform DNS module; no credentials are needed. Every certificate domain must be hosted in a zone of this tenant in the DNS module.'
+  return ''
+}
+
 /** A write-only secret field: blank or the stored marker means "unchanged". */
 export const writeOnlySecret = optionalString(4096).transform((v) => (v === SET_MARKER ? undefined : v))
 

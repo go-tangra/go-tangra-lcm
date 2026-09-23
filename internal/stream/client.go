@@ -54,6 +54,14 @@ func NewMemory() *Memory {
 	return &Memory{streams: map[string][]Entry{}, counters: map[string]counter{}, notify: make(chan struct{}), Now: time.Now}
 }
 
+// SetErr injects (or with nil clears) an outage under the lock, so a test can
+// flip it while hub loops are reading.
+func (m *Memory) SetErr(err error) {
+	m.mu.Lock()
+	m.Err = err
+	m.mu.Unlock()
+}
+
 // ID builds a stream id from a time and a sequence (test helper).
 func ID(at time.Time, seq int64) string {
 	return strconv.FormatInt(at.UnixMilli(), 10) + "-" + strconv.FormatInt(seq, 10)
@@ -82,9 +90,9 @@ func Less(a, b string) bool {
 
 func (m *Memory) XAdd(_ context.Context, key string, fields map[string]string, maxLen int64) (string, error) {
 	m.mu.Lock()
-	if m.Err != nil {
+	if err := m.Err; err != nil {
 		m.mu.Unlock()
-		return "", m.Err
+		return "", err
 	}
 	m.seq++
 	id := ID(m.Now(), m.seq)
@@ -118,9 +126,9 @@ func (m *Memory) after(key, afterID string, count int64) []Entry {
 
 func (m *Memory) XRead(ctx context.Context, key, afterID string, block time.Duration, count int64) ([]Entry, error) {
 	m.mu.Lock()
-	if m.Err != nil {
+	if err := m.Err; err != nil {
 		m.mu.Unlock()
-		return nil, m.Err
+		return nil, err
 	}
 	if afterID == "" || afterID == "$" {
 		afterID = "0-0"
@@ -143,8 +151,8 @@ func (m *Memory) XRead(ctx context.Context, key, afterID string, block time.Dura
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.Err != nil {
-		return nil, m.Err
+	if err := m.Err; err != nil {
+		return nil, err
 	}
 	return m.after(key, afterID, count), nil
 }
@@ -152,8 +160,8 @@ func (m *Memory) XRead(ctx context.Context, key, afterID string, block time.Dura
 func (m *Memory) XRange(_ context.Context, key, afterID string, count int64) ([]Entry, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.Err != nil {
-		return nil, m.Err
+	if err := m.Err; err != nil {
+		return nil, err
 	}
 	return m.after(key, afterID, count), nil
 }
@@ -161,8 +169,8 @@ func (m *Memory) XRange(_ context.Context, key, afterID string, count int64) ([]
 func (m *Memory) XLast(_ context.Context, key string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.Err != nil {
-		return "", m.Err
+	if err := m.Err; err != nil {
+		return "", err
 	}
 	if n := len(m.streams[key]); n > 0 {
 		return m.streams[key][n-1].ID, nil
@@ -173,8 +181,8 @@ func (m *Memory) XLast(_ context.Context, key string) (string, error) {
 func (m *Memory) XTrimMinID(_ context.Context, key, minID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.Err != nil {
-		return m.Err
+	if err := m.Err; err != nil {
+		return err
 	}
 	var keep []Entry
 	for _, e := range m.streams[key] {
@@ -189,8 +197,8 @@ func (m *Memory) XTrimMinID(_ context.Context, key, minID string) error {
 func (m *Memory) Incr(_ context.Context, key string, ttl time.Duration) (int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.Err != nil {
-		return 0, m.Err
+	if err := m.Err; err != nil {
+		return 0, err
 	}
 	now := m.Now()
 	c := m.counters[key]

@@ -77,13 +77,6 @@ func (m *Mem) Atomic(_ context.Context, _ string, fn func(repo.Store) error) err
 
 // ---- helpers
 
-func strp(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
 func lower(s string) string { return strings.ToLower(s) }
 
 func cloneBytes(b []byte) []byte {

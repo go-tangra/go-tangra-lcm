@@ -166,7 +166,7 @@ func TestCSR(t *testing.T) {
 			t.Fatal("decode seed")
 		}
 		der := append([]byte(nil), block.Bytes...)
-		if bytes.Index(der, []byte(cn)) < 0 {
+		if !bytes.Contains(der, []byte(cn)) {
 			t.Fatal("CN not found in DER")
 		}
 		// Corrupt the trailing signature bytes: the ASN.1 structure still

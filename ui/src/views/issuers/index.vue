@@ -4,7 +4,7 @@ import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiBadge, UiIcon, UiDraw
 import { useZodForm } from '@freya/ui/forms'
 import { useIssuers } from '@/stores/issuers'
 import { describe } from '@/api/client'
-import { issuerSchema, ISSUER_TYPES, KEY_TYPES } from '@/schemas'
+import { issuerSchema, ISSUER_TYPES, KEY_TYPES, providerHint } from '@/schemas'
 import { SET_MARKER, type Issuer, type IssuerInput } from '@/api/types'
 
 const store = useIssuers()
@@ -39,6 +39,7 @@ const form = useZodForm(issuerSchema, {
 })
 const isAcme = computed(() => form.values.type === 'acme')
 const providerFields = computed(() => providers.value.find((p) => p.name === form.values.dns_provider)?.fields ?? [])
+const dnsHint = computed(() => providerHint(String(form.values.dns_provider ?? '')))
 const creds = computed(() => (form.values.credentials ?? {}) as Record<string, string>)
 function setCred(key: string, v: unknown): void {
   form.values.credentials = { ...creds.value, [key]: String(v ?? '') }
@@ -102,6 +103,7 @@ const columns: Column<Issuer>[] = [
               <UiInput v-bind="form.field('email')" label="Account email" type="email" required data-test="issuer-acme-email" />
               <UiSelect v-bind="form.field('dns_provider')" label="DNS provider" :options="providerOptions" required data-test="issuer-dns-provider" />
               <UiAlert v-if="!providers.length" kind="info">No DNS providers are configured on this deployment.</UiAlert>
+              <UiAlert v-if="dnsHint" kind="info" data-test="issuer-dns-hint">{{ dnsHint }}</UiAlert>
               <template v-for="f in providerFields" :key="f.key">
                 <UiSecretField v-if="f.secret" :id="'cred-' + f.key" :model-value="creds[f.key] ?? ''" :label="f.label + (f.required ? '' : ' (optional)')" hint="Leave “__set__” to keep the stored value." :data-test="'issuer-cred-' + f.key" @update:model-value="setCred(f.key, $event)" />
                 <UiInput v-else :id="'cred-' + f.key" :model-value="creds[f.key] ?? ''" :label="f.label + (f.required ? '' : ' (optional)')" :data-test="'issuer-cred-' + f.key" @update:model-value="setCred(f.key, $event)" />

@@ -185,6 +185,14 @@ var registry = []ProviderInfo{
 		DisplayName: "Manual / Out-of-band",
 		Fields:      []ProviderField{},
 	},
+	{
+		// The platform's own DNS module: challenge values are published over
+		// the mesh with lcm's SPIFFE identity, so no credential is stored. The
+		// certificate domains must be hosted in the issuer tenant's zones.
+		Name:        FreyaDNS,
+		DisplayName: "Freya DNS",
+		Fields:      []ProviderField{},
+	},
 }
 
 // Providers returns a copy of the DNS-provider registry the API lists. The
@@ -199,23 +207,27 @@ func Providers() []ProviderInfo {
 	return out
 }
 
-// lookup returns the registry entry for name, or false if unknown.
-func lookup(name string) (ProviderInfo, bool) {
-	for _, p := range registry {
-		if p.Name == name {
-			return p, true
-		}
-	}
-	return ProviderInfo{}, false
+// ProviderDeps carries what providers backed by platform services need: the
+// DNS module client for "freya-dns" and the issuer's tenant it acts for.
+type ProviderDeps struct {
+	FreyaDNS FreyaDNSClient
+	TenantID string
 }
 
 // NewProvider constructs a DNSProvider for a registry name from the supplied
-// credentials. It returns the no-op/manual recorder for "manual" (the only
-// adapter with a working in-process implementation today), and
-// ErrUnsupportedProvider for every registered-but-not-yet-implemented provider
-// and for unknown names. It never panics and never includes a credential value
-// in its error: the returned error names only the provider, never the secret.
+// credentials, without platform dependencies (NewProviderWith with empty deps:
+// "freya-dns" is then unsupported).
 func NewProvider(name string, creds map[string]string) (DNSProvider, error) {
+	return NewProviderWith(name, creds, ProviderDeps{})
+}
+
+// NewProviderWith constructs a DNSProvider for a registry name. It returns the
+// no-op/manual recorder for "manual", the Freya DNS provider for "freya-dns"
+// when deps carry a DNS client and a tenant, and ErrUnsupportedProvider for
+// every registered-but-not-yet-implemented provider, for freya-dns without its
+// dependencies and for unknown names. It never panics and never includes a
+// credential value in its error.
+func NewProviderWith(name string, creds map[string]string, deps ProviderDeps) (DNSProvider, error) {
 	for _, v := range creds {
 		if len(v) > MaxCredValueBytes {
 			// Reject over-large input as data; the value itself is never echoed.
@@ -225,11 +237,13 @@ func NewProvider(name string, creds map[string]string) (DNSProvider, error) {
 	switch name {
 	case "manual":
 		return &NoopProvider{}, nil
-	default:
-		if _, ok := lookup(name); ok {
-			// Registered for listing, but no adapter is wired yet.
+	case FreyaDNS:
+		if deps.FreyaDNS == nil || deps.TenantID == "" {
 			return nil, ErrUnsupportedProvider
 		}
+		return &FreyaDNSProvider{client: deps.FreyaDNS, tenantID: deps.TenantID}, nil
+	default:
+		// Registered for listing but no adapter is wired yet, or unknown.
 		return nil, ErrUnsupportedProvider
 	}
 }

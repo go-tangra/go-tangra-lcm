@@ -9,7 +9,7 @@ import Dashboard from '@/views/dashboard/index.vue'
 import Audit from '@/views/audit/index.vue'
 import Secrets from '@/views/secrets/index.vue'
 import HeaderCert from '@/components/HeaderCert.vue'
-import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSchema } from '@/schemas'
+import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSchema, providerHint, FREYA_DNS_PROVIDER } from '@/schemas'
 
 class FakeSource { onopen = null; onerror = null; addEventListener() {} close() {} }
 const mountView = (c: unknown) => mount(c as never, { global: { plugins: plugins() }, attachTo: document.body })
@@ -69,6 +69,33 @@ describe('issuers view', () => {
     // The unchanged secret marker is not resent.
     expect(bodies[0]?.secrets).toBeUndefined()
     expect(bodies[0]?.settings).toMatchObject({ dns_provider: 'route53', email: 'ops@x.test' })
+    w.unmount()
+  })
+
+  it('Freya DNS: no credential inputs, a hosted-zone hint, and no secrets sent', async () => {
+    expect(providerHint(FREYA_DNS_PROVIDER)).toContain('DNS module')
+    expect(providerHint('route53')).toBe('')
+    const bodies: Array<Record<string, unknown>> = []
+    const issuer = { id: 'i2', name: 'le', type: 'acme' as const, trust_domain: 'example.org', is_default: false, settings: { dns_provider: 'freya-dns', email: 'ops@x.test', directory: 'https://acme.test/dir' }, permissions: { delete: true } }
+    stubFetch((url, init) => {
+      if (url.endsWith('/dns-providers')) return { status: 200, body: { items: [{ name: 'route53', display_name: 'AWS Route 53', fields: [{ key: 'secret_key', label: 'Secret key', secret: true, required: true }] }, { name: 'freya-dns', display_name: 'Freya DNS', fields: [] }] } }
+      if (init?.method === 'PUT') {
+        bodies.push(JSON.parse(String(init.body)))
+        return { status: 200, body: issuer }
+      }
+      if (url.includes('/issuers') && (!init || init.method === 'GET')) return { status: 200, body: { items: [issuer] } }
+      return { status: 404, body: { reason: 'not_found' } }
+    })
+    const w = mountView(Issuers)
+    await flushPromises()
+    await w.find('[data-test="issuer-row-i2"]').trigger('click')
+    await flushPromises()
+    expect(drawer().querySelector('[data-test="issuer-dns-hint"]')?.textContent).toContain('hosted in a zone')
+    expect(drawer().querySelector('[data-test^="issuer-cred-"]')).toBeNull()
+    ;(drawer().querySelector('[data-test="issuer-save"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(bodies[0]?.secrets).toBeUndefined()
+    expect(bodies[0]?.settings).toMatchObject({ dns_provider: 'freya-dns' })
     w.unmount()
   })
 

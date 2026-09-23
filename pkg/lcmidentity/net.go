@@ -216,8 +216,8 @@ func (p *NetProvider) mtlsConn() (*grpc.ClientConn, error) {
 		// bundle we hold. This is NOT weakened by cfg.Insecure: once enrolled the
 		// workload has real trust, so the renewal channel is always authenticated
 		// both ways.
-		InsecureSkipVerify:    true, // #nosec G402 -- replaced by VerifyPeerCertificate below (SPIFFE-aware)
-		VerifyPeerCertificate: p.verifyLCMServer,
+		InsecureSkipVerify:    true,              // #nosec G402 -- replaced by VerifyPeerCertificate below (SPIFFE-aware)
+		VerifyPeerCertificate: p.verifyLCMServer, // #nosec G123 -- client config without a ClientSessionCache: no session resumption, every handshake runs the verifier
 		MinVersion:            tls.VersionTLS13,
 	}
 	conn, err := grpc.NewClient(p.cfg.LCMGRPCTarget, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))

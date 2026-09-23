@@ -70,28 +70,29 @@ func TestValidateAcceptsDevAndProduction(t *testing.T) {
 
 func TestValidateRejects(t *testing.T) {
 	cases := map[string]func(*Config){
-		"service_name":         func(c *Config) { c.ServiceName = "" },
-		"db.dsn required":      func(c *Config) { c.DB.DSN = "" },
-		"db.dsn prod ssl":      func(c *Config) { production(c); c.DB.DSN = "postgres://u:p@db/lcm?sslmode=disable" },
-		"valkey addresses":     func(c *Config) { c.Valkey.Addresses = nil },
-		"valkey plaintext":     func(c *Config) { production(c); c.Valkey.AllowPlaintext = true },
-		"kek file path":        func(c *Config) { c.KEK = KEK{Source: "file"} },
-		"kek env":              func(c *Config) { c.KEK = KEK{Source: "env"} },
-		"kek source":           func(c *Config) { c.KEK = KEK{Source: "vault"} },
-		"renewal interval":     func(c *Config) { c.Renewal.IntervalSeconds = 0 },
-		"renewal lease":        func(c *Config) { c.Renewal.LeaseSeconds = 1 },
-		"renewal workers":      func(c *Config) { c.Renewal.Workers = 0 },
-		"renewal fraction":     func(c *Config) { c.Renewal.ShortLivedFraction = 0 },
-		"renewal long lived":   func(c *Config) { c.Renewal.LongLivedDays = 0 },
-		"acme plaintext prod":  func(c *Config) { production(c); c.ACME.AllowPlaintextDNS = true },
-		"gateway service":      func(c *Config) { c.Gateway.Service = "" },
-		"gateway issuer":       func(c *Config) { c.Gateway.Issuer = "http://insecure" },
-		"backup max bytes":     func(c *Config) { c.Limits.BackupMaxBytes = 1 << 20 },
-		"max request too low":  func(c *Config) { c.Config.Limits.MaxRequestBytes = 1 << 10 },
-		"csr max bytes":        func(c *Config) { c.Limits.CSRMaxBytes = 1 },
-		"webhook max bytes":    func(c *Config) { c.Limits.WebhookMaxBytes = 1 },
-		"streams per user":     func(c *Config) { c.Limits.StreamsPerUser = 0 },
-		"replay window":        func(c *Config) { c.Limits.ReplayWindowSeconds = 1 },
+		"service_name":        func(c *Config) { c.ServiceName = "" },
+		"db.dsn required":     func(c *Config) { c.DB.DSN = "" },
+		"db.dsn prod ssl":     func(c *Config) { production(c); c.DB.DSN = "postgres://u:p@db/lcm?sslmode=disable" },
+		"valkey addresses":    func(c *Config) { c.Valkey.Addresses = nil },
+		"valkey plaintext":    func(c *Config) { production(c); c.Valkey.AllowPlaintext = true },
+		"kek file path":       func(c *Config) { c.KEK = KEK{Source: "file"} },
+		"kek env":             func(c *Config) { c.KEK = KEK{Source: "env"} },
+		"kek source":          func(c *Config) { c.KEK = KEK{Source: "vault"} },
+		"renewal interval":    func(c *Config) { c.Renewal.IntervalSeconds = 0 },
+		"renewal lease":       func(c *Config) { c.Renewal.LeaseSeconds = 1 },
+		"renewal workers":     func(c *Config) { c.Renewal.Workers = 0 },
+		"renewal fraction":    func(c *Config) { c.Renewal.ShortLivedFraction = 0 },
+		"renewal long lived":  func(c *Config) { c.Renewal.LongLivedDays = 0 },
+		"acme plaintext prod": func(c *Config) { production(c); c.ACME.AllowPlaintextDNS = true },
+		"gateway service":     func(c *Config) { c.Gateway.Service = "" },
+		"gateway issuer":      func(c *Config) { c.Gateway.Issuer = "http://insecure" },
+		"backup max bytes":    func(c *Config) { c.Limits.BackupMaxBytes = 1 << 20 },
+		"max request too low": func(c *Config) { c.Config.Limits.MaxRequestBytes = 1 << 10 },
+		"csr max bytes":       func(c *Config) { c.Limits.CSRMaxBytes = 1 },
+		"webhook max bytes":   func(c *Config) { c.Limits.WebhookMaxBytes = 1 },
+		"streams per user":    func(c *Config) { c.Limits.StreamsPerUser = 0 },
+		"replay window":       func(c *Config) { c.Limits.ReplayWindowSeconds = 1 },
+		"dns service":         func(c *Config) { c.DNS.Service = "dns:9965/evil" },
 	}
 	for name, mut := range cases {
 		c := valid()
@@ -126,5 +127,16 @@ func TestLoad(t *testing.T) {
 	}
 	if _, err := Load(bad); err == nil {
 		t.Fatal("unknown field: expected error")
+	}
+}
+
+func TestDNSServiceOptional(t *testing.T) {
+	c := valid()
+	if c.DNS.Service != "" || c.Validate() != nil {
+		t.Fatalf("default dns section = %+v", c.DNS)
+	}
+	c.DNS.Service = "dns"
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
 	}
 }

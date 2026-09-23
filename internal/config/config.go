@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -26,6 +27,7 @@ type Config struct {
 	Renewal Renewal `yaml:"renewal"`
 	Gateway Gateway `yaml:"gateway"`
 	ACME    ACME    `yaml:"acme"`
+	DNS     DNS     `yaml:"dns"`
 	Limits  Limits  `yaml:"limits_lcm"`
 	// EnrollListener, if set, runs a server-auth-only (no client cert) TLS
 	// listener serving only POST /api/lcm/v1/enroll, so a service with no SVID
@@ -75,6 +77,16 @@ type Gateway struct {
 type ACME struct {
 	AllowPlaintextDNS bool `yaml:"allow_plaintext_dns"` // development mock DNS/ACME only
 }
+
+// DNS names the platform DNS module behind the "freya-dns" ACME provider
+// (dialled lazily over SPIFFE mTLS via discovery). Empty = the provider is
+// unavailable on this deployment.
+type DNS struct {
+	Service string `yaml:"service"`
+}
+
+// serviceNameRE is the discovery service-name grammar.
+var serviceNameRE = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
 // Limits bound the module's own request shapes and rates.
 type Limits struct {
@@ -164,6 +176,9 @@ func (c Config) Validate() error {
 	}
 	if c.Gateway.Service == "" {
 		return errors.New("config: gateway.service is required")
+	}
+	if c.DNS.Service != "" && !serviceNameRE.MatchString(c.DNS.Service) {
+		return errors.New("config: dns.service must be a discovery service name")
 	}
 	if iu, err := url.Parse(c.Gateway.Issuer); err != nil || iu.Scheme != "https" || iu.Host == "" {
 		return errors.New("config: gateway.issuer must be an https origin")

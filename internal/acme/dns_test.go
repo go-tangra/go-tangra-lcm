@@ -11,7 +11,7 @@ func TestProvidersRegistry(t *testing.T) {
 	got := Providers()
 	want := []string{
 		"cloudflare", "route53", "gcloud", "digitalocean", "acmedns",
-		"powerdns", "hurricane", "httpreq", "easydns", "manual",
+		"powerdns", "hurricane", "httpreq", "easydns", "manual", "freya-dns",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("Providers() returned %d entries, want %d", len(got), len(want))
@@ -29,11 +29,12 @@ func TestProvidersRegistry(t *testing.T) {
 		}
 	}
 
-	// Every non-manual provider must advertise at least one required secret field.
+	// Every credential-based provider must advertise at least one required
+	// secret field; manual and freya-dns (mesh identity) take none.
 	for _, name := range want {
-		if name == "manual" {
+		if name == "manual" || name == "freya-dns" {
 			if len(byName[name].Fields) != 0 {
-				t.Errorf("manual provider should have no fields, got %d", len(byName[name].Fields))
+				t.Errorf("%s provider should have no fields, got %d", name, len(byName[name].Fields))
 			}
 			continue
 		}
@@ -89,7 +90,7 @@ func TestNewProviderManual(t *testing.T) {
 }
 
 func TestNewProviderUnsupported(t *testing.T) {
-	for _, name := range []string{"cloudflare", "route53", "gcloud", "digitalocean", "unknown-xyz"} {
+	for _, name := range []string{"cloudflare", "route53", "gcloud", "digitalocean", "unknown-xyz", "freya-dns"} {
 		p, err := NewProvider(name, map[string]string{"api_token": "secret-value"})
 		if p != nil {
 			t.Errorf("NewProvider(%q) returned a non-nil provider", name)

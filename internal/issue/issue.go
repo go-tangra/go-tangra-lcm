@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/go-freya/freya/services/lcm/internal/acme"
 	"github.com/go-freya/freya/services/lcm/internal/audit"
 	"github.com/go-freya/freya/services/lcm/internal/authz"
 	"github.com/go-freya/freya/services/lcm/internal/ca"
@@ -79,6 +80,10 @@ type Service struct {
 	az    *authz.Authorizer
 	audit *audit.Writer
 	now   func() time.Time
+
+	// freyaDNS is the DNS module client behind the "freya-dns" ACME provider
+	// (nil = that provider is unavailable on this deployment).
+	freyaDNS acme.FreyaDNSClient
 }
 
 // New wires the service. clock defaults to time.Now when nil.
@@ -88,6 +93,10 @@ func New(st repo.Store, authority *ca.Authority, env *sealed.Envelope, az *authz
 	}
 	return &Service{st: st, ca: authority, env: env, az: az, audit: aw, now: clock}
 }
+
+// SetFreyaDNS wires the DNS module client used by ACME issuers that select the
+// "freya-dns" provider (nil disables it).
+func (s *Service) SetFreyaDNS(c acme.FreyaDNSClient) { s.freyaDNS = c }
 
 // SetClock injects the clock (tests).
 func (s *Service) SetClock(now func() time.Time) {
@@ -109,7 +118,7 @@ type IssueInput struct {
 	// RetainKey keeps a module-generated key sealed for later download instead
 	// of clearing it after one-time delivery (used by the async issue path,
 	// where the key cannot be returned inline).
-	RetainKey       bool
+	RetainKey bool
 }
 
 // Bundle is the result of issuance or download. KeyPEM is populated only once,
