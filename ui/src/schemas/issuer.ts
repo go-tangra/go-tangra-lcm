@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { nonEmpty, optionalString, email, positiveInt } from '@freya/ui/forms'
+import { nonEmpty, optionalString, email, positiveInt } from '@go-tangra/ui/forms'
 import { SET_MARKER } from '@/api/types'
 
 export const ISSUER_TYPES = ['self_signed', 'acme'] as const

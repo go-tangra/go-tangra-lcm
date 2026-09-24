@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isoDate } from '@freya/ui/forms'
+import { isoDate } from '@go-tangra/ui/forms'
 
 export const RELATIONS = ['viewer', 'sharer', 'editor', 'owner'] as const
 

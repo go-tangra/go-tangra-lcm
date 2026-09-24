@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { nonEmpty, jsonObject, optionalString, email } from '@freya/ui/forms'
+import { nonEmpty, jsonObject, optionalString, email } from '@go-tangra/ui/forms'
 
 export const SECRET_KINDS = ['acme_account', 'dns_credential'] as const
 

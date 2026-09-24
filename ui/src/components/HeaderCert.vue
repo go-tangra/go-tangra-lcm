@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { UiIcon, UiBadge } from '@freya/ui'
+import { UiIcon, UiBadge } from '@go-tangra/ui'
 import { useOps } from '@/stores/ops'
 import { useCertificates } from '@/stores/certificates'
 import { useLive } from '@/stores/live'

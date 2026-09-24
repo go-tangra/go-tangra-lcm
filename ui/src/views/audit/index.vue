@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
-import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiButton, UiDataTable, UiStatusChip, type Column } from '@freya/ui'
-import { useZodForm } from '@freya/ui/forms'
+import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiButton, UiDataTable, UiStatusChip, type Column } from '@go-tangra/ui'
+import { useZodForm } from '@go-tangra/ui/forms'
 import { useOps } from '@/stores/ops'
 import { useDirectory } from '@/stores/directory'
 import { auditFilterSchema } from '@/schemas'

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import { UiPage, UiAlert, UiCard, UiStatGrid, UiStatTile, UiBarList, UiStatusChip, UiEmptyState, type BarItem } from '@freya/ui'
+import { UiPage, UiAlert, UiCard, UiStatGrid, UiStatTile, UiBarList, UiStatusChip, UiEmptyState, type BarItem } from '@go-tangra/ui'
 import { useOps } from '@/stores/ops'
 import { useCertificates } from '@/stores/certificates'
 

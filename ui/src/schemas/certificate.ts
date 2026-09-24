@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { nonEmpty, optionalString, positiveInt } from '@freya/ui/forms'
+import { nonEmpty, optionalString, positiveInt } from '@go-tangra/ui/forms'
 
 export const CERTIFICATE_STATUSES = ['active', 'expiring', 'expired', 'revoked'] as const
 

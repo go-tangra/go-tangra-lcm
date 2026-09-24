@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiBadge, UiIcon, UiDrawer, UiForm, UiInput, UiSelect, UiTextarea, UiSecretField, useConfirm, type Column, type SelectOption } from '@freya/ui'
-import { useZodForm } from '@freya/ui/forms'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiBadge, UiIcon, UiDrawer, UiForm, UiInput, UiSelect, UiTextarea, UiSecretField, useConfirm, type Column, type SelectOption } from '@go-tangra/ui'
+import { useZodForm } from '@go-tangra/ui/forms'
 import { useSecrets } from '@/stores/secrets'
 import { describe } from '@/api/client'
 import { secretSchema, webhookSchema, SECRET_KINDS } from '@/schemas'
