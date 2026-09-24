@@ -9,12 +9,12 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	lcmv1 "github.com/go-freya/freya/services/lcm/api/proto/lcm/v1"
-	"github.com/go-freya/freya/services/lcm/internal/ca"
-	"github.com/go-freya/freya/services/lcm/internal/enroll"
-	"github.com/go-freya/freya/services/lcm/internal/issue"
-	"github.com/go-freya/freya/services/lcm/internal/store"
-	"github.com/go-freya/freya/services/lcm/internal/stream"
+	lcmv1 "github.com/go-tangra/go-tangra-lcm/sdk/v4/api/proto/lcm/v1"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/ca"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/enroll"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/stream"
 )
 
 // Repo is the read access the SVID Verify method needs (repo.Store satisfies it).

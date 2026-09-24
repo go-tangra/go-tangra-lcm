@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/csr"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/csr"
 )
 
 func main() {

@@ -16,15 +16,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/go-freya/freya/authn"
-	lcmv1 "github.com/go-freya/freya/services/lcm/api/proto/lcm/v1"
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/ca"
-	"github.com/go-freya/freya/services/lcm/internal/csr"
-	"github.com/go-freya/freya/services/lcm/internal/enroll"
-	"github.com/go-freya/freya/services/lcm/internal/issue"
-	"github.com/go-freya/freya/services/lcm/internal/store"
-	"github.com/go-freya/freya/services/lcm/internal/stream"
+	lcmv1 "github.com/go-tangra/go-tangra-lcm/sdk/v4/api/proto/lcm/v1"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/ca"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/csr"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/enroll"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/stream"
+	"github.com/go-tangra/go-tangra/v4/authn"
 )
 
 var uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)

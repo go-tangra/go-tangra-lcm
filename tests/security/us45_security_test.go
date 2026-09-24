@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/audit"
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
-	"github.com/go-freya/freya/services/lcm/internal/secrets"
-	"github.com/go-freya/freya/services/lcm/internal/transfer"
-	"github.com/go-freya/freya/services/lcm/internal/webhook"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/secrets"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/transfer"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/webhook"
 )
 
 const marker = "LCM-MARKER-SECRET-VALUE"

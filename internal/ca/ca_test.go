@@ -16,10 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/memstore"
-	"github.com/go-freya/freya/services/lcm/internal/repo"
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 var testNow = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)

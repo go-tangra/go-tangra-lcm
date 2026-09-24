@@ -14,8 +14,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-freya/freya/services/lcm/internal/acme"
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/acme"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
 )
 
 type fakeDNS struct{ tenants []string }

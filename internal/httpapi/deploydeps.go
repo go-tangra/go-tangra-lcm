@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/deploy"
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/deploy"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
 )
 
 // DeployDeps are the services behind the installed-certificate and

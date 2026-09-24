@@ -7,12 +7,12 @@ import (
 	"errors"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/acme"
-	"github.com/go-freya/freya/services/lcm/internal/audit"
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/repo"
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/acme"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 // IssuerInput is a create/update request. Settings holds credential fields

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-freya/freya/services/lcm/internal/stream"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/stream"
 )
 
 // FuzzSSEFrame: the SSE frame encoder never panics and never lets event data

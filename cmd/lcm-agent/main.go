@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/pkg/lcmclient"
+	"github.com/go-tangra/go-tangra-lcm/sdk/v4/pkg/lcmclient"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"

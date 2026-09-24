@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/revoke"
-	"github.com/go-freya/freya/services/lcm/internal/stats"
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/revoke"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/stats"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 // AuditReader reads the audit trail (repo.Store satisfies it).

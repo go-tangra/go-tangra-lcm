@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/issue"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
 )
 
 // TestUS2_EntitlementMatrix: a viewer reads but cannot revoke; a caller with no

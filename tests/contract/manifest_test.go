@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/pkg/lcmmanifest"
+	"github.com/go-tangra/go-tangra-lcm/v4/pkg/lcmmanifest"
 )
 
 // TestManifestMatchesContract builds the manifest from the OpenAPI document

@@ -44,8 +44,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/go-freya/freya/services/lcm/internal/acme"
-	"github.com/go-freya/freya/services/lcm/pkg/dnschallenge"
+	"github.com/go-tangra/go-tangra-lcm/sdk/v4/pkg/dnschallenge"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/acme"
 )
 
 const (

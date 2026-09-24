@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-freya/freya/identity"
+	"github.com/go-tangra/go-tangra/v4/identity"
 )
 
 // CA is the subset of *ca.Authority this provider needs. *ca.Authority

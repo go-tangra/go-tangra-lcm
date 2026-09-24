@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/auth/pkg/authclient"
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 const (

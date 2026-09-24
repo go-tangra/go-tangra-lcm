@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/audit"
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/ca"
-	"github.com/go-freya/freya/services/lcm/internal/issue"
-	"github.com/go-freya/freya/services/lcm/internal/memstore"
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/ca"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 var clk = time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)

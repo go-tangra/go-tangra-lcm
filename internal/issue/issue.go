@@ -22,14 +22,14 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/acme"
-	"github.com/go-freya/freya/services/lcm/internal/audit"
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/ca"
-	"github.com/go-freya/freya/services/lcm/internal/csr"
-	"github.com/go-freya/freya/services/lcm/internal/repo"
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/acme"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/ca"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/csr"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 // Validity bounds (seconds). A request of 0 uses the default; anything else is

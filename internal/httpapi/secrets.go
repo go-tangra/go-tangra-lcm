@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
-	"github.com/go-freya/freya/services/lcm/internal/secrets"
-	"github.com/go-freya/freya/services/lcm/internal/webhook"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/secrets"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/webhook"
 )
 
 // SecretDeps are the services behind the tenant-secret routes.

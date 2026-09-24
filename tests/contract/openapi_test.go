@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-freya/freya/internal/testrt"
-	"github.com/go-freya/freya/internal/testutil"
-	"github.com/go-freya/freya/services/lcm/internal/httpapi"
-	"github.com/go-freya/freya/services/lcm/pkg/lcmmanifest"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/httpapi"
+	"github.com/go-tangra/go-tangra-lcm/v4/pkg/lcmmanifest"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testrt"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testutil"
 )
 
 // TestOpenAPIDocument proves the contract parses, every operation has an id,

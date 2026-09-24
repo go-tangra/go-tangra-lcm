@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	lcmv1 "github.com/go-freya/freya/services/lcm/api/proto/lcm/v1"
+	lcmv1 "github.com/go-tangra/go-tangra-lcm/sdk/v4/api/proto/lcm/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"

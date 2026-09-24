@@ -10,7 +10,7 @@ package lcm.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/go-freya/freya/services/lcm/api/proto/lcm/v1;lcmv1";
+option go_package = "github.com/go-tangra/go-tangra-lcm/sdk/v4/api/proto/lcm/v1;lcmv1";
 
 // SVID issues, renews, revokes and verifies certificates for modules.
 service SVID {

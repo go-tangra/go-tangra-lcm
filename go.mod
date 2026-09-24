@@ -1,22 +1,22 @@
-module github.com/go-freya/freya/services/lcm
+module github.com/go-tangra/go-tangra-lcm/v4
 
-go 1.26.0
+go 1.26.3
 
 toolchain go1.26.8
 
 require (
 	github.com/getkin/kin-openapi v0.149.0
-	github.com/go-freya/freya v0.0.0-00010101000000-000000000000
-	github.com/go-freya/freya/services/auth v0.0.0-00010101000000-000000000000
-	github.com/go-freya/freya/services/gateway v0.0.0-00010101000000-000000000000
 	github.com/go-kratos/kratos/v3 v3.0.0
-	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/go-tangra/go-tangra-auth/sdk/v4 v4.0.0
+	github.com/go-tangra/go-tangra-lcm/sdk/v4 v4.0.0
+	github.com/go-tangra/go-tangra-portal/sdk/v4 v4.0.0
+	github.com/go-tangra/go-tangra/v4 v4.0.0
 	github.com/jackc/pgx/v5 v5.11.0
-	github.com/moby/moby/client v0.5.1
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/valkey-io/valkey-go v1.0.78
+	golang.org/x/crypto v0.57.0
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
@@ -45,6 +45,7 @@ require (
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect
 	github.com/go-openapi/swag/jsonname v0.25.5 // indirect
 	github.com/go-playground/form/v4 v4.3.0 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
@@ -58,6 +59,7 @@ require (
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect
 	github.com/moby/moby/api v1.55.0 // indirect
+	github.com/moby/moby/client v0.5.1 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/sequential v0.7.0 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect
@@ -86,7 +88,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
@@ -94,9 +95,3 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a // indirect
 )
-
-replace github.com/go-freya/freya => ../..
-
-replace github.com/go-freya/freya/services/auth => ../auth
-
-replace github.com/go-freya/freya/services/gateway => ../gateway

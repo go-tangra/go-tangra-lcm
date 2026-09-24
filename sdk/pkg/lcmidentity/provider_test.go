@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	lcmv1 "github.com/go-freya/freya/services/lcm/api/proto/lcm/v1"
+	lcmv1 "github.com/go-tangra/go-tangra-lcm/sdk/v4/api/proto/lcm/v1"
 )
 
 // fakeCA signs enrollment CSRs for the test.

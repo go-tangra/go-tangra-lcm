@@ -14,10 +14,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/issue"
-	"github.com/go-freya/freya/services/lcm/internal/repo"
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 // systemSpiffe is the identity the scheduler acts as when reissuing on behalf

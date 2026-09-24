@@ -5,7 +5,7 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/go-freya/freya/services/lcm/api/schema"
+	"github.com/go-tangra/go-tangra-lcm/v4/api/schema"
 )
 
 // TestBackupSchemaValid proves the embedded backup schema compiles and accepts

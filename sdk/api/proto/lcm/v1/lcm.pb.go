@@ -1237,7 +1237,7 @@ const file_lcm_v1_lcm_proto_rawDesc = "" +
 	"\x05Agent\x12:\n" +
 	"\x05Watch\x12\x14.lcm.v1.WatchRequest\x1a\x19.lcm.v1.CertificateUpdate0\x012N\n" +
 	"\fCertificates\x12>\n" +
-	"\bDownload\x12\x17.lcm.v1.DownloadRequest\x1a\x19.lcm.v1.CertificateBundleB?Z=github.com/go-freya/freya/services/lcm/api/proto/lcm/v1;lcmv1b\x06proto3"
+	"\bDownload\x12\x17.lcm.v1.DownloadRequest\x1a\x19.lcm.v1.CertificateBundleBBZ@github.com/go-tangra/go-tangra-lcm/sdk/v4/api/proto/lcm/v1;lcmv1b\x06proto3"
 
 var (
 	file_lcm_v1_lcm_proto_rawDescOnce sync.Once

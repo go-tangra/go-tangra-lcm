@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-freya/freya/services/lcm/internal/transfer"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/transfer"
 )
 
 // BackupDeps are the services behind the backup export/import routes.

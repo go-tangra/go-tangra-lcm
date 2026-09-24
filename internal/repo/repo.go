@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 // Issuers is the issuer persistence.

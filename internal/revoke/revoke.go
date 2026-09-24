@@ -12,8 +12,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/ca"
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/ca"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 // Repo is the persistence revoke reads.

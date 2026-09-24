@@ -15,82 +15,82 @@ import (
 
 	kmiddleware "github.com/go-kratos/kratos/v3/middleware"
 
-	"github.com/go-freya/freya"
-	authv1 "github.com/go-freya/freya/services/auth/api/proto/auth/v1"
-	"github.com/go-freya/freya/services/auth/pkg/authclient"
-	"github.com/go-freya/freya/services/gateway/pkg/gatewayclient"
-	"github.com/go-freya/freya/services/lcm/internal/audit"
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/ca"
-	"github.com/go-freya/freya/services/lcm/internal/config"
-	"github.com/go-freya/freya/services/lcm/internal/deploy"
-	"github.com/go-freya/freya/services/lcm/internal/enroll"
-	"github.com/go-freya/freya/services/lcm/internal/httpapi"
-	"github.com/go-freya/freya/services/lcm/internal/issue"
-	"github.com/go-freya/freya/services/lcm/internal/renew"
-	"github.com/go-freya/freya/services/lcm/internal/repo"
-	"github.com/go-freya/freya/services/lcm/internal/repo/repodb"
-	"github.com/go-freya/freya/services/lcm/internal/revoke"
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
-	"github.com/go-freya/freya/services/lcm/internal/secrets"
-	"github.com/go-freya/freya/services/lcm/internal/selfidentity"
-	"github.com/go-freya/freya/services/lcm/internal/stats"
-	"github.com/go-freya/freya/services/lcm/internal/store"
-	"github.com/go-freya/freya/services/lcm/internal/stream"
-	"github.com/go-freya/freya/services/lcm/internal/stream/valkeykv"
-	"github.com/go-freya/freya/services/lcm/internal/transfer"
-	"github.com/go-freya/freya/services/lcm/internal/webhook"
-	"github.com/go-freya/freya/services/lcm/pkg/lcmmanifest"
+	authv1 "github.com/go-tangra/go-tangra-auth/sdk/v4/api/proto/auth/v1"
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/ca"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/config"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/deploy"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/enroll"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/httpapi"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/renew"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/repo/repodb"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/revoke"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/secrets"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/selfidentity"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/stats"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/stream"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/stream/valkeykv"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/transfer"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/webhook"
+	"github.com/go-tangra/go-tangra-lcm/v4/pkg/lcmmanifest"
+	"github.com/go-tangra/go-tangra-portal/sdk/v4/pkg/gatewayclient"
+	"github.com/go-tangra/go-tangra/v4"
 )
 
 // Options override infrastructure (tests) and attach optional parts.
 type Options struct {
-	Logger   slog.Handler
-	KV       stream.Client
-	KEK      []byte
-	Verifier httpapi.Verifier
-	GRPCAuth kmiddleware.Middleware
-	Remote   fs.FS
-	Perms    httpapi.PermissionChecker
+	Logger       slog.Handler
+	KV           stream.Client
+	KEK          []byte
+	Verifier     httpapi.Verifier
+	GRPCAuth     kmiddleware.Middleware
+	Remote       fs.FS
+	Perms        httpapi.PermissionChecker
 	EnrollTokens enroll.TokenVerifier
-	Freya    []freya.Option
-	Migrate  bool
+	Freya        []freya.Option
+	Migrate      bool
 	// Register lets the caller mount handlers after the core is wired (Wire).
 	Register func(a *App) error
 }
 
 // App holds every wired component. User-story phases add their services.
 type App struct {
-	Cfg        config.Config
-	Log        *slog.Logger
-	Freya      *freya.App
-	Store      *store.Store
-	Repo       repo.Store
-	KV         stream.Client
-	Envelope   *sealed.Envelope
-	Audit      *audit.Writer
-	Verifier   httpapi.Verifier
-	GRPCAuth   kmiddleware.Middleware
-	HTTP       *httpapi.Server
-	Authz      *authz.Authorizer
-	CA         *ca.Authority
+	Cfg          config.Config
+	Log          *slog.Logger
+	Freya        *freya.App
+	Store        *store.Store
+	Repo         repo.Store
+	KV           stream.Client
+	Envelope     *sealed.Envelope
+	Audit        *audit.Writer
+	Verifier     httpapi.Verifier
+	GRPCAuth     kmiddleware.Middleware
+	HTTP         *httpapi.Server
+	Authz        *authz.Authorizer
+	CA           *ca.Authority
 	selfIdentity *selfidentity.Provider
-	Issue      *issue.Service
-	Enroll     *enroll.Service
+	Issue        *issue.Service
+	Enroll       *enroll.Service
 	EnrollTokens enroll.TokenVerifier
-	Deploy     *deploy.Service
-	Hub        *stream.Hub
-	JobSched   *enroll.Scheduler
-	RenewSched *renew.Scheduler
-	Secrets    *secrets.Service
-	Webhook    *webhook.Service
-	Stats      *stats.Service
-	Revoke     *revoke.Service
-	Transfer   *transfer.Service
-	Perms      httpapi.PermissionChecker
-	lastTick   atomic.Int64
-	closers    []func()
-	workers    []func(ctx context.Context)
+	Deploy       *deploy.Service
+	Hub          *stream.Hub
+	JobSched     *enroll.Scheduler
+	RenewSched   *renew.Scheduler
+	Secrets      *secrets.Service
+	Webhook      *webhook.Service
+	Stats        *stats.Service
+	Revoke       *revoke.Service
+	Transfer     *transfer.Service
+	Perms        httpapi.PermissionChecker
+	lastTick     atomic.Int64
+	closers      []func()
+	workers      []func(ctx context.Context)
 }
 
 // Build validates cfg and connects every dependency; nothing is served yet.

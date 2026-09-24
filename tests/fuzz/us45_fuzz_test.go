@@ -3,8 +3,8 @@ package fuzz
 import (
 	"testing"
 
-	"github.com/go-freya/freya/services/lcm/internal/transfer"
-	"github.com/go-freya/freya/services/lcm/internal/webhook"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/transfer"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/webhook"
 )
 
 // FuzzWebhookSig: the HMAC signer never panics and always returns the sha256=

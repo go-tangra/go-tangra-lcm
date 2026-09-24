@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/audit"
-	"github.com/go-freya/freya/services/lcm/internal/issue"
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
-	"github.com/go-freya/freya/services/lcm/internal/secrets"
-	"github.com/go-freya/freya/services/lcm/internal/store"
-	"github.com/go-freya/freya/services/lcm/internal/transfer"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/secrets"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/transfer"
 )
 
 // forbidden are the substrings that must never appear in a listing, a

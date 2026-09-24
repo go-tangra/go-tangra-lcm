@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	lcmv1 "github.com/go-freya/freya/services/lcm/api/proto/lcm/v1"
-	"github.com/go-freya/freya/services/lcm/internal/grpcapi"
-	"github.com/go-freya/freya/services/lcm/internal/stream"
+	lcmv1 "github.com/go-tangra/go-tangra-lcm/sdk/v4/api/proto/lcm/v1"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/grpcapi"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/stream"
 )
 
 // TestProtoServersImplemented proves the lcm.v1 servers satisfy the generated

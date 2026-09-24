@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/enroll"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/enroll"
 )
 
 // startEnrollListener runs a dedicated, server-auth-only (tls.NoClientCert) TLS

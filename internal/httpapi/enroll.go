@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/enroll"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/enroll"
 )
 
 // EnrollDeps are the services behind the enrollment, request and job routes.

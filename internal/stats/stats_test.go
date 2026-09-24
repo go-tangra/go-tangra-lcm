@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/memstore"
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 type fakeHub struct{ n int }

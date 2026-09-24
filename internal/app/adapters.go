@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"time"
 
-	authv1 "github.com/go-freya/freya/services/auth/api/proto/auth/v1"
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/enroll"
-	"github.com/go-freya/freya/services/lcm/internal/issue"
-	"github.com/go-freya/freya/services/lcm/internal/stream"
-	"github.com/go-freya/freya/services/lcm/internal/webhook"
+	authv1 "github.com/go-tangra/go-tangra-auth/sdk/v4/api/proto/auth/v1"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/enroll"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/stream"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/webhook"
 )
 
 // hubPublisher fans a certificate lifecycle event out to every signed-in user

@@ -26,8 +26,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/go-freya/freya/identity"
-	"github.com/go-freya/freya/services/lcm/pkg/lcmclient"
+	"github.com/go-tangra/go-tangra-lcm/sdk/v4/pkg/lcmclient"
+	"github.com/go-tangra/go-tangra/v4/identity"
 )
 
 // Config configures the enrollment provider.

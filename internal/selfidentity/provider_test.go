@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/ca"
-	"github.com/go-freya/freya/services/lcm/internal/sealed"
-	"github.com/go-freya/freya/services/lcm/internal/memstore"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/ca"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
 )
 
 func newCA(t *testing.T) *ca.Authority {

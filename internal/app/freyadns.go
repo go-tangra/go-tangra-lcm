@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/go-freya/freya/services/lcm/pkg/dnschallenge"
+	"github.com/go-tangra/go-tangra-lcm/sdk/v4/pkg/dnschallenge"
 )
 
 // lazyDNS is the DNS module client behind the "freya-dns" ACME provider,

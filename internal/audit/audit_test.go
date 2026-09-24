@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 // fakeStore records the batches handed to InsertAuditRows.

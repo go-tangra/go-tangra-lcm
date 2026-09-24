@@ -8,15 +8,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/lcm/internal/authz"
-	"github.com/go-freya/freya/services/lcm/internal/csr"
-	"github.com/go-freya/freya/services/lcm/internal/deploy"
-	"github.com/go-freya/freya/services/lcm/internal/enroll"
-	"github.com/go-freya/freya/services/lcm/internal/issue"
-	"github.com/go-freya/freya/services/lcm/internal/secrets"
-	"github.com/go-freya/freya/services/lcm/internal/store"
-	"github.com/go-freya/freya/services/lcm/internal/transfer"
-	"github.com/go-freya/freya/services/lcm/internal/webhook"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/csr"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/deploy"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/enroll"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/secrets"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/transfer"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/webhook"
 )
 
 func wantErr(t *testing.T, got error, want *Error) {
