@@ -14,3 +14,7 @@ go.work
 go.work.sum
 /lcmsvc
 /lcm-devca
+# Key material never goes into an image; the stack mounts development keys.
+deploy/kek.dev
+deploy/*.kek
+deploy/dev-kek.b64
