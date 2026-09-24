@@ -1,0 +1,26 @@
+# Development / integration stack for services/lcm alone (compose project
+# "lcm"). Never use these credentials outside a workstation. The platform
+# stack (services/gateway/deploy) provides gateway and auth. Pebble is a
+# small ACME test server and challtestsrv a mock DNS for DNS-01 (US4).
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: lcm
+    ports: ["5435:5432"]
+    volumes: ["./init-db.sql:/docker-entrypoint-initdb.d/10-init.sql:ro"]
+  valkey:
+    image: valkey/valkey:8
+    command: ["valkey-server", "--requirepass", "dev", "--user", "lcm", "on", ">dev", "~*", "&*", "+@all"]
+    ports: ["6382:6379"]
+  pebble:
+    image: ghcr.io/letsencrypt/pebble:latest
+    command: ["-config", "/test/config/pebble-config.json", "-dnsserver", "challtestsrv:8053"]
+    environment:
+      PEBBLE_VA_ALWAYS_VALID: "1"
+    ports: ["14000:14000"]
+  challtestsrv:
+    image: ghcr.io/letsencrypt/pebble-challtestsrv:latest
+    command: ["-defaultIPv4", "127.0.0.1", "-dns01", ":8053"]
+    ports: ["8055:8055"]

@@ -1,101 +1,112 @@
 # go-tangra-lcm
 
-Enterprise-grade Certificate Lifecycle Management service providing X.509 certificate issuance, renewal, distribution, and revocation with mTLS authentication and multi-tenancy support.
+Certificate and SVID lifecycle management service for the
+[go-tangra v4 platform](https://github.com/go-tangra/go-tangra).
 
-## Features
+It is the platform's SPIFFE certificate authority. Per tenant and trust domain it
+generates a self-signed CA on first use (plus optional ACME DNS-01 issuers), issues
+X.509-SVIDs and certificates from CSRs or service-generated keys, enrolls workloads
+with their platform identity or a short-lived enrollment token, renews before expiry,
+streams issued/renewed/revoked events to browsers (SSE) and workloads (`Agent.Watch`),
+and publishes revocations, a signed CRL and the trust bundle. Tenant secrets,
+signed webhooks, audit, statistics and backup export/import complete the operator
+surface. All key material is sealed with envelope encryption.
 
-- **Automatic CA Generation** — Self-signed root CA created on first startup
-- **Auto-Approval Mode** — Puppet-style automatic certificate signing
-- **Multi-Issuer Support** — Self-signed and ACME (Let's Encrypt) issuers
-- **Automated Renewal** — Distributed renewal scheduler with Redis-based locking
-- **Real-time Streaming** — gRPC streaming for live certificate update notifications
-- **Event-Driven** — Redis pub/sub events for certificate lifecycle changes
-- **Webhooks** — HTTP callbacks with HMAC signing for external integrations
-- **10 DNS Providers** — Cloudflare, Route53, GCloud, DigitalOcean, PowerDNS, and more
-- **Multi-Tenant** — Complete tenant isolation with per-tenant shared secrets
-- **Audit Trail** — Cryptographically signed audit logs
+Overview: [`docs/README.md`](docs/README.md).
+Operations: [`docs/operations.md`](docs/operations.md).
+Security review: [`docs/security-review.md`](docs/security-review.md).
+Design history: `specs/007-lcm-service`.
 
-## gRPC Services
-
-| Service | Port | Purpose |
-|---------|------|---------|
-| LcmClientService | 9100 | Client registration, cert download, streaming |
-| LcmMtlsCertificateService | 9100 | Certificate CRUD, issuance, revocation, renewal |
-| LcmCertificateJobService | 9100 | Async certificate request tracking |
-| LcmIssuerService | 9100 | Issuer management (self-signed, ACME) |
-| AuditLogService | 9100 | Audit log queries |
-| CertificatePermissionService | 9100 | Fine-grained access control |
-| StatisticsService | 9100 | System-wide metrics |
-
-REST API available on port 8000 via gRPC-Gateway.
-
-## Certificate Lifecycle
+## Place in the platform
 
 ```
-Client Registration (shared secret)
-  → Certificate Request (async job)
-    → Auto-Approve / Manual Approve
-      → Certificate Issued (event published)
-        → Streamed to clients / Webhook notification
-          → Auto-Renewal (30 days before expiry)
+go-tangra/go-tangra          platform module + @go-tangra/ui kit
+        |
+go-tangra-auth  <---->  go-tangra-portal (gateway)  <---->  go-tangra-lcm
+                                                              ^
+                                    deployer, dns, workloads (lcm sdk, lcm-agent)
 ```
 
-## Configuration
+- Built on `github.com/go-tangra/go-tangra/v4` (mTLS transports, identity,
+  service policy, audit, observability).
+- Verifies platform tokens and registers its permissions with the auth SDK
+  (`github.com/go-tangra/go-tangra-auth/sdk/v4`).
+- Registers with the gateway through the portal SDK
+  (`github.com/go-tangra/go-tangra-portal/sdk/v4`), which fronts the browser API
+  and the federated UI remote.
 
-```yaml
-data_dir: ./data
-default_validity_days: 365
-auto_approve_certificates: true
-auto_generate_ca: true
-shared_secret: "changeme"
+## Modules in this repository
 
-renewal:
-  enabled: true
-  check_interval_seconds: 3600
-  worker_count: 2
-  default_days_before_expiry: 30
+| Module | Path | Consumers |
+|---|---|---|
+| `github.com/go-tangra/go-tangra-lcm/v4` | `/` | the service (`cmd/lcmsvc`), `cmd/lcm-agent`, `cmd/lcm-devca` and `pkg/lcmmanifest` |
+| `github.com/go-tangra/go-tangra-lcm/sdk/v4` | `sdk/` | other services and workloads: the `lcm.v1` protobuf API, `pkg/lcmclient` (client and agent loop), `pkg/lcmidentity`, `pkg/dnschallenge` |
 
-events:
-  enabled: true
-  topic_prefix: "lcm"
+The service builds against the in-repo SDK through
+`replace github.com/go-tangra/go-tangra-lcm/sdk/v4 => ./sdk`. Consumers use the
+SDK's published `sdk/vX.Y.Z` tag.
 
-webhooks:
-  enabled: false
-  endpoints:
-    - name: "primary"
-      url: "https://example.com/webhooks/lcm"
-      event_types: ["certificate.issued", "certificate.failed"]
-      secret: "hmac-signing-secret"
-```
+## Layout
 
-## DNS Providers (ACME)
+| Path | Purpose |
+|------|---------|
+| `cmd/lcmsvc` | service binary (serve, `bootstrap`, `version`) |
+| `cmd/lcm-agent` | workload daemon: enroll, write cert/key/bundle, auto-renew |
+| `cmd/lcm-devca` | offline development CA and per-service SVIDs (development only) |
+| `internal/app` | wiring: config, platform, stores, services, HTTP/gRPC |
+| `internal/...` | CA, CSR, ACME, issuance, enrollment, renewal, revocation, streams, sealing, authz, secrets, webhooks, backup and their SQL bindings |
+| `ui` | Vue 3 + FlyonUI federated remote on `@go-tangra/ui` |
+| `api/openapi`, `api/schema`, `sdk/api/proto` | contracts (`lcm.yaml`, backup schema, `lcm.v1`) |
+| `deploy` | compose stack, dev configuration, development KEK, policies |
+| `tests/{contract,fuzz,integration,security}` | contract, fuzz, Docker-backed integration and security suites |
 
-Cloudflare, AWS Route53, Google Cloud DNS, DigitalOcean, ACME-DNS, PowerDNS, Hurricane Electric, HTTP Request, EasyDNS, Cloud DNS
+## Build and test
 
-## Build
+You need Go 1.26, Node 22, Docker (for integration tests and the image), and a
+GitHub token with `read:packages` to install `@go-tangra/ui` from GitHub Packages.
 
 ```bash
-make build-all          # Build server and client binaries
-make build-server       # Build server only
-make build-client       # Build CLI client only
-make docker             # Build Docker image
-make docker-buildx      # Multi-platform (amd64/arm64)
-make test               # Run tests
-make ent                # Regenerate Ent schemas
+go build ./... && go vet ./... && go test -race ./...
+(cd sdk && go vet ./... && go test -race ./...)
+(cd sdk && buf lint)
+make test-integration                     # -tags integration, needs Docker
+make lint cover fuzz redaction-scan vuln
+
+cd ui
+export NODE_AUTH_TOKEN=$(gh auth token)   # ui/.npmrc only references this variable
+npm ci && npm run lint && npm run test:unit && npm run build
 ```
 
-## Docker
+The unit coverage gate requires at least 80 % overall and 100 % for the
+crypto, authorization, sealing and stream packages. Generated code, SQL bindings
+and wiring are covered by the integration suite instead.
+
+## Run locally
 
 ```bash
-docker run -p 9100:9100 ghcr.io/go-tangra/go-tangra-lcm:latest
+make compose-up                           # TimescaleDB, Valkey, Pebble (ACME), challtestsrv (DNS)
+go run ./cmd/lcmsvc bootstrap -config deploy/dev.yaml
+go run -tags ui ./cmd/lcmsvc -config deploy/dev.yaml    # after the ui build
 ```
 
-Runs as non-root user `lcm` (UID 1000). Data stored in `/app/data`.
+## Container image
 
-## Dependencies
+The image is `ghcr.io/go-tangra/go-tangra-lcm`, built by `.github/workflows/ci.yaml`.
+It carries `lcmsvc` (with the embedded UI remote) and `lcm-devca`.
 
-- **Framework**: Kratos v2
-- **ORM**: Ent (PostgreSQL, MySQL)
-- **ACME**: lego v4
-- **Cache/Events**: Redis
-- **Protobuf**: Buf
+```bash
+docker buildx build --secret id=npm_token,env=NODE_AUTH_TOKEN \
+  --build-arg APP_VERSION=4.0.0 -t go-tangra-lcm:dev .
+docker run --rm go-tangra-lcm:dev version
+```
+
+The image runs `lcmsvc -config deploy/dev.yaml` as user `app` (uid 10001).
+Production deployments mount their own configuration and key-encryption key.
+
+## Versioning
+
+- Service releases are tagged `vX.Y.Z`. CI publishes the image as `X.Y.Z`,
+  `X.Y`, `X` and `sha-<short>`. There is no `latest` tag.
+- The SDK is released separately with `sdk/vX.Y.Z` tags. These tags never build an image.
+- v4.0.0 rebuilds the service on the go-tangra v4 platform. The v3 line stays on
+  the `v3` branch and its `v3.x` tags.
