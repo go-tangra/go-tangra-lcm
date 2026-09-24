@@ -1,113 +1,48 @@
-##################################
-# Stage 0: Build frontend module
-##################################
+# syntax=docker/dockerfile:1
+# LCM service image: builds the Vue remote, embeds it (-tags ui), and produces a
+# slim runtime carrying lcmsvc + the lcm-devca bootstrap tool. Build context is
+# the repo root so the module's replace directives (../.. , ../auth, ../gateway)
+# resolve.
 
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS ui
+# The front-ends form one npm workspace (root package-lock.json) with the shared
+# kit at ui/kit; install the workspace, build the kit, then this front-end.
+WORKDIR /w
+COPY package.json package-lock.json .npmrc ./
+COPY ui/kit/package.json ui/kit/
+COPY services/gateway/shell/package.json services/gateway/shell/
+COPY services/auth/console/package.json services/auth/console/
+COPY services/asset/ui/package.json services/asset/ui/
+COPY services/inventory/ui/package.json services/inventory/ui/
+COPY services/ipam/ui/package.json services/ipam/ui/
+COPY services/paperless/ui/package.json services/paperless/ui/
+COPY services/deployer/ui/package.json services/deployer/ui/
+COPY services/lcm/ui/package.json services/lcm/ui/
+COPY services/notification/ui/package.json services/notification/ui/
+COPY services/warden/ui/package.json services/warden/ui/
+COPY services/ticket/ui/package.json services/ticket/ui/
+COPY services/dns/ui/package.json services/dns/ui/
+RUN npm ci --no-audit --no-fund
+COPY ui/ ./ui/
+RUN npm run -w ui/kit build
+COPY services/lcm/ui/ ./services/lcm/ui/
+RUN npm run -w services/lcm/ui build
 
-RUN npm install -g pnpm@9
-
-WORKDIR /frontend
-COPY frontend/package.json frontend/pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile || pnpm install
-COPY frontend/ .
-RUN pnpm build
-
-##################################
-# Stage 1: Build Go executables
-##################################
-
-FROM golang:1.23-alpine AS builder
-
-ARG APP_VERSION=1.0.0
-
-# Enable toolchain auto-download for newer Go versions
-ENV GOTOOLCHAIN=auto
-
-# Install build dependencies
-RUN apk add --no-cache git make curl
-
-# Install buf for proto descriptor generation
-RUN curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf && \
-    chmod +x /usr/local/bin/buf
-
-# Set working directory
+FROM golang:1.26-alpine AS build
+RUN apk add --no-cache git ca-certificates
 WORKDIR /src
-
-# Copy go mod files first for better caching
-COPY go.mod go.sum ./
-RUN go mod download
-
-# Copy the entire source code
 COPY . .
-
-# Regenerate proto descriptor (ensures embedded descriptor.bin is always up to date)
-RUN buf build -o cmd/server/assets/descriptor.bin
-
-# Copy frontend dist into assets for go:embed
-COPY --from=frontend-builder /frontend/dist cmd/server/assets/frontend-dist/
-
-# Build the server
-RUN CGO_ENABLED=0 \
-    GOOS=linux \
-    GOARCH=amd64 \
-    go build -ldflags "-X main.version=${APP_VERSION} -s -w" \
-    -o /src/bin/lcm-server \
-    ./cmd/server
-
-# Build the client
-RUN CGO_ENABLED=0 \
-    GOOS=linux \
-    GOARCH=amd64 \
-    go build -ldflags "-X main.version=${APP_VERSION} -s -w" \
-    -o /src/bin/lcm-client \
-    ./cmd/client
-
-##################################
-# Stage 2: Create runtime image
-##################################
+COPY --from=ui /w/services/lcm/ui/dist ./services/lcm/ui/dist
+WORKDIR /src/services/lcm
+ENV CGO_ENABLED=0 GOFLAGS=-buildvcs=false
+RUN go build -tags "ui" -o /out/lcmsvc ./cmd/lcmsvc \
+ && go build -o /out/lcm-devca ./cmd/lcm-devca
 
 FROM alpine:3.20
-
-ARG APP_VERSION=1.0.0
-
-# Install runtime dependencies
-RUN apk --no-cache add ca-certificates tzdata
-
-# Set timezone
-ENV TZ=UTC
-
-# Downgrade proto registration conflict from panic to warning
-# (kratos v2 and buf.build/gen/go/kratos/apis both register errors/errors.proto)
-ENV GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn
-
-# Set working directory
+RUN apk add --no-cache ca-certificates postgresql-client && adduser -D -u 10001 app
+COPY --from=build /out/lcmsvc /out/lcm-devca /usr/local/bin/
+COPY services/lcm/deploy /app/deploy
 WORKDIR /app
-
-# Copy executables from builder
-COPY --from=builder /src/bin/lcm-server /app/bin/lcm-server
-COPY --from=builder /src/bin/lcm-client /app/bin/lcm-client
-
-# Copy configuration files
-COPY --from=builder /src/configs/ /app/configs/
-
-# Create non-root user
-RUN addgroup -g 1000 lcm && \
-    adduser -D -u 1000 -G lcm lcm && \
-    chown -R lcm:lcm /app
-
-# Create data directory for certificates
-RUN mkdir -p /app/data && chown lcm:lcm /app/data
-
-# Switch to non-root user
-USER lcm:lcm
-
-# Expose gRPC and HTTP ports
-EXPOSE 9100 9101
-
-# Set default command
-CMD ["/app/bin/lcm-server", "-c", "/app/configs"]
-
-# Labels
-LABEL org.opencontainers.image.title="LCM Service" \
-      org.opencontainers.image.description="Lifecycle Certificate Manager Service" \
-      org.opencontainers.image.version="${APP_VERSION}"
+USER app
+ENTRYPOINT ["lcmsvc"]
+CMD ["-config", "deploy/dev.yaml"]

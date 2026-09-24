@@ -1,0 +1,240 @@
+openapi: 3.1.0
+info:
+  title: LCM — browser API
+  version: 1.0.0
+  description: |
+    Served by the lcm module through the application gateway under /api/lcm/v1.
+    Every request carries the platform token forwarded by the gateway (verified
+    with pkg/authclient); the gateway enforces each operation's x-freya-permission
+    before forwarding, and the module enforces the Zanzibar grant on certificates
+    and issuers (read/write/delete/share/use). Errors are
+    {"reason": "<closed vocabulary>", "detail"?: {...}}: unauthenticated,
+    forbidden, not_found, validation_failed, conflict, rate_limited,
+    body_too_large, temporarily_unavailable. CA/issuer/DNS/ACME keys, workload
+    private keys and tenant-secret values never appear in any response (fields
+    are "__set__"); a private key is returned exactly once when the module
+    generated it.
+servers: [{ url: https://platform.example.org }]
+components:
+  parameters:
+    csrf: { name: X-CSRF-Token, in: header, required: false, schema: { type: string } }
+    id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    cursor: { name: cursor, in: query, schema: { type: string } }
+    limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+  schemas:
+    Error: { type: object, required: [reason], properties: { reason: { type: string }, detail: { type: object } } }
+    Name: { type: string, minLength: 1, maxLength: 100, pattern: '^[^\p{Cc}]+$' }
+    SpiffeId: { type: string, maxLength: 2048, pattern: '^spiffe://[a-z0-9.-]+/.+$' }
+    Permissions: { type: object, properties: { read: {type: boolean}, write: {type: boolean}, delete: {type: boolean}, share: {type: boolean}, use: {type: boolean} } }
+    IssuerInput:
+      type: object
+      additionalProperties: false
+      required: [name, type, trust_domain]
+      properties:
+        name: { $ref: '#/components/schemas/Name' }
+        type: { type: string, enum: [self_signed, acme] }
+        trust_domain: { type: string, maxLength: 253, pattern: '^[a-z0-9.-]+$' }
+        is_default: { type: boolean, default: false }
+        settings: { type: object, description: 'non-secret config: key type, validity ceiling, ACME directory/email/dns_provider' }
+        secrets: { type: object, description: 'write-only: ACME account key / DNS credentials; "__set__" or omitted keeps stored values' }
+    Issuer:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [self_signed, acme] }
+        trust_domain: { type: string }
+        is_default: { type: boolean }
+        enabled: { type: boolean }
+        settings: { type: object }
+        certificate_count: { type: integer }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        permissions: { $ref: '#/components/schemas/Permissions' }
+    IssueInput:
+      type: object
+      additionalProperties: false
+      required: [spiffe_id]
+      properties:
+        issuer_id: { type: string, format: uuid, description: 'default issuer for the trust domain when omitted' }
+        spiffe_id: { $ref: '#/components/schemas/SpiffeId' }
+        csr_pem: { type: string, maxLength: 16384, description: 'when set, the module signs it; otherwise it generates the key pair' }
+        subject: { type: string, maxLength: 256 }
+        dns_sans: { type: array, maxItems: 50, items: { type: string, maxLength: 253 } }
+        validity_seconds: { type: integer, minimum: 60, maximum: 34560000 }
+        deliver_key: { type: boolean, default: false, description: 'return the generated private key once (only when csr_pem is omitted)' }
+    Certificate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        serial: { type: string }
+        spiffe_id: { type: string }
+        subject: { type: string }
+        issuer_id: { type: string, format: uuid }
+        sans: { type: array, items: { type: string } }
+        not_before: { type: string, format: date-time }
+        not_after: { type: string, format: date-time }
+        fingerprint_sha256: { type: string }
+        status: { type: string, enum: [active, expiring, expired, revoked] }
+        owner: { type: string }
+        created_at: { type: string, format: date-time }
+        permissions: { $ref: '#/components/schemas/Permissions' }
+    CertificateBundle:
+      type: object
+      properties:
+        certificate: { $ref: '#/components/schemas/Certificate' }
+        cert_pem: { type: string }
+        chain_pem: { type: string }
+        bundle_pem: { type: string }
+        key_pem: { type: string, description: 'present exactly once when the module generated the key' }
+    GrantInput:
+      type: object
+      additionalProperties: false
+      required: [resource_type, resource_id, subject_type, relation]
+      properties:
+        resource_type: { type: string, enum: [certificate, issuer] }
+        resource_id: { type: string, format: uuid }
+        subject_type: { type: string, enum: [user, role, tenant] }
+        subject_id: { type: string, maxLength: 128 }
+        relation: { type: string, enum: [owner, editor, viewer, sharer] }
+        expires_at: { type: [string, 'null'], format: date-time }
+    SecretInput:
+      type: object
+      additionalProperties: false
+      required: [name, kind, value]
+      properties:
+        name: { $ref: '#/components/schemas/Name' }
+        kind: { type: string, enum: [acme_account, dns_credential] }
+        value: { type: object, description: 'write-only credential fields; never returned' }
+paths:
+  # ---- issuers ----
+  /api/lcm/v1/issuers:
+    get: { operationId: listIssuers, x-freya-permission: issuers:read, parameters: [{ $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: 'issuers the caller may read' } } }
+    post:
+      operationId: createIssuer
+      x-freya-permission: issuers:manage
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/IssuerInput' } } } }
+      responses: { '201': { description: 'created; a self-signed issuer generates its CA; creator becomes owner' }, '409': { description: 'name or default taken' }, '422': { description: validation_failed } }
+  /api/lcm/v1/issuers/{id}:
+    get: { operationId: getIssuer, x-freya-permission: issuers:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: issuer }, '404': { description: not_found } } }
+    put: { operationId: updateIssuer, x-freya-permission: issuers:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/IssuerInput' } } } }, responses: { '200': { description: 'updated; secrets "__set__"/omitted keep stored values; type cannot change' } } }
+  /api/lcm/v1/issuers/{id}/remove:
+    post: { operationId: deleteIssuer, x-freya-permission: issuers:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: 'deleted with its grants' }, '409': { description: 'conflict: certificates reference it' } } }
+  /api/lcm/v1/dns-providers:
+    get: { operationId: listDnsProviders, x-freya-permission: issuers:read, responses: { '200': { description: '[{name, display_name, fields:[{key,label,secret,required}]}]' } } }
+  # ---- certificates ----
+  /api/lcm/v1/certificates:
+    get:
+      operationId: listCertificates
+      x-freya-permission: certificates:read
+      parameters: [{ name: issuer_id, in: query, schema: { type: string, format: uuid } }, { name: spiffe_id, in: query, schema: { type: string } }, { name: status, in: query, schema: { type: string, enum: [active, expiring, expired, revoked] } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      responses: { '200': { description: 'certificates the caller may read (metadata only)' } }
+  /api/lcm/v1/certificates/issue:
+    post:
+      operationId: issueCertificate
+      x-freya-permission: certificates:issue
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/IssueInput' } } } }
+      responses: { '200': { description: 'CertificateBundle (key_pem present once when generated)' }, '403': { description: 'forbidden: no use on the issuer or not entitled to the SPIFFE id' }, '422': { description: 'validation_failed (CSR/SPIFFE id/validity)' }, '429': { description: rate_limited } }
+  /api/lcm/v1/certificates/{id}:
+    get: { operationId: getCertificate, x-freya-permission: certificates:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: certificate }, '404': { description: not_found } } }
+    put: { operationId: updateCertificate, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, properties: { owner: { type: string }, labels: { type: object } } } } } }, responses: { '200': { description: updated } } }
+  /api/lcm/v1/certificates/{id}/download:
+    get: { operationId: downloadCertificate, x-freya-permission: certificates:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: 'CertificateBundle without key_pem (the key is delivered only at issuance)' }, '404': { description: not_found } } }
+  /api/lcm/v1/certificates/{id}/renew:
+    post: { operationId: renewCertificate, x-freya-permission: certificates:manage, x-freya-timeout-seconds: 60, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '200': { description: 'CertificateBundle for the renewed certificate' } } }
+  /api/lcm/v1/certificates/{id}/revoke:
+    post: { operationId: revokeCertificate, x-freya-permission: certificates:revoke, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], requestBody: { content: { application/json: { schema: { type: object, additionalProperties: false, properties: { reason: { type: string, maxLength: 64 } } } } } }, responses: { '204': { description: 'revoked; serial added to the CRL and revocation feed' } } }
+  /api/lcm/v1/certificates/{id}/deploy:
+    post: { operationId: deployCertificate, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [target_id], properties: { target_id: { type: string, format: uuid } } } } } }, responses: { '200': { description: deployment } } }
+  /api/lcm/v1/certificates/{id}/remove:
+    post: { operationId: deleteCertificate, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: deleted } } }
+  # ---- requests & jobs ----
+  /api/lcm/v1/requests:
+    get: { operationId: listRequests, x-freya-permission: certificates:read, parameters: [{ name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, issued] } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: 'certificate requests' } } }
+    post: { operationId: createRequest, x-freya-permission: certificates:issue, parameters: [{ $ref: '#/components/parameters/csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/IssueInput' } } } }, responses: { '201': { description: 'pending (or issued when auto-approve is on)' } } }
+  /api/lcm/v1/requests/{id}:
+    get: { operationId: getRequest, x-freya-permission: certificates:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: request }, '404': { description: not_found } } }
+  /api/lcm/v1/requests/{id}/approve:
+    post: { operationId: approveRequest, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '200': { description: 'approved; issuance job queued' }, '409': { description: 'not pending' } } }
+  /api/lcm/v1/requests/{id}/reject:
+    post: { operationId: rejectRequest, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '200': { description: rejected } } }
+  /api/lcm/v1/jobs:
+    get: { operationId: listJobs, x-freya-permission: jobs:read, parameters: [{ name: status, in: query, schema: { type: string, enum: [queued, processing, completed, failed] } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: jobs } } }
+  /api/lcm/v1/jobs/{id}:
+    get: { operationId: getJob, x-freya-permission: jobs:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: 'job status + result reference' }, '404': { description: not_found } } }
+  /api/lcm/v1/jobs/{id}/cancel:
+    post: { operationId: cancelJob, x-freya-permission: jobs:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: cancelled } } }
+  /api/lcm/v1/jobs/{id}/retry:
+    post: { operationId: retryJob, x-freya-permission: jobs:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '200': { description: 're-queued' }, '409': { description: 'not failed' } } }
+  # ---- enrollment ----
+  /api/lcm/v1/enroll:
+    post:
+      operationId: enroll
+      x-freya-permission: enrollment:enroll
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [spiffe_id], properties: { spiffe_id: { $ref: '#/components/schemas/SpiffeId' }, csr_pem: { type: string, maxLength: 16384 }, enrollment_token: { type: string, description: 'auth-minted token; omitted when enrolling with the caller platform identity' } } } } } }
+      responses: { '200': { description: 'CertificateBundle (auto-approve)' }, '202': { description: 'pending request (manual approval)' }, '403': { description: 'not entitled to the SPIFFE id' }, '422': { description: validation_failed } }
+  # ---- trust bundle & revocation ----
+  /api/lcm/v1/trust-bundle:
+    get: { operationId: getTrustBundle, x-freya-permission: certificates:read, parameters: [{ name: trust_domain, in: query, required: true, schema: { type: string } }], responses: { '200': { description: 'roots PEM for the trust domain' } } }
+  /api/lcm/v1/revocations:
+    get: { operationId: listRevocations, x-freya-permission: certificates:read, parameters: [{ name: trust_domain, in: query, schema: { type: string } }, { $ref: '#/components/parameters/cursor' }], responses: { '200': { description: 'revoked serials' } } }
+  /api/lcm/v1/crl:
+    get: { operationId: getCrl, x-freya-permission: certificates:read, parameters: [{ name: trust_domain, in: query, required: true, schema: { type: string } }], responses: { '200': { description: 'DER/PEM CRL for the trust domain' } } }
+  # ---- installed & deployment ----
+  /api/lcm/v1/deployment-targets:
+    get: { operationId: listDeploymentTargets, x-freya-permission: certificates:manage, responses: { '200': { description: targets } } }
+    post: { operationId: createDeploymentTarget, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }], requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [name, kind], properties: { name: { $ref: '#/components/schemas/Name' }, kind: { type: string, enum: [file, pull, webhook] }, config: { type: object } } } } } }, responses: { '201': { description: created } } }
+  /api/lcm/v1/installed:
+    get: { operationId: listInstalled, x-freya-permission: certificates:read, parameters: [{ name: client_id, in: query, schema: { type: string } }, { $ref: '#/components/parameters/cursor' }], responses: { '200': { description: 'installed certificates reported by workloads' } } }
+  # ---- tenant secrets ----
+  /api/lcm/v1/secrets:
+    get: { operationId: listSecrets, x-freya-permission: secrets:manage, responses: { '200': { description: 'secret names/kinds; values redacted' } } }
+    post: { operationId: createSecret, x-freya-permission: secrets:manage, parameters: [{ $ref: '#/components/parameters/csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SecretInput' } } } }, responses: { '201': { description: created }, '409': { description: 'name taken' } } }
+  /api/lcm/v1/secrets/{id}:
+    put: { operationId: updateSecret, x-freya-permission: secrets:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SecretInput' } } } }, responses: { '200': { description: updated } } }
+  /api/lcm/v1/secrets/{id}/rotate:
+    post: { operationId: rotateSecret, x-freya-permission: secrets:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [value], properties: { value: { type: object } } } } } }, responses: { '200': { description: rotated } } }
+  /api/lcm/v1/secrets/{id}/remove:
+    post: { operationId: deleteSecret, x-freya-permission: secrets:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: deleted }, '409': { description: 'in use by an issuer' } } }
+  # ---- webhooks ----
+  /api/lcm/v1/webhooks:
+    get: { operationId: listWebhooks, x-freya-permission: webhooks:manage, responses: { '200': { description: 'endpoints; signing secret redacted' } } }
+    post: { operationId: createWebhook, x-freya-permission: webhooks:manage, parameters: [{ $ref: '#/components/parameters/csrf' }], requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [name, url, event_types], properties: { name: { $ref: '#/components/schemas/Name' }, url: { type: string, maxLength: 2048 }, event_types: { type: array, items: { type: string } }, secret: { type: string } } } } } }, responses: { '201': { description: created } } }
+  /api/lcm/v1/webhooks/{id}/remove:
+    post: { operationId: deleteWebhook, x-freya-permission: webhooks:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: deleted } } }
+  # ---- permissions ----
+  /api/lcm/v1/grants:
+    get: { operationId: listGrants, x-freya-permission: permissions:manage, parameters: [{ name: resource_type, in: query, required: true, schema: { type: string, enum: [certificate, issuer] } }, { name: resource_id, in: query, required: true, schema: { type: string, format: uuid } }], responses: { '200': { description: grants } } }
+    post: { operationId: grant, x-freya-permission: permissions:manage, parameters: [{ $ref: '#/components/parameters/csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GrantInput' } } } }, responses: { '201': { description: granted }, '403': { description: relation_above_granter } } }
+  /api/lcm/v1/grants/{id}/revoke:
+    post: { operationId: revokeGrant, x-freya-permission: permissions:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: revoked } } }
+  /api/lcm/v1/access/check:
+    get: { operationId: checkAccess, x-freya-permission: certificates:read, parameters: [{ name: resource_type, in: query, required: true, schema: { type: string, enum: [certificate, issuer] } }, { name: resource_id, in: query, required: true, schema: { type: string, format: uuid } }, { name: action, in: query, required: true, schema: { type: string, enum: [read, write, delete, share, use] } }], responses: { '200': { description: '{allowed}' } } }
+  /api/lcm/v1/access/effective:
+    get: { operationId: effectivePermissions, x-freya-permission: certificates:read, parameters: [{ name: resource_type, in: query, required: true, schema: { type: string, enum: [certificate, issuer] } }, { name: resource_id, in: query, required: true, schema: { type: string, format: uuid } }], responses: { '200': { description: '{relation, permissions, grants[]}' } } }
+  /api/lcm/v1/access/accessible:
+    get: { operationId: listAccessible, x-freya-permission: certificates:read, parameters: [{ name: resource_type, in: query, required: true, schema: { type: string, enum: [certificate, issuer] } }], responses: { '200': { description: 'ids the caller may access' } } }
+  # ---- live stream ----
+  /api/lcm/v1/stream:
+    get: { operationId: stream, x-freya-permission: certificates:read, x-freya-timeout-seconds: 300, parameters: [{ name: Last-Event-ID, in: header, schema: { type: string, maxLength: 64 } }], responses: { '200': { description: 'text/event-stream (contracts/stream.md); 429 over 5 streams per person' } } }
+  # ---- backup ----
+  /api/lcm/v1/backup/export:
+    post: { operationId: exportBackup, x-freya-permission: backup:manage, x-freya-timeout-seconds: 120, parameters: [{ $ref: '#/components/parameters/csrf' }], requestBody: { content: { application/json: { schema: { type: object, additionalProperties: false, properties: { include_credentials: { type: boolean, default: false } } } } } }, responses: { '200': { description: 'backup.schema.json document (attachment); audited as bulk disclosure when include_credentials' } } }
+  /api/lcm/v1/backup/import:
+    post: { operationId: importBackup, x-freya-permission: backup:manage, x-freya-max-body-bytes: 16777216, x-freya-timeout-seconds: 120, parameters: [{ $ref: '#/components/parameters/csrf' }, { name: mode, in: query, schema: { type: string, enum: [skip, overwrite], default: skip } }], requestBody: { required: true, content: { application/json: { schema: { type: object, description: 'backup.schema.json' } } } }, responses: { '200': { description: BackupReport }, '413': { description: body_too_large }, '422': { description: validation_failed } } }
+  # ---- operations ----
+  /api/lcm/v1/stats:
+    get: { operationId: stats, x-freya-permission: stats:read, responses: { '200': { description: 'certificates by status, issuers, jobs, clients, expiring soon, recent errors, open_streams' } } }
+  /api/lcm/v1/audit:
+    get:
+      operationId: auditTrail
+      x-freya-permission: stats:read
+      parameters: [{ name: event_type, in: query, schema: { type: string } }, { name: actor_id, in: query, schema: { type: string } }, { name: from, in: query, schema: { type: string, format: date-time } }, { name: to, in: query, schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/cursor' }]
+      responses: { '200': { description: 'page of audit events (no key material; subject_name resolves live subjects)' } }
+  /api/lcm/v1/health:
+    get: { operationId: health, x-freya-permission: stats:read, responses: { '200': { description: '{status, database, valkey, scheduler_last_tick, version}' } } }
