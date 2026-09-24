@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { base, signIn } from '../../../../gateway/shell/tests/e2e/helpers'
+import { base, signIn } from './helpers'
 
 // Quickstart §4 flow for the lcm remote at the three reference widths: issuers,
 // certificates (request dialog validation), requests, secrets drawer and the
