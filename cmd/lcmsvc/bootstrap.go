@@ -173,10 +173,36 @@ func ensureDefaultIssuer(ctx context.Context, rp repo.Store, trustDomain, caID s
 		} else if !errors.Is(err, store.ErrNotFound) {
 			return err
 		}
+		name, err := meshIssuerName(ctx, tx, trustDomain)
+		if err != nil {
+			return err
+		}
 		id := caID
 		return tx.InsertIssuer(ctx, store.Issuer{
-			ID: store.NewID(), TenantID: app.MeshTenantID, Name: "mesh", Type: "self_signed",
+			ID: store.NewID(), TenantID: app.MeshTenantID, Name: name, Type: "self_signed",
 			TrustDomain: trustDomain, IsDefault: true, CAID: &id, Enabled: true, SettingsPublic: []byte("{}"),
 		})
 	})
+}
+
+// meshIssuerName is "mesh" for the first trust domain. Issuer names are unique
+// per tenant, so after a trust domain change the new domain's issuer is
+// "mesh-<trust domain>" (the old domain keeps "mesh").
+func meshIssuerName(ctx context.Context, tx repo.Store, trustDomain string) (string, error) {
+	after := ""
+	for {
+		page, err := tx.ListIssuers(ctx, app.MeshTenantID, after, 200)
+		if err != nil {
+			return "", err
+		}
+		for _, i := range page {
+			if strings.EqualFold(i.Name, "mesh") {
+				return "mesh-" + trustDomain, nil
+			}
+		}
+		if len(page) < 200 {
+			return "mesh", nil
+		}
+		after = page[len(page)-1].Name
+	}
 }
