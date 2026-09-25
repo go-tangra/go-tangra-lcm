@@ -43,9 +43,15 @@ type NetConfig struct {
 	EnrollmentToken string
 	// RenewBefore renews this long before expiry (default 1/3 of the lifetime).
 	RenewBefore time.Duration
-	// Insecure skips SERVER verification on the enroll HTTP call and the renewal
-	// mTLS dial (dev self-signed edge). The workload's own SVID (client cert) is
-	// what authenticates it to lcm; production pins the server instead.
+	// EnrollTLS, if set, is the client TLS configuration of the first-enroll
+	// HTTPS call (cloned). Use it to verify lcm's keyless enroll listener, which
+	// presents lcm's SVID (no DNS name, mesh root): build it with the
+	// framework's tlsconf.LoadEnrollClientConfig (enroll.ca_file +
+	// enroll.server_spiffe_id). Nil: system roots + the host name of EnrollURL
+	// (enrolling through the gateway edge). Excludes Insecure.
+	EnrollTLS *tls.Config
+	// Insecure skips SERVER verification on the first-enroll HTTP call only
+	// (development). Renewals are always verified against the mesh bundle.
 	Insecure bool
 	// StateFile, if set, persists the SVID (cert+key+bundle) so a restart reuses
 	// it and renews over mTLS instead of consuming a fresh (single-use) join
@@ -90,8 +96,14 @@ func NewNet(ctx context.Context, cfg NetConfig) (*NetProvider, error) {
 	if cfg.now == nil {
 		cfg.now = time.Now
 	}
+	if cfg.Insecure && cfg.EnrollTLS != nil {
+		return nil, errors.New("lcmidentity: EnrollTLS and Insecure are mutually exclusive")
+	}
 	tr := &http.Transport{}
-	if cfg.Insecure {
+	switch {
+	case cfg.EnrollTLS != nil:
+		tr.TLSClientConfig = cfg.EnrollTLS.Clone()
+	case cfg.Insecure:
 		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS13} // #nosec G402 -- dev self-signed edge; client is not yet identified
 	}
 	p := &NetProvider{cfg: cfg, now: cfg.now, http: &http.Client{Transport: tr, Timeout: 20 * time.Second}, close: make(chan struct{})}
@@ -484,6 +496,11 @@ func buildStateFrom(trustDomain, serviceName string, b *lcmclient.Bundle, key *e
 	sid, err := identity.NewSPIFFEID(trustDomain, serviceName)
 	if err != nil {
 		return nil, err
+	}
+	// The leaf must name this workload: a persisted SVID from before a trust
+	// domain or service rename would otherwise be served until it expires.
+	if len(leaf.URIs) != 1 || leaf.URIs[0].String() != sid.String() {
+		return nil, fmt.Errorf("lcmidentity: certificate is not for %s", sid.String())
 	}
 	return &state{
 		crt:    tls.Certificate{Certificate: append(certDERs, chainDERs...), PrivateKey: key, Leaf: leaf},
