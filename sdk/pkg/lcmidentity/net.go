@@ -497,6 +497,11 @@ func buildStateFrom(trustDomain, serviceName string, b *lcmclient.Bundle, key *e
 	if err != nil {
 		return nil, err
 	}
+	// The leaf must name this workload: a persisted SVID from before a trust
+	// domain or service rename would otherwise be served until it expires.
+	if len(leaf.URIs) != 1 || leaf.URIs[0].String() != sid.String() {
+		return nil, fmt.Errorf("lcmidentity: certificate is not for %s", sid.String())
+	}
 	return &state{
 		crt:    tls.Certificate{Certificate: append(certDERs, chainDERs...), PrivateKey: key, Leaf: leaf},
 		id:     ident{id: sid, nb: leaf.NotBefore, na: leaf.NotAfter, serial: leaf.SerialNumber.String()},

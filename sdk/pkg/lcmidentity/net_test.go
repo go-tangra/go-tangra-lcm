@@ -8,11 +8,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -136,5 +139,38 @@ func TestNetEnrollTLSExcludesInsecure(t *testing.T) {
 	_, err := NewNet(context.Background(), cfg)
 	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// A persisted SVID is reused only while it names this workload: after a trust
+// domain (or service) change the provider must enroll afresh.
+func TestNetLoadPersistedRejectsOtherIdentity(t *testing.T) {
+	ca := newFakeCA(t)
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	uri, _ := url.Parse("spiffe://example.org/svc/inventory")
+	csrDER, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{URIs: []*url.URL{uri}}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := ca.sign(t, string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrDER})), time.Hour)
+	keyDER, _ := x509.MarshalPKCS8PrivateKey(key)
+	rec, _ := json.Marshal(persistedSVID{CertPEM: b.CertPem, BundlePEM: b.BundlePem,
+		KeyPEM: string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}))})
+	file := filepath.Join(t.TempDir(), "svid.json")
+	if err := os.WriteFile(file, rec, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		td, svc string
+		reuse   bool
+	}{
+		{"example.org", "inventory", true},
+		{"infra.example.com", "inventory", false},
+		{"example.org", "asset", false},
+	} {
+		p := &NetProvider{cfg: NetConfig{TrustDomain: tc.td, ServiceName: tc.svc, StateFile: file}, now: time.Now}
+		if got := p.loadPersisted() != nil; got != tc.reuse {
+			t.Errorf("%s/%s: reused=%v, want %v", tc.td, tc.svc, got, tc.reuse)
+		}
 	}
 }
