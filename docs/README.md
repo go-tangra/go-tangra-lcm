@@ -36,6 +36,21 @@ per-tenant row-level security, and a Vue 3 / Vuetify Module Federation remote.
 - **Operations** — tenant secrets, HMAC-signed webhooks, an append-only audit
   trail, statistics, and tenant backup export/import.
 
+## ACME DNS providers
+
+ACME issuers answer DNS-01 challenges through one of these providers (the
+issuer form offers only these; others are refused):
+
+| Provider | Credentials | Notes |
+|---|---|---|
+| Cloudflare | `api_token`, optional `zone_id` | Token with **Zone → DNS → Edit** on the zone. Without `zone_id` it also needs **Zone → Zone → Read** to find the zone. lcm creates the `_acme-challenge` TXT record, waits (up to 2 min) until the zone's name servers serve it, and deletes it afterwards. |
+| Tangra DNS (`freya-dns`) | none | Zones hosted by the platform DNS module; lcm acts through its mesh identity. |
+| Manual | none | The TXT record is placed out of band (or a test CA that always validates). |
+
+Provider secrets are sealed and shown as `__set__`; they are never returned by
+the API. A failed order is logged (`acme issuance failed`) and audited as
+`certificate_issued` with outcome `failed` and the reason.
+
 ## Permissions and module roles
 
 lcm registers with auth as module `lcm`, display name "Certificates" (auth SDK

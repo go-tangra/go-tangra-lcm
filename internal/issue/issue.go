@@ -44,8 +44,10 @@ const (
 // is min(expiringWindow, 0.5*TTL).
 const expiringWindow = 30 * 24 * time.Hour
 
-// issuerSecretFields are the issuer settings redacted on every read.
-var issuerSecretFields = []string{"acme_account_key", "dns_credential", "eab_hmac_key"}
+// issuerSecretFields are the issuer settings redacted on every read: the ACME
+// account key, EAB key, nested DNS credential and every DNS provider's secret
+// form field (api_token, secret_access_key, …).
+var issuerSecretFields = append([]string{"acme_account_key", "dns_credential", "eab_hmac_key"}, acme.SecretFieldKeys()...)
 
 // ValidationError is a client-safe rejection carrying the offending field.
 type ValidationError struct {

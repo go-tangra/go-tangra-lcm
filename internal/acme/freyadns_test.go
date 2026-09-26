@@ -31,7 +31,7 @@ const issuerTenant = "11111111-1111-7111-8111-111111111111"
 func TestFreyaDNSRegistered(t *testing.T) {
 	for _, p := range Providers() {
 		if p.Name == FreyaDNS {
-			if p.DisplayName != "Freya DNS" || len(p.Fields) != 0 {
+			if p.DisplayName != "Tangra DNS" || len(p.Fields) != 0 {
 				t.Fatalf("freya-dns entry = %+v", p)
 			}
 			return
@@ -74,8 +74,8 @@ func TestFreyaDNSMissingDeps(t *testing.T) {
 	} else if _, ok := p.(*NoopProvider); !ok {
 		t.Fatalf("manual = %T", p)
 	}
-	if _, err := NewProviderWith("cloudflare", map[string]string{"api_token": "x"}, ProviderDeps{}); !errors.Is(err, ErrUnsupportedProvider) {
-		t.Fatalf("cloudflare = %v", err)
+	if _, err := NewProviderWith("route53", map[string]string{"secret_access_key": "x"}, ProviderDeps{}); !errors.Is(err, ErrUnsupportedProvider) {
+		t.Fatalf("route53 = %v", err)
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/go-tangra/go-tangra-lcm/v4/api/schema"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/acme"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/repo"
@@ -51,7 +52,7 @@ var (
 
 // issuerSecretFields are the issuer settings that hold credential material and
 // are excluded from a credential-free export.
-var issuerSecretFields = []string{"acme_account_key", "dns_credential"}
+var issuerSecretFields = append([]string{"acme_account_key", "dns_credential", "eab_hmac_key"}, acme.SecretFieldKeys()...)
 
 // Document is the backup (api/schema/backup.schema.json).
 type Document struct {

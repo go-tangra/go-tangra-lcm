@@ -50,6 +50,31 @@ func (s *Service) PrecheckACME(ctx context.Context, subj authz.Subjects, issuerI
 }
 
 func (s *Service) ObtainACME(ctx context.Context, subj authz.Subjects, issuerID string, domains []string, csrPEM string, deliverKey, autoRenew bool) (Bundle, error) {
+	b, err := s.obtainACME(ctx, subj, issuerID, domains, csrPEM, deliverKey, autoRenew)
+	if err != nil && !errors.Is(err, authz.ErrForbidden) {
+		// The order runs in the background; the audit row is its only durable trace.
+		names := normaliseDomains(domains)
+		first := ""
+		if len(names) > 0 {
+			first = names[0]
+		}
+		s.emit(ctx, audit.Event{TenantID: subj.TenantID, EventType: audit.CertificateIssued, ActorKind: subj.ActorKind(), ActorID: subj.ActorID(),
+			SubjectKind: audit.SubjectCertificate, SubjectName: first, Outcome: audit.OutcomeFailed, Reason: FailReason(err),
+			Details: map[string]any{"domains": strings.Join(names, ","), "issuer_id": issuerID, "kind": "generic"}})
+	}
+	return b, err
+}
+
+// FailReason is a failed issuance's client-safe, bounded description.
+func FailReason(err error) string {
+	m := strings.ReplaceAll(err.Error(), "\n", "; ")
+	if len(m) > 300 {
+		m = m[:300]
+	}
+	return m
+}
+
+func (s *Service) obtainACME(ctx context.Context, subj authz.Subjects, issuerID string, domains []string, csrPEM string, deliverKey, autoRenew bool) (Bundle, error) {
 	domains = normaliseDomains(domains)
 	if len(domains) == 0 {
 		return Bundle{}, invalid("domains", "at least one DNS domain is required")
@@ -200,7 +225,28 @@ func (s *Service) dnsProvider(issuer store.Issuer, settings sealed.Settings) (ac
 	if s.freyaDNS != nil {
 		deps.FreyaDNS = s.freyaDNS
 	}
-	return acme.NewProviderWith(issuer.DNSProvider, credsMap(settings["dns_credential"]), deps)
+	return acme.NewProviderWith(issuer.DNSProvider, providerCreds(issuer.DNSProvider, settings), deps)
+}
+
+// providerCreds returns the DNS provider credentials: the nested
+// dns_credential object when set, else the provider's form fields, which the
+// issuer form stores as flat settings keys (api_token, zone_id, …).
+func providerCreds(provider string, settings sealed.Settings) map[string]string {
+	if nested := credsMap(settings["dns_credential"]); len(nested) > 0 {
+		return nested
+	}
+	out := map[string]string{}
+	for _, p := range acme.Providers() {
+		if p.Name != provider {
+			continue
+		}
+		for _, f := range p.Fields {
+			if v := asString(settings[f.Key]); v != "" {
+				out[f.Key] = v
+			}
+		}
+	}
+	return out
 }
 
 // decodeEABKey accepts an EAB HMAC key in base64url (preferred, per ACME) or
