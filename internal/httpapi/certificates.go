@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
@@ -105,6 +106,8 @@ func (s *Server) RegisterCertificates(d CertDeps) {
 			defer cancel()
 			b, err := d.Issue.ObtainACME(ctx, subj, in.IssuerID, domains, csrPEM, false, autoRenew)
 			if err != nil {
+				s.rt.Logger().Warn("acme issuance failed", "tenant", subj.TenantID, "issuer", in.IssuerID,
+					"domains", strings.Join(domains, ","), "error", issue.FailReason(err))
 				if d.PubFail != nil {
 					d.PubFail(ctx, subj.TenantID, map[string]any{"domains": domains, "error": issueFailMessage(err)})
 				}

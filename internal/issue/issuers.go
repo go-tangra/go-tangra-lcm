@@ -81,6 +81,9 @@ func (s *Service) validate(in IssuerInput) error {
 	if !validTrustDomain(in.TrustDomain) {
 		return invalid("trust_domain", "trust domain is not a valid host")
 	}
+	if in.Type == "acme" && in.DNSProvider != "" && !acme.IsSupported(in.DNSProvider) {
+		return invalid("dns_provider", "DNS provider "+in.DNSProvider+" is not supported")
+	}
 	return nil
 }
 

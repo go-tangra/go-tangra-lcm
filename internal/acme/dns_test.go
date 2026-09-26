@@ -90,7 +90,7 @@ func TestNewProviderManual(t *testing.T) {
 }
 
 func TestNewProviderUnsupported(t *testing.T) {
-	for _, name := range []string{"cloudflare", "route53", "gcloud", "digitalocean", "unknown-xyz", "freya-dns"} {
+	for _, name := range []string{"route53", "gcloud", "digitalocean", "unknown-xyz", "freya-dns"} {
 		p, err := NewProvider(name, map[string]string{"api_token": "secret-value"})
 		if p != nil {
 			t.Errorf("NewProvider(%q) returned a non-nil provider", name)
@@ -103,7 +103,7 @@ func TestNewProviderUnsupported(t *testing.T) {
 
 func TestNewProviderNeverLeaksCredential(t *testing.T) {
 	const secret = "super-secret-token-42"
-	_, err := NewProvider("cloudflare", map[string]string{"api_token": secret})
+	_, err := NewProvider("route53", map[string]string{"secret_access_key": secret})
 	if err == nil {
 		t.Fatal("expected error")
 	}

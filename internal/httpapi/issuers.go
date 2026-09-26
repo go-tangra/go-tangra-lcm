@@ -14,7 +14,7 @@ type issuerBody struct {
 	Type             string          `json:"type"`
 	TrustDomain      string          `json:"trust_domain"`
 	IsDefault        bool            `json:"is_default"`
-	Enabled          bool            `json:"enabled"`
+	Enabled          *bool           `json:"enabled"` // omitted = enabled
 	ACMEDirectoryURL string          `json:"acme_directory_url"`
 	ACMEEmail        string          `json:"acme_email"`
 	DNSProvider      string          `json:"dns_provider"`
@@ -39,7 +39,7 @@ func (b issuerBody) input() issue.IssuerInput {
 	dnsProv := firstNonEmpty(b.DNSProvider, settingString(s, "dns_provider"))
 	return issue.IssuerInput{
 		Name: b.Name, Type: b.Type, TrustDomain: strings.TrimSpace(b.TrustDomain), IsDefault: b.IsDefault,
-		Enabled: b.Enabled, ACMEDirectoryURL: strings.TrimSpace(dir), ACMEEmail: strings.TrimSpace(email),
+		Enabled: b.Enabled == nil || *b.Enabled, ACMEDirectoryURL: strings.TrimSpace(dir), ACMEEmail: strings.TrimSpace(email),
 		DNSProvider: dnsProv, Settings: s,
 	}
 }
@@ -142,6 +142,6 @@ func (s *Server) RegisterIssuers(d CertDeps) {
 			Fail(w, r, nil, err)
 			return
 		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": acme.Providers()})
+		WriteJSON(w, http.StatusOK, map[string]any{"items": acme.SupportedProviders()})
 	})
 }

@@ -94,12 +94,16 @@ type ProviderInfo struct {
 	Name        string          `json:"name"`
 	DisplayName string          `json:"display_name"`
 	Fields      []ProviderField `json:"fields"`
+	// Supported reports whether an adapter exists (NewProviderWith builds it).
+	Supported bool `json:"supported"`
 }
 
-// registry is the static list of DNS providers the module advertises. Only the
-// generic "manual" provider has a working in-process adapter today (NewProvider
-// returns the no-op recorder for it); the rest are advertised so the API and UI
-// can collect credentials, and real adapters can be added later without
+// supported names the providers NewProviderWith can build.
+var supported = map[string]bool{"cloudflare": true, "manual": true, FreyaDNS: true}
+
+// registry is the static list of DNS providers the module knows. Only those in
+// `supported` have an adapter (manual, cloudflare, freya-dns); the API offers
+// only those, and real adapters for the rest can be added later without
 // changing this registry's shape. Field keys are stable identifiers used as the
 // sealed-settings JSON keys; secret fields are marked so the caller seals and
 // redacts them.
@@ -190,7 +194,7 @@ var registry = []ProviderInfo{
 		// the mesh with lcm's SPIFFE identity, so no credential is stored. The
 		// certificate domains must be hosted in the issuer tenant's zones.
 		Name:        FreyaDNS,
-		DisplayName: "Freya DNS",
+		DisplayName: "Tangra DNS",
 		Fields:      []ProviderField{},
 	},
 }
@@ -202,7 +206,38 @@ func Providers() []ProviderInfo {
 	for i, p := range registry {
 		fields := make([]ProviderField, len(p.Fields))
 		copy(fields, p.Fields)
-		out[i] = ProviderInfo{Name: p.Name, DisplayName: p.DisplayName, Fields: fields}
+		out[i] = ProviderInfo{Name: p.Name, DisplayName: p.DisplayName, Fields: fields, Supported: supported[p.Name]}
+	}
+	return out
+}
+
+// SupportedProviders lists only the providers with an adapter; the API offers
+// these, so an issuer cannot be configured for a provider that cannot work.
+func SupportedProviders() []ProviderInfo {
+	var out []ProviderInfo
+	for _, p := range Providers() {
+		if p.Supported {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// IsSupported reports whether NewProviderWith can build the named provider.
+func IsSupported(name string) bool { return supported[name] }
+
+// SecretFieldKeys lists every provider's secret credential keys; they are
+// sealed and redacted wherever issuer settings are stored or returned.
+func SecretFieldKeys() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, p := range registry {
+		for _, f := range p.Fields {
+			if f.Secret && !seen[f.Key] {
+				seen[f.Key] = true
+				out = append(out, f.Key)
+			}
+		}
 	}
 	return out
 }
@@ -222,7 +257,8 @@ func NewProvider(name string, creds map[string]string) (DNSProvider, error) {
 }
 
 // NewProviderWith constructs a DNSProvider for a registry name. It returns the
-// no-op/manual recorder for "manual", the Freya DNS provider for "freya-dns"
+// no-op/manual recorder for "manual", the Cloudflare API provider for
+// "cloudflare", the Freya DNS provider for "freya-dns"
 // when deps carry a DNS client and a tenant, and ErrUnsupportedProvider for
 // every registered-but-not-yet-implemented provider, for freya-dns without its
 // dependencies and for unknown names. It never panics and never includes a
@@ -237,6 +273,8 @@ func NewProviderWith(name string, creds map[string]string, deps ProviderDeps) (D
 	switch name {
 	case "manual":
 		return &NoopProvider{}, nil
+	case "cloudflare":
+		return NewCloudflare(creds, CloudflareOptions{})
 	case FreyaDNS:
 		if deps.FreyaDNS == nil || deps.TenantID == "" {
 			return nil, ErrUnsupportedProvider
