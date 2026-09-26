@@ -100,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/lcm/v1/certificates/acme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["obtainAcmeCertificate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/lcm/v1/certificates/{id}": {
         parameters: {
             query?: never;
@@ -124,6 +140,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["downloadCertificate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/lcm/v1/certificates/{id}/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadCertificateKey"];
         put?: never;
         post?: never;
         delete?: never;
@@ -334,6 +366,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["enroll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/lcm/v1/bootstrap-bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getBootstrapBundle"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1016,8 +1064,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description CertificateBundle (key_pem present once when generated) */
-            200: {
+            /** @description issuance accepted; the outcome arrives over SSE (certificate.issued | certificate.failed). A generated key is retained and downloadable */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1039,6 +1087,50 @@ export interface operations {
             };
             /** @description rate_limited */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    obtainAcmeCertificate: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: components["parameters"]["csrf"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    issuer_id: string;
+                    domains: string[];
+                    csr_pem?: string;
+                    deliver_key?: boolean;
+                    auto_renew?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description order accepted { status: processing, domains, request_id }; recorded as a generic certificate request (processing -> issued | failed with the reason); the outcome also arrives over SSE (certificate.issued | certificate.failed) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not entitled to the issuer */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed (issuer, or a malformed / redundant domain, named in the message) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1114,6 +1206,33 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description CertificateBundle without key_pem (the key is delivered only at issuance) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    downloadCertificateKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The retained private key { key_pem } for a generic certificate */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1233,7 +1352,7 @@ export interface operations {
     listRequests: {
         parameters: {
             query?: {
-                status?: "pending" | "approved" | "rejected" | "issued";
+                status?: "pending" | "approved" | "rejected" | "issued" | "processing" | "failed";
                 cursor?: components["parameters"]["cursor"];
                 limit?: components["parameters"]["limit"];
             };
@@ -1457,9 +1576,7 @@ export interface operations {
     enroll: {
         parameters: {
             query?: never;
-            header?: {
-                "X-CSRF-Token"?: components["parameters"]["csrf"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -1468,8 +1585,8 @@ export interface operations {
                 "application/json": {
                     spiffe_id: components["schemas"]["SpiffeId"];
                     csr_pem?: string;
-                    /** @description auth-minted token; omitted when enrolling with the caller platform identity */
-                    enrollment_token?: string;
+                    /** @description auth-minted single-use enrollment token */
+                    enrollment_token: string;
                 };
             };
         };
@@ -1488,6 +1605,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description missing or invalid enrollment token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description not entitled to the SPIFFE id */
             403: {
                 headers: {
@@ -1497,6 +1621,26 @@ export interface operations {
             };
             /** @description validation_failed */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getBootstrapBundle: {
+        parameters: {
+            query: {
+                trust_domain: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description mesh trust roots PEM (public bootstrap anchor) */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

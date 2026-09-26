@@ -2,7 +2,7 @@
 export type IssuerType = 'self_signed' | 'acme'
 export type CertificateKind = 'svid' | 'generic'
 export type CertificateStatus = 'active' | 'expiring' | 'expired' | 'revoked'
-export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'issued'
+export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'issued' | 'processing' | 'failed'
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed'
 export type SecretKind = 'acme_account' | 'dns_credential'
 export type DeploymentKind = 'file' | 'pull' | 'webhook'
@@ -122,9 +122,12 @@ export interface CertificateUpdate {
 }
 
 // ---- requests & jobs ----
+/** A certificate request; an ACME order is kind "generic" (domains in sans, no SPIFFE id). */
 export interface CertRequest {
   id: string
+  kind?: CertificateKind
   spiffe_id: string
+  sans?: string[]
   subject?: string
   issuer_id?: string
   status: RequestStatus

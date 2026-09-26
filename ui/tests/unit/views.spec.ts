@@ -8,8 +8,9 @@ import Permissions from '@/views/permissions/index.vue'
 import Dashboard from '@/views/dashboard/index.vue'
 import Audit from '@/views/audit/index.vue'
 import Secrets from '@/views/secrets/index.vue'
+import Requests from '@/views/requests/index.vue'
 import HeaderCert from '@/components/HeaderCert.vue'
-import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSchema, providerHint, FREYA_DNS_PROVIDER } from '@/schemas'
+import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSchema, providerHint, FREYA_DNS_PROVIDER, requestFilterSchema } from '@/schemas'
 
 class FakeSource { onopen = null; onerror = null; addEventListener() {} close() {} }
 const mountView = (c: unknown) => mount(c as never, { global: { plugins: plugins() }, attachTo: document.body })
@@ -175,6 +176,96 @@ describe('certificates view', () => {
     await flushPromises()
     expect(posts).toEqual(['/api/lcm/v1/certificates/issue'])
     expect(dialog.querySelector('[data-test="issue-queued"]')).toBeTruthy()
+    w.unmount()
+  })
+  it('an ACME order is acknowledged as processing and points to Requests', async () => {
+    const posts: string[] = []
+    stubFetch((url, init) => {
+      if (init?.method === 'POST') {
+        posts.push(url)
+        return { status: 202, body: { status: 'processing', domains: ['www.example.org'], request_id: 'r7' } }
+      }
+      if (url.includes('/issuers')) return { status: 200, body: { items: [{ id: 'i1', name: 'le', type: 'acme', trust_domain: 'example.org', settings: {} }] } }
+      return { status: 200, body: { items: [] } }
+    })
+    const w = mountView(Certificates)
+    await flushPromises()
+    await w.find('[data-test="cert-issue-open"]').trigger('click')
+    await flushPromises()
+    const dialog = document.body.querySelector('[data-test=issue-dialog]')!
+    const acmeTab = Array.from(dialog.querySelectorAll('[role=tab]')).find((t) => t.textContent?.includes('ACME')) as HTMLElement
+    acmeTab.click()
+    await flushPromises()
+    const issuer = dialog.querySelector<HTMLSelectElement>('select[data-field=issuer_id]')!
+    issuer.value = 'i1'
+    issuer.dispatchEvent(new Event('change'))
+    const domains = dialog.querySelector<HTMLInputElement>('input[data-field=domains]')!
+    domains.value = 'www.example.org'
+    domains.dispatchEvent(new Event('input'))
+    ;(dialog.querySelector('[data-test="issue-submit"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(posts).toEqual(['/api/lcm/v1/certificates/acme'])
+    const queued = dialog.querySelector('[data-test="issue-queued"]')!
+    expect(queued.textContent).toContain('processing')
+    expect(queued.textContent).toContain('Requests')
+    expect(dialog.querySelector('[data-test="issue-requests-link"]')?.getAttribute('href')).toBe('/lcm/requests')
+    w.unmount()
+  })
+  it('opens the certificate named in the ?id= query', async () => {
+    const cert = { id: 'c9', serial: '09', sans: ['www.example.org'], kind: 'generic' as const, status: 'active' as const, permissions: { write: true } }
+    stubFetch((url) => {
+      if (url.endsWith('/certificates/c9')) return { status: 200, body: cert }
+      if (url.includes('/certificates')) return { status: 200, body: { items: [] } }
+      return { status: 200, body: { items: [] } }
+    })
+    const pl = plugins()
+    const router = pl[0] as import('vue-router').Router
+    await router.push('/lcm/certificates?id=c9')
+    await router.isReady()
+    const w = mount(Certificates as never, { global: { plugins: pl }, attachTo: document.body })
+    await flushPromises()
+    expect(document.body.querySelector('[data-test="certificate-drawer"]')?.textContent).toContain('www.example.org')
+    w.unmount()
+  })
+})
+
+describe('requests view', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+  it('shows ACME orders by their domains with processing/failed states, the failure reason and a link to the issued certificate', async () => {
+    expect(requestFilterSchema.safeParse({ status: 'processing' }).success).toBe(true)
+    expect(requestFilterSchema.safeParse({ status: 'failed' }).success).toBe(true)
+    const items = [
+      { id: 'r1', kind: 'svid', spiffe_id: 'spiffe://example.org/svc/a', sans: [], status: 'pending' },
+      { id: 'r2', kind: 'generic', spiffe_id: '', sans: ['*.example.org', 'example.org'], status: 'processing' },
+      { id: 'r3', kind: 'generic', spiffe_id: '', sans: ['test.example.org'], status: 'failed', reason: 'acme: order failed: Domain name is redundant with a wildcard domain' },
+      { id: 'r4', kind: 'generic', spiffe_id: '', sans: ['www.example.org'], status: 'issued', certificate_id: 'c9' },
+    ]
+    const queries: string[] = []
+    stubFetch((url) => {
+      if (url.includes('/requests?')) {
+        queries.push(url)
+        return { status: 200, body: { items } }
+      }
+      return { status: 200, body: { items: [] } }
+    })
+    const w = mountView(Requests)
+    await flushPromises()
+    const row = (id: string) => w.find('[data-test="request-row-' + id + '"]')
+    expect(row('r1').text()).toContain('spiffe://example.org/svc/a')
+    expect(row('r2').text()).toContain('*.example.org, example.org')
+    expect(row('r2').text()).toContain('processing')
+    expect(row('r2').text()).toContain('generic')
+    expect(row('r3').text()).toContain('failed')
+    expect(row('r3').text()).toContain('redundant with a wildcard domain')
+    expect(w.find('[data-test="request-approve-r1"]').exists()).toBe(true)
+    for (const id of ['r2', 'r3', 'r4']) {
+      expect(w.find('[data-test="request-approve-' + id + '"]').exists()).toBe(false)
+      expect(w.find('[data-test="request-reject-' + id + '"]').exists()).toBe(false)
+    }
+    expect(w.find('[data-test="request-cert-r4"]').attributes('href')).toContain('/lcm/certificates?id=c9')
+    expect(w.find('[data-test="request-cert-r3"]').exists()).toBe(false)
+    const options = Array.from(w.find('[data-test="requests-filter"]').element.querySelectorAll('option')).map((o) => o.textContent?.trim())
+    expect(options).toEqual(expect.arrayContaining(['processing', 'failed']))
     w.unmount()
   })
 })

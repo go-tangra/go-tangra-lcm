@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiStatusChip, UiTabs, UiForm, UiSelect, type Column, type SelectOption, type TabItem } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
 import { useRequests } from '@/stores/requests'
@@ -24,9 +25,14 @@ async function act(fn: () => Promise<void>): Promise<void> {
     error.value = describe(e)
   }
 }
+// An ACME order (kind generic) has domains instead of a SPIFFE ID.
+const identity = (r: CertRequest) => (r.kind === 'generic' ? (r.sans ?? []).join(', ') : r.spiffe_id)
+const statusColors = { pending: 'warning', processing: 'info', approved: 'info', issued: 'success', rejected: 'error', failed: 'error' } as const
 const requestColumns: Column<CertRequest>[] = [
-  { key: 'spiffe_id', label: 'SPIFFE ID' },
+  { key: 'identity', label: 'SPIFFE ID / domains', format: identity },
+  { key: 'kind', label: 'Kind', width: 'sm', format: (r) => (r.kind === 'generic' ? 'generic' : 'SVID'), hideOnStack: true },
   { key: 'status', label: 'Status', width: 'sm' },
+  { key: 'reason', label: 'Reason', format: (r) => r.reason ?? '' },
   { key: 'created_at', label: 'Requested', format: (r) => (r.created_at ? new Date(r.created_at).toLocaleString() : ''), hideOnStack: true },
 ]
 const jobColumns: Column<Job>[] = [
@@ -47,8 +53,9 @@ const jobColumns: Column<Job>[] = [
       </UiForm>
       <UiCard :padded="false">
         <UiDataTable :items="store.requests" :columns="requestColumns" caption="Certificate requests" empty-title="No requests" :row-attrs="(r) => ({ 'data-test': 'request-row-' + r.id })" data-test="requests-table">
-          <template #cell-status="{ row }"><UiStatusChip :status="row.status" :colors="{ approved: 'info', rejected: 'error', pending: 'warning' }" /></template>
+          <template #cell-status="{ row }"><UiStatusChip :status="row.status" :colors="statusColors" /></template>
           <template #actions="{ row }">
+            <RouterLink v-if="row.status === 'issued' && row.certificate_id" :to="{ path: '/lcm/certificates', query: { id: row.certificate_id } }" class="btn btn-text btn-xs" :data-test="'request-cert-' + row.id">View certificate</RouterLink>
             <template v-if="row.status === 'pending'">
               <UiButton size="xs" variant="text" color="success" :data-test="'request-approve-' + row.id" @click="act(() => store.approve(row.id))">Approve</UiButton>
               <UiButton size="xs" variant="text" color="error" :data-test="'request-reject-' + row.id" @click="act(() => store.reject(row.id))">Reject</UiButton>

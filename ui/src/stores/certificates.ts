@@ -41,10 +41,11 @@ export const useCertificates = defineStore('lcm-certificates', () => {
    * Request a generic (kind=generic) certificate from an ACME issuer. Issuance
    * is asynchronous: the server accepts the request (202) and reports the
    * outcome over SSE (certificate.issued | certificate.failed), which updates
-   * this list live. Returns the acknowledgement, not a bundle.
+   * this list live. The order is recorded as a request (request_id) that ends
+   * issued or failed with the reason. Returns the acknowledgement, not a bundle.
    */
-  async function obtainAcme(input: AcmeInput): Promise<{ status: string; domains: string[] }> {
-    return api<{ status: string; domains: string[] }>('POST', 'certificates/acme', input)
+  async function obtainAcme(input: AcmeInput): Promise<{ status: string; domains: string[]; request_id?: string }> {
+    return api<{ status: string; domains: string[]; request_id?: string }>('POST', 'certificates/acme', input)
   }
 
   async function renew(id: string): Promise<CertificateBundle> {

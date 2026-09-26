@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiSelect, UiNumberInput, UiSwitch, UiTextarea, UiButton, UiDataTable, UiStatusChip, UiBadge, UiTabs, UiDrawer, UiKeyValueTable, useToast, useConfirm, type Column, type SelectOption, type TabItem } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
 import { useCertificates } from '@/stores/certificates'
@@ -29,9 +30,16 @@ const more = () => {
 
 let release: (() => void) | null = null
 let offLive: (() => void) | null = null
+const route = useRoute()
+const linkError = ref('')
 onMounted(() => {
   reload()
   void issuers.list()
+  // Deep link (e.g. from an issued ACME request): open that certificate.
+  const id = route.query.id
+  if (typeof id === 'string' && id) {
+    store.get(id).then(open, (e) => (linkError.value = describe(e)))
+  }
   // The shared SSE stream keeps the list live; async ACME issuance reports its outcome here.
   release = live.connect()
   offLive = live.on((type, data) => {
@@ -167,6 +175,7 @@ const renew = async () => {
       </UiForm>
     </template>
     <UiAlert v-if="store.error" kind="error" class="mb-3">{{ store.error }}</UiAlert>
+    <UiAlert v-if="linkError" kind="error" class="mb-3" data-test="cert-link-error">{{ linkError }}</UiAlert>
     <UiCard :padded="false">
       <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" caption="Certificates" empty-title="No certificates" clickable :has-more="!!store.next" :row-attrs="(c) => ({ 'data-test': 'cert-row-' + c.id })" data-test="certificates-table" @row-click="open" @load-more="more">
         <template #cell-kind="{ row }"><UiBadge :color="row.kind === 'generic' ? 'info' : 'primary'">{{ row.kind === 'generic' ? 'generic' : 'SVID' }}</UiBadge></template>
@@ -196,6 +205,7 @@ const renew = async () => {
           </div>
         </UiForm>
       </template>
+      <UiAlert v-else-if="mode === 'acme'" kind="info" data-test="issue-queued">ACME order submitted and processing. It is recorded under <RouterLink to="/lcm/requests" class="link" data-test="issue-requests-link">Requests</RouterLink>, where it ends issued or failed with the CA's reason; the certificate appears in this list when issued.</UiAlert>
       <UiAlert v-else kind="info" data-test="issue-queued">Certificate requested. Issuance runs in the background — it will appear in the list when issued, or an error will be shown if it fails.</UiAlert>
       <template #actions>
         <template v-if="!queued">
