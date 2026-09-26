@@ -451,6 +451,9 @@ func (m *Mem) InsertRequest(_ context.Context, r store.CertificateRequest) error
 			return store.ErrConflict
 		}
 	}
+	if r.Kind == "" {
+		r.Kind = "svid"
+	}
 	now := m.Now()
 	r.CreatedAt, r.UpdatedAt = now, now
 	m.Requests[r.ID] = cpRequest(r)
@@ -519,6 +522,22 @@ func (m *Mem) SetRequestStatus(_ context.Context, tid, id, status string, approv
 	if reason != nil {
 		r.Reason = reason
 	}
+	r.UpdatedAt = m.Now()
+	m.Requests[id] = r
+	return nil
+}
+
+func (m *Mem) CompleteRequest(_ context.Context, tid, id, status string, certificateID, reason *string) error {
+	if err := m.fail("CompleteRequest"); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	r, ok := m.Requests[id]
+	if !ok || r.TenantID != tid {
+		return store.ErrNotFound
+	}
+	r.Status, r.CertificateID, r.Reason = status, certificateID, reason
 	r.UpdatedAt = m.Now()
 	m.Requests[id] = r
 	return nil

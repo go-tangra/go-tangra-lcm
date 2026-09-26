@@ -117,6 +117,9 @@ func (d *DB) ListRequests(ctx context.Context, tid string, f store.RequestFilter
 func (d *DB) SetRequestStatus(ctx context.Context, tid, id, status string, approver, reason *string) error {
 	return d.tenant(ctx, tid, func(tx pgx.Tx) error { return store.SetRequestStatus(ctx, tx, tid, id, status, approver, reason) })
 }
+func (d *DB) CompleteRequest(ctx context.Context, tid, id, status string, certificateID, reason *string) error {
+	return d.tenant(ctx, tid, func(tx pgx.Tx) error { return store.CompleteRequest(ctx, tx, tid, id, status, certificateID, reason) })
+}
 func (d *DB) DeleteRequest(ctx context.Context, tid, id string) error {
 	return d.tenant(ctx, tid, func(tx pgx.Tx) error { return store.DeleteRequest(ctx, tx, tid, id) })
 }
