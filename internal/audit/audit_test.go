@@ -162,11 +162,12 @@ func TestWriterErrorAndOverflow(t *testing.T) {
 	var mu sync.Mutex
 	var got []error
 	w := newWriter(fs, func(e error) { mu.Lock(); got = append(got, e); mu.Unlock() }, 2)
-	w.start()
 	ctx := context.Background()
+	// Enqueue before the worker runs so the queue of 2 overflows deterministically.
 	for i := 0; i < 8; i++ {
 		_ = w.Record(ctx, Event{EventType: AccessRefused, TenantID: "t", ActorKind: ActorUser, SubjectKind: SubjectGrant, Outcome: OutcomeRefused})
 	}
+	w.start()
 	w.Flush(ctx)
 	w.Close()
 	mu.Lock()
