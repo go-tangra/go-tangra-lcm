@@ -150,7 +150,7 @@ func (c *Client) Register(ctx context.Context) error {
 	if err == nil || errors.Is(err, xacme.ErrAccountAlreadyExists) {
 		return nil
 	}
-	return errors.Join(ErrOrder, scrub(err))
+	return withCause(ErrOrder, err)
 }
 
 // Obtain runs the DNS-01 order flow for domains against the certificate whose
@@ -160,7 +160,7 @@ func (c *Client) Register(ctx context.Context) error {
 // then CreateOrderCert with the CSR, wait for issuance and PEM-encode the chain.
 // Every published record is cleaned up (deferred) whether or not issuance
 // succeeds. The whole call is bounded by Config.Timeout. Errors are one of the
-// package sentinels joined with a scrubbed cause; the account key and DNS
+// package sentinels with a sanitised cause; the account key and DNS
 // credentials never appear in them.
 func (c *Client) Obtain(ctx context.Context, csrDER []byte, domains []string) (string, error) {
 	if len(csrDER) == 0 || len(csrDER) > MaxCSRBytes {
@@ -210,7 +210,7 @@ func (c *Client) Obtain(ctx context.Context, csrDER []byte, domains []string) (s
 		domain := authz.Identifier.Value
 		fqdn := "_acme-challenge." + domain
 		if err := c.dns.Present(ctx, domain, fqdn, value); err != nil {
-			return "", errors.Join(ErrProvider, scrub(err))
+			return "", withCause(ErrProvider, err)
 		}
 		records = append(records, published{domain, fqdn, value})
 
@@ -268,32 +268,12 @@ func dns01Challenge(chals []*xacme.Challenge) *xacme.Challenge {
 }
 
 // wrap maps a cause to the right sentinel: a deadline/cancellation becomes
-// ErrTimeout, anything else joins sentinel with the scrubbed cause.
+// ErrTimeout, anything else is sentinel with the sanitised cause.
 func wrap(ctx context.Context, sentinel, cause error) error {
 	if ctx.Err() != nil || errors.Is(cause, context.DeadlineExceeded) || errors.Is(cause, context.Canceled) {
 		return ErrTimeout
 	}
-	return errors.Join(sentinel, scrub(cause))
-}
-
-// scrub reduces a cause to a short, credential-free error. ACME/DNS transport
-// errors can echo request bodies; we keep only the type-level message and drop
-// any dynamic detail that could carry the account key or a DNS credential.
-func scrub(err error) error {
-	if err == nil {
-		return nil
-	}
-	var ae *xacme.Error
-	if errors.As(err, &ae) {
-		// ACME problem documents carry a stable type/detail from the CA; keep
-		// only the problem type, never headers or the JWS payload.
-		return errors.New("acme: server rejected request (" + ae.ProblemType + ")")
-	}
-	var ne net.Error
-	if errors.As(err, &ne) {
-		return errors.New("acme: network error contacting directory")
-	}
-	return errors.New("acme: request failed")
+	return withCause(sentinel, cause)
 }
 
 // encodeChainPEM concatenates DER certificates as PEM CERTIFICATE blocks.

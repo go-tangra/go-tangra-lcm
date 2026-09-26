@@ -39,20 +39,23 @@ type CA struct {
 	CreatedAt    time.Time
 }
 
-// CertificateRequest is a pending/approved/rejected/issued application.
+// CertificateRequest is a pending/approved/rejected/issued application, or an
+// ACME order (kind generic) that runs processing -> issued|failed.
 type CertificateRequest struct {
 	ID, TenantID    string
 	IssuerID        *string
-	SpiffeID        string
+	Kind            string // svid | generic ("" stores the svid default)
+	SpiffeID        string // "" for generic requests (stored NULL)
 	SANs            []byte // JSON array
 	KeyType         string
 	CSRPEM          *string
 	ValiditySeconds int64
 	RequestedBy     string
 	RequesterKind   string // user | service | token
-	Status          string // pending | approved | rejected | issued
+	Status          string // pending | approved | rejected | issued | processing | failed
 	Approver        *string
 	Reason          *string
+	CertificateID   *string // the certificate an issued generic request produced
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
@@ -239,5 +242,23 @@ type AuditFilter struct {
 	ActorID   string
 	From, To  time.Time
 	Cursor    time.Time
-	Limit     int
+	Limit     int // <= 0: DefaultAuditLimit; capped at MaxAuditLimit
+}
+
+// Audit page sizes.
+const (
+	DefaultAuditLimit = 100
+	MaxAuditLimit     = 500
+)
+
+// AuditLimit is the page size an audit query uses for the requested limit:
+// unset (<= 0) is DefaultAuditLimit, anything above MaxAuditLimit is capped.
+func AuditLimit(limit int) int {
+	switch {
+	case limit <= 0:
+		return DefaultAuditLimit
+	case limit > MaxAuditLimit:
+		return MaxAuditLimit
+	}
+	return limit
 }

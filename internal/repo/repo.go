@@ -39,6 +39,7 @@ type Requests interface {
 	GetRequest(ctx context.Context, tenantID, id string) (store.CertificateRequest, error)
 	ListRequests(ctx context.Context, tenantID string, f store.RequestFilter) ([]store.CertificateRequest, error)
 	SetRequestStatus(ctx context.Context, tenantID, id, status string, approver *string, reason *string) error
+	CompleteRequest(ctx context.Context, tenantID, id, status string, certificateID *string, reason *string) error
 	DeleteRequest(ctx context.Context, tenantID, id string) error
 }
 

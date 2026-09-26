@@ -203,11 +203,11 @@ func DeleteCA(ctx context.Context, tx pgx.Tx, tenantID, id string) error {
 
 // ---------------------------------------------------------------- certificate requests
 
-const requestCols = "id, tenant_id, issuer_id, spiffe_id, sans, key_type, csr_pem, validity_seconds, requested_by, requester_kind, status, approver, reason, created_at, updated_at"
+const requestCols = "id, tenant_id, issuer_id, kind, COALESCE(spiffe_id, ''), sans, key_type, csr_pem, validity_seconds, requested_by, requester_kind, status, approver, reason, certificate_id, created_at, updated_at"
 
 func scanRequest(r pgx.Row) (CertificateRequest, error) {
 	var c CertificateRequest
-	err := r.Scan(&c.ID, &c.TenantID, &c.IssuerID, &c.SpiffeID, &c.SANs, &c.KeyType, &c.CSRPEM, &c.ValiditySeconds, &c.RequestedBy, &c.RequesterKind, &c.Status, &c.Approver, &c.Reason, &c.CreatedAt, &c.UpdatedAt)
+	err := r.Scan(&c.ID, &c.TenantID, &c.IssuerID, &c.Kind, &c.SpiffeID, &c.SANs, &c.KeyType, &c.CSRPEM, &c.ValiditySeconds, &c.RequestedBy, &c.RequesterKind, &c.Status, &c.Approver, &c.Reason, &c.CertificateID, &c.CreatedAt, &c.UpdatedAt)
 	return c, notFound(err)
 }
 
@@ -225,10 +225,15 @@ func scanRequests(rows pgx.Rows) ([]CertificateRequest, error) {
 }
 
 // InsertRequest creates a certificate request; a bad issuer_id is ErrConflict.
+// An empty Kind stores svid; an empty SpiffeID (generic requests) stores NULL.
 func InsertRequest(ctx context.Context, tx pgx.Tx, r CertificateRequest) error {
-	_, err := tx.Exec(ctx, `INSERT INTO certificate_requests (id, tenant_id, issuer_id, spiffe_id, sans, key_type, csr_pem, validity_seconds, requested_by, requester_kind, status, approver, reason)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-		r.ID, r.TenantID, r.IssuerID, r.SpiffeID, jsonArrayOrEmpty(r.SANs), r.KeyType, r.CSRPEM, r.ValiditySeconds, r.RequestedBy, r.RequesterKind, r.Status, r.Approver, r.Reason)
+	kind := r.Kind
+	if kind == "" {
+		kind = "svid"
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO certificate_requests (id, tenant_id, issuer_id, kind, spiffe_id, sans, key_type, csr_pem, validity_seconds, requested_by, requester_kind, status, approver, reason, certificate_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+		r.ID, r.TenantID, r.IssuerID, kind, nullIfEmpty(r.SpiffeID), jsonArrayOrEmpty(r.SANs), r.KeyType, r.CSRPEM, r.ValiditySeconds, r.RequestedBy, r.RequesterKind, r.Status, r.Approver, r.Reason, r.CertificateID)
 	return restricted(err)
 }
 
@@ -252,6 +257,20 @@ func ListRequests(ctx context.Context, tx pgx.Tx, tenantID string, f RequestFilt
 func SetRequestStatus(ctx context.Context, tx pgx.Tx, tenantID, id, status string, approver, reason *string) error {
 	ct, err := tx.Exec(ctx, "UPDATE certificate_requests SET status = $3, approver = COALESCE($4, approver), reason = COALESCE($5, reason), updated_at = now() WHERE tenant_id = $1 AND id = $2",
 		tenantID, id, status, approver, reason)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// CompleteRequest ends an asynchronous (ACME) request: status issued with the
+// certificate it produced, or failed with the reason.
+func CompleteRequest(ctx context.Context, tx pgx.Tx, tenantID, id, status string, certificateID, reason *string) error {
+	ct, err := tx.Exec(ctx, "UPDATE certificate_requests SET status = $3, certificate_id = $4, reason = $5, updated_at = now() WHERE tenant_id = $1 AND id = $2",
+		tenantID, id, status, certificateID, reason)
 	if err != nil {
 		return err
 	}
@@ -840,9 +859,9 @@ func InsertAuditRows(ctx context.Context, tx pgx.Tx, rows []AuditRow) error {
 	return nil
 }
 
-// QueryAudit pages events newest first; cursor = ts of the last row seen. Live
-// subjects resolve to a name: issuers/secrets/webhooks by name, certificates by
-// spiffe id. Ids are only cast when they look like UUIDs.
+// QueryAudit pages events newest first (AuditLimit(f.Limit) rows); cursor = ts
+// of the last row seen. Live subjects resolve to a name: issuers/secrets/webhooks
+// by name, certificates by spiffe id. Ids are only cast when they look like UUIDs.
 func QueryAudit(ctx context.Context, tx pgx.Tx, tenantID string, f AuditFilter) ([]AuditRow, error) {
 	rows, err := tx.Query(ctx, `SELECT a.ts, a.tenant_id, a.event_type, a.actor_kind, a.actor_id, a.subject_kind, a.subject_id, a.outcome, a.reason, a.correlation_id, a.details,
 		COALESCE(CASE WHEN a.subject_id !~ '`+uuidRE+`' THEN NULL
@@ -852,7 +871,7 @@ func QueryAudit(ctx context.Context, tx pgx.Tx, tenantID string, f AuditFilter) 
 			WHEN a.subject_kind = 'webhook' THEN (SELECT s.name FROM webhook_endpoints s WHERE s.tenant_id = a.tenant_id AND s.id = a.subject_id::uuid) END, '')
 		FROM lcm_audit_events a WHERE a.tenant_id = $1 AND ($2 = '' OR a.event_type = $2) AND ($3 = '' OR a.actor_id = $3)
 		AND ($4::timestamptz IS NULL OR a.ts >= $4) AND ($5::timestamptz IS NULL OR a.ts <= $5) AND ($6::timestamptz IS NULL OR a.ts < $6) ORDER BY a.ts DESC LIMIT $7`,
-		tenantID, f.EventType, f.ActorID, nullTime(f.From), nullTime(f.To), nullTime(f.Cursor), f.Limit)
+		tenantID, f.EventType, f.ActorID, nullTime(f.From), nullTime(f.To), nullTime(f.Cursor), AuditLimit(f.Limit))
 	if err != nil {
 		return nil, err
 	}

@@ -303,10 +303,9 @@ func (f *fakeCA) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Guard: the scrub helper must never surface a raw acme.Error detail.
-func TestScrubIsTerse(t *testing.T) {
-	err := scrub(errors.New("boom with secret=abc123 detail"))
-	if strings.Contains(err.Error(), "abc123") {
-		t.Fatalf("scrub leaked detail: %v", err)
+// Guard: a non-ACME cause never surfaces its raw text.
+func TestDescribeIsTerse(t *testing.T) {
+	if m := describe(errors.New("boom with secret=abc123 detail")); strings.Contains(m, "abc123") {
+		t.Fatalf("describe leaked detail: %v", m)
 	}
 }
