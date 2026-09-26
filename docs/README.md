@@ -51,6 +51,18 @@ Provider secrets are sealed and shown as `__set__`; they are never returned by
 the API. A failed order is logged (`acme issuance failed`) and audited as
 `certificate_issued` with outcome `failed` and the reason.
 
+Domains are checked before anything is sent to the CA (valid DNS names, a
+wildcard only as the whole first label, at most 100, no name already covered
+by a wildcard in the same order such as `test.example.org` next to
+`*.example.org`); a refusal is a 422 naming the domain. Each accepted order is
+recorded as a certificate request of kind `generic` (Requests page, `GET
+/api/lcm/v1/requests`): `processing` while it runs, then `issued` with the
+`certificate_id`, or `failed` with the reason, which carries the CA's problem
+detail (e.g. `acme: order failed: Domain name "test.example.org" is redundant
+with a wildcard domain in the same request
+(urn:ietf:params:acme:error:malformed)`). These requests cannot be approved or
+rejected.
+
 ## Permissions and module roles
 
 lcm registers with auth as module `lcm`, display name "Certificates" (auth SDK
