@@ -145,7 +145,7 @@ paths:
       x-freya-timeout-seconds: 30
       parameters: [{ $ref: '#/components/parameters/csrf' }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [issuer_id, domains], properties: { issuer_id: { type: string }, domains: { type: array, minItems: 1, items: { type: string, maxLength: 253 } }, csr_pem: { type: string, maxLength: 16384 }, deliver_key: { type: boolean }, auto_renew: { type: boolean } } } } } }
-      responses: { '202': { description: 'issuance accepted; the outcome arrives over SSE (certificate.issued | certificate.failed)' }, '403': { description: 'not entitled to the issuer' }, '422': { description: validation_failed } }
+      responses: { '202': { description: 'order accepted { status: processing, domains, request_id }; recorded as a generic certificate request (processing -> issued | failed with the reason); the outcome also arrives over SSE (certificate.issued | certificate.failed)' }, '403': { description: 'not entitled to the issuer' }, '422': { description: 'validation_failed (issuer, or a malformed / redundant domain, named in the message)' } }
   /api/lcm/v1/certificates/{id}:
     get: { operationId: getCertificate, x-freya-permission: certificates:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: certificate }, '404': { description: not_found } } }
     put: { operationId: updateCertificate, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, properties: { owner: { type: string }, labels: { type: object } } } } } }, responses: { '200': { description: updated } } }
@@ -163,7 +163,7 @@ paths:
     post: { operationId: deleteCertificate, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: deleted } } }
   # ---- requests & jobs ----
   /api/lcm/v1/requests:
-    get: { operationId: listRequests, x-freya-permission: certificates:read, parameters: [{ name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, issued] } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: 'certificate requests' } } }
+    get: { operationId: listRequests, x-freya-permission: certificates:read, parameters: [{ name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, issued, processing, failed] } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: 'certificate requests' } } }
     post: { operationId: createRequest, x-freya-permission: certificates:issue, parameters: [{ $ref: '#/components/parameters/csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/IssueInput' } } } }, responses: { '201': { description: 'pending (or issued when auto-approve is on)' } } }
   /api/lcm/v1/requests/{id}:
     get: { operationId: getRequest, x-freya-permission: certificates:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: request }, '404': { description: not_found } } }

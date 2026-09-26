@@ -22,9 +22,11 @@ type RequestInput struct {
 }
 
 // RequestView is a certificate request as returned to clients. It never
-// carries the CSR PEM (HasCSR reports its presence).
+// carries the CSR PEM (HasCSR reports its presence). A generic (ACME) request
+// has no SPIFFE ID; its domains are the SANs.
 type RequestView struct {
 	ID              string   `json:"id"`
+	Kind            string   `json:"kind"`
 	SpiffeID        string   `json:"spiffe_id"`
 	IssuerID        string   `json:"issuer_id,omitempty"`
 	Status          string   `json:"status"`
@@ -35,6 +37,7 @@ type RequestView struct {
 	Approver        string   `json:"approver,omitempty"`
 	Reason          string   `json:"reason,omitempty"`
 	HasCSR          bool     `json:"has_csr"`
+	CertificateID   string   `json:"certificate_id,omitempty"`
 	CreatedAt       string   `json:"created_at"`
 	UpdatedAt       string   `json:"updated_at"`
 }
@@ -47,10 +50,14 @@ func requestView(r store.CertificateRequest) RequestView {
 	if sans == nil {
 		sans = []string{}
 	}
+	kind := r.Kind
+	if kind == "" {
+		kind = "svid"
+	}
 	return RequestView{
-		ID: r.ID, SpiffeID: r.SpiffeID, IssuerID: strp(r.IssuerID), Status: r.Status,
+		ID: r.ID, Kind: kind, SpiffeID: r.SpiffeID, IssuerID: strp(r.IssuerID), Status: r.Status,
 		SANs: sans, ValiditySeconds: r.ValiditySeconds, RequestedBy: r.RequestedBy, RequesterKind: r.RequesterKind,
-		Approver: strp(r.Approver), Reason: strp(r.Reason), HasCSR: r.CSRPEM != nil,
+		Approver: strp(r.Approver), Reason: strp(r.Reason), HasCSR: r.CSRPEM != nil, CertificateID: strp(r.CertificateID),
 		CreatedAt: r.CreatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"),
 		UpdatedAt: r.UpdatedAt.UTC().Format("2006-01-02T15:04:05.999999999Z07:00"),
 	}

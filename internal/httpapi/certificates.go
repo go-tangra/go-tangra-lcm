@@ -91,31 +91,42 @@ func (s *Server) RegisterCertificates(d CertDeps) {
 		}
 		autoRenew := in.AutoRenew == nil || *in.AutoRenew // default on
 		// ACME issuance (DNS-01) is slow, so run it asynchronously: validate
-		// synchronously (fast 400/403), then background the order and report the
-		// outcome over the SSE bus (certificate.issued | certificate.failed). The
-		// generated key is retained and downloadable, so nothing is lost by not
-		// returning a bundle inline.
-		if err := d.Issue.PrecheckACME(r.Context(), subj, in.IssuerID); err != nil {
+		// synchronously (fast 422/403) and record the order as a generic request
+		// (processing), then background the order, end the request issued|failed
+		// and report the outcome over the SSE bus (certificate.issued |
+		// certificate.failed). The generated key is retained and downloadable, so
+		// nothing is lost by not returning a bundle inline.
+		order, err := d.Issue.BeginACME(r.Context(), subj, in.IssuerID, in.Domains)
+		if err != nil {
 			s.fail(w, r, issueError(err))
 			return
 		}
-		domains := in.Domains
+		domains := order.Domains
 		csrPEM := in.CSRPEM
 		go func() {
 			ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 6*time.Minute)
 			defer cancel()
-			b, err := d.Issue.ObtainACME(ctx, subj, in.IssuerID, domains, csrPEM, false, autoRenew)
+			b, err := d.Issue.ObtainACMEFor(ctx, subj, order.RequestID, in.IssuerID, domains, csrPEM, false, autoRenew)
 			if err != nil {
-				s.rt.Logger().Warn("acme issuance failed", "tenant", subj.TenantID, "issuer", in.IssuerID,
+				s.rt.Logger().Warn("acme issuance failed", "tenant", subj.TenantID, "issuer", in.IssuerID, "request", order.RequestID,
 					"domains", strings.Join(domains, ","), "error", issue.FailReason(err))
+			}
+			// The request is ended on a fresh context so a timed-out order is
+			// still recorded as failed.
+			fctx, fcancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+			defer fcancel()
+			if ferr := d.Issue.FinishACME(fctx, subj, order.RequestID, b.Certificate.ID, err); ferr != nil {
+				s.rt.Logger().Warn("acme request not completed", "tenant", subj.TenantID, "request", order.RequestID, "error", ferr.Error())
+			}
+			if err != nil {
 				if d.PubFail != nil {
-					d.PubFail(ctx, subj.TenantID, map[string]any{"domains": domains, "error": issueFailMessage(err)})
+					d.PubFail(fctx, subj.TenantID, map[string]any{"domains": domains, "request_id": order.RequestID, "error": issueFailMessage(err)})
 				}
 				return
 			}
 			publish(d, subj.TenantID, "issued", b.Certificate)
 		}()
-		WriteJSON(w, http.StatusAccepted, map[string]any{"status": "processing", "domains": domains})
+		WriteJSON(w, http.StatusAccepted, map[string]any{"status": "processing", "domains": domains, "request_id": order.RequestID})
 	})
 	s.MustHandle("GET", Prefix+"/certificates/{id}", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)

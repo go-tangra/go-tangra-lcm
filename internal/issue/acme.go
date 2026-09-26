@@ -23,12 +23,6 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
-// ObtainACME issues a GENERIC certificate (not a SPIFFE SVID) for DNS domains
-// via the issuer's ACME (Let's-Encrypt DNS-01) account: it opens the issuer's
-// sealed ACME account key + DNS-provider credentials, runs the ACME order, and
-// records the result as a kind="generic" issued certificate. csrPEM may be
-// supplied by the caller (its key stays with the caller) or left empty to have
-// lcm generate the keypair and return it once.
 // PrecheckACME validates synchronously that the issuer exists, is an ACME issuer
 // and the caller may use it — so an async caller can return a fast 400/403
 // before backgrounding the slow order. It performs no network calls.
@@ -49,8 +43,20 @@ func (s *Service) PrecheckACME(ctx context.Context, subj authz.Subjects, issuerI
 	return nil
 }
 
+// ObtainACME issues a GENERIC certificate (not a SPIFFE SVID) for DNS domains
+// via the issuer's ACME (Let's-Encrypt DNS-01) account: it opens the issuer's
+// sealed ACME account key + DNS-provider credentials, runs the ACME order, and
+// records the result as a kind="generic" issued certificate. csrPEM may be
+// supplied by the caller (its key stays with the caller) or left empty to have
+// lcm generate the keypair and return it once.
 func (s *Service) ObtainACME(ctx context.Context, subj authz.Subjects, issuerID string, domains []string, csrPEM string, deliverKey, autoRenew bool) (Bundle, error) {
-	b, err := s.obtainACME(ctx, subj, issuerID, domains, csrPEM, deliverKey, autoRenew)
+	return s.ObtainACMEFor(ctx, subj, "", issuerID, domains, csrPEM, deliverKey, autoRenew)
+}
+
+// ObtainACMEFor is ObtainACME for an order recorded by BeginACME: the issued
+// certificate carries requestID. The request itself is ended by FinishACME.
+func (s *Service) ObtainACMEFor(ctx context.Context, subj authz.Subjects, requestID, issuerID string, domains []string, csrPEM string, deliverKey, autoRenew bool) (Bundle, error) {
+	b, err := s.obtainACME(ctx, subj, requestID, issuerID, domains, csrPEM, deliverKey, autoRenew)
 	if err != nil && !errors.Is(err, authz.ErrForbidden) {
 		// The order runs in the background; the audit row is its only durable trace.
 		names := normaliseDomains(domains)
@@ -65,19 +71,23 @@ func (s *Service) ObtainACME(ctx context.Context, subj authz.Subjects, issuerID 
 	return b, err
 }
 
-// FailReason is a failed issuance's client-safe, bounded description.
+// maxFailReason bounds a failure reason (runes).
+const maxFailReason = 500
+
+// FailReason is a failed issuance's client-safe, bounded, single-line
+// description.
 func FailReason(err error) string {
-	m := strings.ReplaceAll(err.Error(), "\n", "; ")
-	if len(m) > 300 {
-		m = m[:300]
+	m := strings.Join(strings.Fields(strings.ReplaceAll(err.Error(), "\n", "; ")), " ")
+	if r := []rune(m); len(r) > maxFailReason {
+		m = string(r[:maxFailReason])
 	}
 	return m
 }
 
-func (s *Service) obtainACME(ctx context.Context, subj authz.Subjects, issuerID string, domains []string, csrPEM string, deliverKey, autoRenew bool) (Bundle, error) {
-	domains = normaliseDomains(domains)
-	if len(domains) == 0 {
-		return Bundle{}, invalid("domains", "at least one DNS domain is required")
+func (s *Service) obtainACME(ctx context.Context, subj authz.Subjects, requestID, issuerID string, domains []string, csrPEM string, deliverKey, autoRenew bool) (Bundle, error) {
+	domains, err := validateACMEDomains(domains)
+	if err != nil {
+		return Bundle{}, err
 	}
 	issuer, err := s.st.GetIssuer(ctx, subj.TenantID, issuerID)
 	if err != nil {
@@ -145,7 +155,7 @@ func (s *Service) obtainACME(ctx context.Context, subj authz.Subjects, issuerID 
 
 	sansJSON, _ := json.Marshal(domains)
 	row := store.IssuedCertificate{
-		ID: certID, TenantID: subj.TenantID, IssuerID: issuer.ID, Kind: "generic",
+		ID: certID, TenantID: subj.TenantID, IssuerID: issuer.ID, Kind: "generic", RequestID: ptrOrNil(requestID),
 		Serial: leaf.SerialNumber.String(), Subject: domains[0], SANs: sansJSON,
 		NotBefore: leaf.NotBefore, NotAfter: leaf.NotAfter, FingerprintSHA256: csr.Fingerprint(leaf.Raw),
 		Status: "active", CertPEM: leafPEM, ChainPEM: restPEM, KeySealed: keySealed, AutoRenew: autoRenew,
