@@ -63,7 +63,7 @@ var Grants = map[string][]string{
 	"owner":    PermissionRefs(),
 	"admin":    PermissionRefs(),
 	"member":   {"certificates:read", "certificates:issue", "issuers:read", "enrollment:enroll", "jobs:read"},
-	"auditor":  {"stats:read", "certificates:read"},
+	"auditor":  {"stats:read", "certificates:read", "jobs:read"},
 	"operator": {"stats:read", "certificates:read", "certificates:manage", "certificates:revoke", "jobs:read", "jobs:manage"},
 }
 
