@@ -65,3 +65,12 @@ func TestRegistration(t *testing.T) {
 		}
 	}
 }
+
+// Before feature 019 the auditor held the unscoped jobs:read of every module;
+// it keeps reading lcm jobs after prune-legacy.
+func TestAuditorReadsJobs(t *testing.T) {
+	want := []string{"stats:read", "certificates:read", "jobs:read"}
+	if !slices.Equal(lcmmanifest.Grants["auditor"], want) {
+		t.Fatalf("auditor grants: %v", lcmmanifest.Grants["auditor"])
+	}
+}
