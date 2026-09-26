@@ -16,21 +16,18 @@ import (
 
 // --- small unit tests for the pure helpers ---
 
-func TestScrubClassifies(t *testing.T) {
-	if scrub(nil) != nil {
-		t.Fatal("scrub(nil) must be nil")
+func TestDescribeClassifies(t *testing.T) {
+	ae := describe(&xacme.Error{ProblemType: "urn:ietf:params:acme:error:malformed", Detail: "secret=abc"})
+	if !containsSub(ae, "malformed") || containsSub(ae, "secret=abc") {
+		t.Fatalf("acme error describe: %v", ae)
 	}
-	ae := scrub(&xacme.Error{ProblemType: "urn:ietf:params:acme:error:malformed", Detail: "secret=abc"})
-	if ae == nil || !containsSub(ae.Error(), "malformed") || containsSub(ae.Error(), "secret=abc") {
-		t.Fatalf("acme error scrub: %v", ae)
+	ne := describe(&net.DNSError{Err: "no such host", Name: "acme.example"})
+	if !containsSub(ne, "network error") {
+		t.Fatalf("net error describe: %v", ne)
 	}
-	ne := scrub(&net.DNSError{Err: "no such host", Name: "acme.example"})
-	if ne == nil || !containsSub(ne.Error(), "network error") {
-		t.Fatalf("net error scrub: %v", ne)
-	}
-	g := scrub(errors.New("plain boom"))
-	if g == nil || containsSub(g.Error(), "boom") {
-		t.Fatalf("generic scrub leaked: %v", g)
+	g := describe(errors.New("plain boom"))
+	if containsSub(g, "boom") {
+		t.Fatalf("generic describe leaked: %v", g)
 	}
 }
 
@@ -49,7 +46,7 @@ func TestWrapTimeoutAndJoin(t *testing.T) {
 	if err := wrap(cancelled, ErrOrder, errors.New("x")); !errors.Is(err, ErrTimeout) {
 		t.Fatalf("cancelled ctx: %v", err)
 	}
-	// A live context with an ordinary cause joins the sentinel with a scrub.
+	// A live context with an ordinary cause is the sentinel with a description.
 	if err := wrap(context.Background(), ErrChallenge, errors.New("x")); !errors.Is(err, ErrChallenge) {
 		t.Fatalf("join: %v", err)
 	}

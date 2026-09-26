@@ -236,18 +236,13 @@ func (s *Server) RegisterCertificates(d CertDeps) {
 	})
 }
 
-// publish fans a certificate lifecycle event out to the tenant's live streams.
 // issueFailMessage renders a short, client-safe reason for an async issuance
 // failure. issue-layer errors (validation, and the acme package which already
-// scrubs its own errors) carry no secrets; the length is capped defensively.
-func issueFailMessage(err error) string {
-	m := err.Error()
-	if len(m) > 200 {
-		m = m[:200]
-	}
-	return m
-}
+// sanitises its own errors) carry no secrets; the reason is single-line and
+// bounded (issue.FailReason).
+func issueFailMessage(err error) string { return issue.FailReason(err) }
 
+// publish fans a certificate lifecycle event out to the tenant's live streams.
 func publish(d CertDeps, tenantID, eventType string, c issue.CertificateView) {
 	if d.Pub != nil {
 		d.Pub(context.Background(), tenantID, eventType, c.ID, c.SpiffeID, c.NotAfter)
