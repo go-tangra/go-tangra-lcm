@@ -859,9 +859,9 @@ func InsertAuditRows(ctx context.Context, tx pgx.Tx, rows []AuditRow) error {
 	return nil
 }
 
-// QueryAudit pages events newest first; cursor = ts of the last row seen. Live
-// subjects resolve to a name: issuers/secrets/webhooks by name, certificates by
-// spiffe id. Ids are only cast when they look like UUIDs.
+// QueryAudit pages events newest first (AuditLimit(f.Limit) rows); cursor = ts
+// of the last row seen. Live subjects resolve to a name: issuers/secrets/webhooks
+// by name, certificates by spiffe id. Ids are only cast when they look like UUIDs.
 func QueryAudit(ctx context.Context, tx pgx.Tx, tenantID string, f AuditFilter) ([]AuditRow, error) {
 	rows, err := tx.Query(ctx, `SELECT a.ts, a.tenant_id, a.event_type, a.actor_kind, a.actor_id, a.subject_kind, a.subject_id, a.outcome, a.reason, a.correlation_id, a.details,
 		COALESCE(CASE WHEN a.subject_id !~ '`+uuidRE+`' THEN NULL
@@ -871,7 +871,7 @@ func QueryAudit(ctx context.Context, tx pgx.Tx, tenantID string, f AuditFilter) 
 			WHEN a.subject_kind = 'webhook' THEN (SELECT s.name FROM webhook_endpoints s WHERE s.tenant_id = a.tenant_id AND s.id = a.subject_id::uuid) END, '')
 		FROM lcm_audit_events a WHERE a.tenant_id = $1 AND ($2 = '' OR a.event_type = $2) AND ($3 = '' OR a.actor_id = $3)
 		AND ($4::timestamptz IS NULL OR a.ts >= $4) AND ($5::timestamptz IS NULL OR a.ts <= $5) AND ($6::timestamptz IS NULL OR a.ts < $6) ORDER BY a.ts DESC LIMIT $7`,
-		tenantID, f.EventType, f.ActorID, nullTime(f.From), nullTime(f.To), nullTime(f.Cursor), f.Limit)
+		tenantID, f.EventType, f.ActorID, nullTime(f.From), nullTime(f.To), nullTime(f.Cursor), AuditLimit(f.Limit))
 	if err != nil {
 		return nil, err
 	}

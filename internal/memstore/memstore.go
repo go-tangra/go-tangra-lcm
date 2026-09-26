@@ -221,9 +221,7 @@ func (m *Mem) ListIssuers(_ context.Context, tid, after string, limit int) ([]st
 		}
 	}
 	sortByNameID(out, func(i store.Issuer) string { return i.Name }, func(i store.Issuer) string { return i.ID })
-	if limit > 0 && len(out) > limit {
-		out = out[:limit]
-	}
+	out = sqlLimit(out, limit)
 	return out, nil
 }
 
@@ -473,6 +471,19 @@ func (m *Mem) GetRequest(_ context.Context, tid, id string) (store.CertificateRe
 	return cpRequest(r), nil
 }
 
+// sqlLimit applies a page size like SQL LIMIT does: a limit <= 0 returns no
+// rows (LIMIT 0; Postgres refuses a negative one), so a caller that forgets
+// to default its page size fails here as it would against the database.
+func sqlLimit[T any](out []T, limit int) []T {
+	if limit <= 0 {
+		return out[:0]
+	}
+	if len(out) > limit {
+		return out[:limit]
+	}
+	return out
+}
+
 func sortDesc[T any](out []T, ts func(T) time.Time, id func(T) string) {
 	sort.Slice(out, func(a, b int) bool {
 		if !ts(out[a]).Equal(ts(out[b])) {
@@ -499,9 +510,7 @@ func (m *Mem) ListRequests(_ context.Context, tid string, f store.RequestFilter)
 		out = append(out, cpRequest(r))
 	}
 	sortDesc(out, func(r store.CertificateRequest) time.Time { return r.CreatedAt }, func(r store.CertificateRequest) string { return r.ID })
-	if f.Limit > 0 && len(out) > f.Limit {
-		out = out[:f.Limit]
-	}
+	out = sqlLimit(out, f.Limit)
 	return out, nil
 }
 
@@ -604,9 +613,7 @@ func (m *Mem) ListJobs(_ context.Context, tid string, f store.JobFilter) ([]stor
 		out = append(out, j)
 	}
 	sortDesc(out, func(j store.CertificateJob) time.Time { return j.CreatedAt }, func(j store.CertificateJob) string { return j.ID })
-	if f.Limit > 0 && len(out) > f.Limit {
-		out = out[:f.Limit]
-	}
+	out = sqlLimit(out, f.Limit)
 	return out, nil
 }
 
@@ -658,9 +665,7 @@ func (m *Mem) ClaimDueJobs(_ context.Context, now time.Time, lease time.Duration
 		}
 		return due[a].ID < due[b].ID
 	})
-	if limit > 0 && len(due) > limit {
-		due = due[:limit]
-	}
+	due = sqlLimit(due, limit)
 	until := now.Add(lease)
 	out := make([]store.CertificateJob, 0, len(due))
 	for _, j := range due {
@@ -727,9 +732,7 @@ func (m *Mem) ListCertificates(_ context.Context, tid string, f store.Certificat
 		out = append(out, cpCertificate(c))
 	}
 	sortDesc(out, func(c store.IssuedCertificate) time.Time { return c.CreatedAt }, func(c store.IssuedCertificate) string { return c.ID })
-	if f.Limit > 0 && len(out) > f.Limit {
-		out = out[:f.Limit]
-	}
+	out = sqlLimit(out, f.Limit)
 	return out, nil
 }
 
@@ -831,9 +834,7 @@ func (m *Mem) DueForRenewal(_ context.Context, now, notAfterBefore time.Time, li
 		}
 		return out[a].ID < out[b].ID
 	})
-	if limit > 0 && len(out) > limit {
-		out = out[:limit]
-	}
+	out = sqlLimit(out, limit)
 	return out, nil
 }
 
@@ -871,9 +872,7 @@ func (m *Mem) ListRevocations(_ context.Context, tid string, cursor time.Time, l
 		out = append(out, r)
 	}
 	sortDesc(out, func(r store.Revocation) time.Time { return r.RevokedAt }, func(r store.Revocation) string { return r.ID })
-	if limit > 0 && len(out) > limit {
-		out = out[:limit]
-	}
+	out = sqlLimit(out, limit)
 	return out, nil
 }
 
@@ -916,9 +915,7 @@ func (m *Mem) ListInstalled(_ context.Context, tid, clientID string, cursor time
 		out = append(out, i)
 	}
 	sortDesc(out, func(i store.InstalledCertificate) time.Time { return i.ReportedAt }, func(i store.InstalledCertificate) string { return i.ID })
-	if limit > 0 && len(out) > limit {
-		out = out[:limit]
-	}
+	out = sqlLimit(out, limit)
 	return out, nil
 }
 
@@ -1341,8 +1338,8 @@ func (m *Mem) QueryAudit(_ context.Context, tid string, f store.AuditFilter) ([]
 		out = append(out, r)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].TS.After(out[j].TS) })
-	if f.Limit > 0 && len(out) > f.Limit {
-		out = out[:f.Limit]
+	if limit := store.AuditLimit(f.Limit); len(out) > limit {
+		out = out[:limit]
 	}
 	return out, nil
 }

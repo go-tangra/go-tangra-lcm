@@ -242,5 +242,23 @@ type AuditFilter struct {
 	ActorID   string
 	From, To  time.Time
 	Cursor    time.Time
-	Limit     int
+	Limit     int // <= 0: DefaultAuditLimit; capped at MaxAuditLimit
+}
+
+// Audit page sizes.
+const (
+	DefaultAuditLimit = 100
+	MaxAuditLimit     = 500
+)
+
+// AuditLimit is the page size an audit query uses for the requested limit:
+// unset (<= 0) is DefaultAuditLimit, anything above MaxAuditLimit is capped.
+func AuditLimit(limit int) int {
+	switch {
+	case limit <= 0:
+		return DefaultAuditLimit
+	case limit > MaxAuditLimit:
+		return MaxAuditLimit
+	}
+	return limit
 }
