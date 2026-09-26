@@ -14,6 +14,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
 	"github.com/go-tangra/go-tangra-lcm/v4/api/openapi"
 	"github.com/go-tangra/go-tangra-portal/sdk/v4/pkg/gatewayclient"
 )
@@ -91,6 +92,25 @@ var Nav = []gatewayclient.NavEntry{
 	{Title: "Permissions", Path: "/lcm/permissions", Icon: "mdi-shield-account-outline", Order: 340, Requires: "permissions:manage"},
 	{Title: "Secrets", Path: "/lcm/secrets", Icon: "mdi-key-outline", Order: 350, Requires: "secrets:manage"},
 	{Title: "Audit", Path: "/lcm/audit", Icon: "mdi-history", Order: 360, Requires: "stats:read"},
+}
+
+// Roles are the module roles auth provides in every tenant (feature 019,
+// research D9); administrators assign them or clone them into custom roles.
+// Certificate and issuer grants inside lcm still apply on top of them.
+var Roles = []authclient.ModuleRole{
+	{Slug: "administrator", DisplayName: DisplayName + " administrator", Description: "Every certificate permission, including issuers, secrets, webhooks and backups", Permissions: PermissionRefs()},
+	{Slug: "operator", DisplayName: DisplayName + " operator", Description: "Issue, renew, deploy and revoke granted certificates; run jobs and enroll workloads", Permissions: []string{"certificates:read", "certificates:issue", "certificates:manage", "certificates:revoke", "issuers:read", "jobs:read", "jobs:manage", "enrollment:enroll"}},
+	{Slug: "viewer", DisplayName: DisplayName + " viewer", Description: "Read granted certificates, issuers and certificate jobs", Permissions: []string{"certificates:read", "issuers:read", "jobs:read"}},
+}
+
+// Registration is what lcm registers with auth at start and every five
+// minutes: its permissions, module roles and built-in role grants.
+func Registration() authclient.Registration {
+	perms := make([]authclient.Permission, 0, len(Permissions))
+	for _, p := range Permissions {
+		perms = append(perms, authclient.Permission{Resource: p.Resource, Action: p.Action, Description: p.Description})
+	}
+	return authclient.Registration{Module: Module, DisplayName: DisplayName, Permissions: perms, Roles: Roles, BuiltinGrants: Grants}
 }
 
 // PermissionRefs lists "resource:action" for every declared permission.

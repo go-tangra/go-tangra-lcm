@@ -36,6 +36,25 @@ per-tenant row-level security, and a Vue 3 / Vuetify Module Federation remote.
 - **Operations** — tenant secrets, HMAC-signed webhooks, an append-only audit
   trail, statistics, and tenant backup export/import.
 
+## Permissions and module roles
+
+lcm registers with auth as module `lcm`, display name "Certificates" (auth SDK
+`authclient.Registration`, feature 019), at start, retrying every 5 s until
+auth accepts, then every five minutes: its permissions, the module roles
+(`pkg/lcmmanifest.Roles`) and the built-in role grants
+(`pkg/lcmmanifest.Grants`). Module roles are locked in auth; administrators
+assign them or clone them into custom roles:
+
+| Role | Display name | Permissions |
+|---|---|---|
+| `administrator` | Certificates administrator | all fourteen lcm permissions |
+| `operator` | Certificates operator | certificates:read, certificates:issue, certificates:manage, certificates:revoke, issuers:read, jobs:read, jobs:manage, enrollment:enroll |
+| `viewer` | Certificates viewer | certificates:read, issuers:read, jobs:read |
+
+The Zanzibar relations on certificates and issuers still apply on top of any
+role. Skipped built-in grants (warn) and rejected roles (error) are logged as
+`auth registration: ...`.
+
 ## Layout
 
 ```

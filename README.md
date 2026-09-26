@@ -29,8 +29,10 @@ go-tangra-auth  <---->  go-tangra-portal (gateway)  <---->  go-tangra-lcm
 
 - Built on `github.com/go-tangra/go-tangra/v4` (mTLS transports, identity,
   service policy, audit, observability).
-- Verifies platform tokens and registers its permissions with the auth SDK
-  (`github.com/go-tangra/go-tangra-auth/sdk/v4`).
+- Verifies platform tokens and registers its permissions, module roles and
+  built-in role grants with the auth SDK
+  (`github.com/go-tangra/go-tangra-auth/sdk/v4`); see
+  [docs/README.md](docs/README.md#permissions-and-module-roles).
 - Registers with the gateway through the portal SDK
   (`github.com/go-tangra/go-tangra-portal/sdk/v4`), which fronts the browser API
   and the federated UI remote.
