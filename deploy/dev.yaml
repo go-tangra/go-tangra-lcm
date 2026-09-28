@@ -13,6 +13,8 @@ discovery:
   static:
     gateway: ["127.0.0.1:9643"]
     auth: ["127.0.0.1:9543"]
+    notification: ["127.0.0.1:9943"]
+    scheduler: ["127.0.0.1:9905"]
 limits:
   max_request_bytes: 16842752 # backup uploads (16 MiB + slack)
 limits_lcm:
@@ -44,3 +46,8 @@ gateway:
   issuer: https://localhost:8443
 acme:
   allow_plaintext_dns: true   # development mock DNS/ACME (never in production)
+task_scheduler:
+  enabled: false        # true registers lcm's task types with the scheduler module
+  service: scheduler
+notification:
+  service: notification # delivers the scheduled expiring-certificates digest
