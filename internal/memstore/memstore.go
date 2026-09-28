@@ -838,6 +838,27 @@ func (m *Mem) DueForRenewal(_ context.Context, now, notAfterBefore time.Time, li
 	return out, nil
 }
 
+func (m *Mem) ExpiringCertificates(_ context.Context, tid string, now, before time.Time, limit int) ([]store.IssuedCertificate, error) {
+	if err := m.fail("ExpiringCertificates"); err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []store.IssuedCertificate
+	for _, c := range m.Certificates {
+		if c.TenantID == tid && (c.Status == "active" || c.Status == "expiring") && c.SupersededBy == nil && c.NotAfter.After(now) && !c.NotAfter.After(before) {
+			out = append(out, cpCertificate(c))
+		}
+	}
+	sort.Slice(out, func(a, b int) bool {
+		if !out[a].NotAfter.Equal(out[b].NotAfter) {
+			return out[a].NotAfter.Before(out[b].NotAfter)
+		}
+		return out[a].ID < out[b].ID
+	})
+	return sqlLimit(out, limit), nil
+}
+
 // ---- revocations
 
 func (m *Mem) InsertRevocation(_ context.Context, r store.Revocation) error {

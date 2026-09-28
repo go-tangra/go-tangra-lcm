@@ -82,6 +82,8 @@ func Wire(a *App) error {
 
 	// gRPC servers (service-to-service + workload agents).
 	grpcapi.Register(a.Freya.GRPC(), grpcapi.Deps{Issue: a.Issue, Enroll: a.Enroll, CA: a.CA, Repo: a.Repo, Hub: a.Hub})
+	// Scheduled task execution for the scheduler module (+ type registration).
+	a.wireScheduler()
 
 	// Background workers: the async issuance job scheduler and the distributed
 	// renewal scheduler.

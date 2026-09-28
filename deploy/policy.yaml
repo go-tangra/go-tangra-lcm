@@ -1,6 +1,7 @@
 # Freya service-to-service policy for lcm: the gateway forwards browser traffic
 # and probes health; auth verifies SVIDs/trust bundles; notification publishes
-# lifecycle events. (contracts/manifest.md, deploy/policy.yaml)
+# lifecycle events; the scheduler runs lcm's scheduled tasks.
+# (contracts/manifest.md, deploy/policy.yaml)
 version: lcm-dev-1
 rules:
   - id: gateway-forwards
@@ -27,4 +28,9 @@ rules:
     from: ["spiffe://example.org/svc/deployer"]
     to: ["lcm"]
     operations: ["/lcm.v1.Certificates/Download"]
+    effect: allow
+  - id: scheduler-execute
+    from: ["spiffe://example.org/svc/scheduler"]
+    to: ["lcm"]
+    operations: ["/scheduler.v1.TaskExecutor/ExecuteTask"]
     effect: allow

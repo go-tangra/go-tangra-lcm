@@ -93,6 +93,10 @@ func TestValidateRejects(t *testing.T) {
 		"streams per user":    func(c *Config) { c.Limits.StreamsPerUser = 0 },
 		"replay window":       func(c *Config) { c.Limits.ReplayWindowSeconds = 1 },
 		"dns service":         func(c *Config) { c.DNS.Service = "dns:9965/evil" },
+		"scheduler service":   func(c *Config) { c.TaskScheduler.Service = "Scheduler!" },
+		"scheduler empty":     func(c *Config) { c.TaskScheduler = TaskScheduler{Enabled: true} },
+		"notification bad":    func(c *Config) { c.Notification.Service = "notification:9/x" },
+		"notification empty":  func(c *Config) { c.Notification.Service = "" },
 	}
 	for name, mut := range cases {
 		c := valid()
@@ -138,5 +142,37 @@ func TestDNSServiceOptional(t *testing.T) {
 	c.DNS.Service = "dns"
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSchedulerAndNotificationSections(t *testing.T) {
+	c := valid()
+	if c.TaskScheduler.Enabled || c.TaskScheduler.Service != "scheduler" || c.Notification.Service != "notification" || c.Validate() != nil {
+		t.Fatalf("defaults = %+v %+v", c.TaskScheduler, c.Notification)
+	}
+	// Disabled with no service name is fine (nothing is dialled).
+	c.TaskScheduler.Service = ""
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(path, []byte("task_scheduler:\n  enabled: true\n  service: sched\nnotification:\n  service: notify\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	l, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !l.TaskScheduler.Enabled || l.TaskScheduler.Service != "sched" || l.Notification.Service != "notify" {
+		t.Fatalf("loaded %+v %+v", l.TaskScheduler, l.Notification)
+	}
+	bad := filepath.Join(dir, "bad.yaml")
+	if err := os.WriteFile(bad, []byte("task_scheduler:\n  bogus: 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(bad); err == nil {
+		t.Fatal("unknown task_scheduler field accepted")
 	}
 }

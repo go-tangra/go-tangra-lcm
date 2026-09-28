@@ -29,6 +29,10 @@ type Config struct {
 	ACME    ACME    `yaml:"acme"`
 	DNS     DNS     `yaml:"dns"`
 	Limits  Limits  `yaml:"limits_lcm"`
+	// TaskScheduler registers lcm's task types with the scheduler module;
+	// Notification names the module that delivers the task e-mails.
+	TaskScheduler TaskScheduler `yaml:"task_scheduler"`
+	Notification  Notification  `yaml:"notification"`
 	// EnrollListener, if set, runs a server-auth-only (no client cert) TLS
 	// listener serving only POST /api/lcm/v1/enroll, so a service with no SVID
 	// yet (e.g. the gateway) can enroll directly with a join token.
@@ -85,6 +89,20 @@ type DNS struct {
 	Service string `yaml:"service"`
 }
 
+// TaskScheduler configures the scheduler module integration (feature 026).
+// The TaskExecutor service is always served (the mesh policy admits only the
+// scheduler); Enabled only controls registering the task types.
+type TaskScheduler struct {
+	Enabled bool   `yaml:"enabled"`
+	Service string `yaml:"service"` // discovery name of the scheduler
+}
+
+// Notification names the notification module (dialled lazily over SPIFFE
+// mTLS on the first scheduled digest).
+type Notification struct {
+	Service string `yaml:"service"`
+}
+
 // serviceNameRE is the discovery service-name grammar.
 var serviceNameRE = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
@@ -101,11 +119,13 @@ type Limits struct {
 // Default returns secure defaults on top of the Freya defaults.
 func Default() Config {
 	return Config{
-		Config:  fconfig.Default(),
-		DB:      DB{MaxConns: 16},
-		KEK:     KEK{Source: "file"},
-		Renewal: Renewal{IntervalSeconds: 15, LeaseSeconds: 60, Workers: 4, ShortLivedFraction: 0.5, LongLivedDays: 30},
-		Gateway: Gateway{Service: "gateway"},
+		Config:        fconfig.Default(),
+		DB:            DB{MaxConns: 16},
+		KEK:           KEK{Source: "file"},
+		Renewal:       Renewal{IntervalSeconds: 15, LeaseSeconds: 60, Workers: 4, ShortLivedFraction: 0.5, LongLivedDays: 30},
+		Gateway:       Gateway{Service: "gateway"},
+		TaskScheduler: TaskScheduler{Service: "scheduler"},
+		Notification:  Notification{Service: "notification"},
 		Limits: Limits{BackupMaxBytes: 16 << 20, CSRMaxBytes: 16 << 10, WebhookMaxBytes: 64 << 10,
 			StreamsPerUser: 5, StreamsPerTenant: 2000, ReplayWindowSeconds: 300},
 	}
@@ -179,6 +199,15 @@ func (c Config) Validate() error {
 	}
 	if c.DNS.Service != "" && !serviceNameRE.MatchString(c.DNS.Service) {
 		return errors.New("config: dns.service must be a discovery service name")
+	}
+	if c.TaskScheduler.Enabled && c.TaskScheduler.Service == "" {
+		return errors.New("config: task_scheduler.service is required when task_scheduler.enabled")
+	}
+	if c.TaskScheduler.Service != "" && !serviceNameRE.MatchString(c.TaskScheduler.Service) {
+		return errors.New("config: task_scheduler.service must be a discovery service name")
+	}
+	if !serviceNameRE.MatchString(c.Notification.Service) {
+		return errors.New("config: notification.service must be a discovery service name")
 	}
 	if iu, err := url.Parse(c.Gateway.Issuer); err != nil || iu.Scheme != "https" || iu.Host == "" {
 		return errors.New("config: gateway.issuer must be an https origin")
