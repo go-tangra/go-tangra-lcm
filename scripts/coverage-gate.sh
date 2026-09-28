@@ -4,7 +4,7 @@
 set -euo pipefail
 PROFILE="${1:-coverage.out}"
 MODULE="github.com/go-tangra/go-tangra-lcm/v4"
-SECURITY_PKGS=("internal/authz" "internal/sealed" "internal/stream" "internal/ca" "internal/csr" "internal/acme")
+SECURITY_PKGS=("internal/authz" "internal/sealed" "internal/stream" "internal/ca" "internal/csr" "internal/acme" "internal/taskexec")
 total=$(go tool cover -func="$PROFILE" | awk '/^total:/ {gsub("%","",$3); print $3}')
 echo "coverage: total ${total}%"
 fail=0

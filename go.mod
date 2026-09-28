@@ -9,7 +9,9 @@ require (
 	github.com/go-kratos/kratos/v3 v3.0.0
 	github.com/go-tangra/go-tangra-auth/sdk/v4 v4.1.0
 	github.com/go-tangra/go-tangra-lcm/sdk/v4 v4.0.0
+	github.com/go-tangra/go-tangra-notification/sdk/v4 v4.2.0
 	github.com/go-tangra/go-tangra-portal/sdk/v4 v4.0.0
+	github.com/go-tangra/go-tangra-scheduler/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra/v4 v4.0.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/pressly/goose/v3 v3.28.0
@@ -88,7 +90,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
