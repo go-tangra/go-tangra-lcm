@@ -504,6 +504,19 @@ func DueForRenewal(ctx context.Context, tx pgx.Tx, now, notAfterBefore time.Time
 	return scanCertificates(rows)
 }
 
+// ExpiringCertificates lists the tenant's live certificates (active or
+// expiring, not superseded) with now < not_after <= before, soonest first
+// (tenant scope; the expiring-certificates digest).
+func ExpiringCertificates(ctx context.Context, tx pgx.Tx, tenantID string, now, before time.Time, limit int) ([]IssuedCertificate, error) {
+	rows, err := tx.Query(ctx, "SELECT "+certCols+` FROM issued_certificates
+		WHERE tenant_id = $1 AND status IN ('active','expiring') AND superseded_by IS NULL AND not_after > $2 AND not_after <= $3
+		ORDER BY not_after, id LIMIT $4`, tenantID, now, before, limit)
+	if err != nil {
+		return nil, err
+	}
+	return scanCertificates(rows)
+}
+
 // ---------------------------------------------------------------- revocations
 
 const revocationCols = "id, tenant_id, certificate_id, serial, reason, revoked_at, revoked_by"

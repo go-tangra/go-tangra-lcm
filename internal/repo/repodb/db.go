@@ -181,6 +181,13 @@ func (d *DB) DueForRenewal(ctx context.Context, now, notAfterBefore time.Time, l
 	err = d.system(ctx, func(tx pgx.Tx) error { out, err = store.DueForRenewal(ctx, tx, now, notAfterBefore, limit); return err })
 	return
 }
+func (d *DB) ExpiringCertificates(ctx context.Context, tid string, now, before time.Time, limit int) (out []store.IssuedCertificate, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error {
+		out, err = store.ExpiringCertificates(ctx, tx, tid, now, before, limit)
+		return err
+	})
+	return
+}
 
 // ---- revocations
 
