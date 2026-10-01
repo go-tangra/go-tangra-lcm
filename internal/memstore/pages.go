@@ -76,7 +76,7 @@ func (m *Mem) PageCertificates(_ context.Context, tid string, f store.Certificat
 	defer m.mu.Unlock()
 	var out []store.IssuedCertificate
 	for _, c := range m.Certificates {
-		if c.TenantID != tid || (f.IssuerID != "" && c.IssuerID != f.IssuerID) || (f.SpiffeID != "" && c.SpiffeID != f.SpiffeID) ||
+		if c.TenantID != tid || (f.IssuerID != "" && !strings.EqualFold(c.IssuerID, f.IssuerID)) || (f.SpiffeID != "" && c.SpiffeID != f.SpiffeID) ||
 			(f.Status != "" && c.Status != f.Status) || !visible(f.Visible, c.ID) {
 			continue
 		}
@@ -88,7 +88,8 @@ func (m *Mem) PageCertificates(_ context.Context, tid string, f store.Certificat
 		}
 		return nil
 	}
-	page, total, applied := window(out, store.CertificateList, req, func(c store.IssuedCertificate, field string) any {
+	spec := store.CertificateListFor(f.Visible)
+	page, total, applied := window(out, spec, req, func(c store.IssuedCertificate, field string) any {
 		switch field {
 		case "identity":
 			for _, v := range []string{c.SpiffeID, firstSAN(c.SANs), c.Subject} {
@@ -98,6 +99,9 @@ func (m *Mem) PageCertificates(_ context.Context, tid string, f store.Certificat
 			}
 			return nil
 		case "issuer":
+			if !f.Visible.All {
+				return c.IssuerID // store.CertificateListRestricted (F-3)
+			}
 			return issuerName(c.IssuerID)
 		case "kind":
 			return c.Kind

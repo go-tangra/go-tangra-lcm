@@ -2,7 +2,7 @@
 
 // Server-side tables (go-tangra specs/032-server-side-tables, wave C): the
 // certificate, issuer, request, job, secret, webhook and audit pages run
-// against a real TimescaleDB (migrations through 0009). For a user with
+// against a real TimescaleDB (migrations through 0010). For a user with
 // partial grants every total and page equals the admin view filtered by the
 // per-record read checks (the readable-ID set is part of the count and the
 // page query); hidden records are never counted. The legacy certificate
