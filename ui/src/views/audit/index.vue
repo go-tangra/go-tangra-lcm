@@ -1,39 +1,50 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
-import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiButton, UiDataTable, UiStatusChip, type Column } from '@go-tangra/ui'
+import { computed, onMounted, ref, watch } from 'vue'
+import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiButton, UiDataTable, UiStatusChip, useListQuery, type Column } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
-import { useOps } from '@/stores/ops'
+import { useAuditList } from '@/stores/ops'
+import { AUDIT_LIST } from '@/stores/paged'
 import { useDirectory } from '@/stores/directory'
 import { auditFilterSchema } from '@/schemas'
-import type { AuditItem } from '@/api/types'
+import type { AuditFilter, AuditItem } from '@/api/types'
 
 // Module-specific audit view: actors resolve through the auth directory
-// (users, roles and mesh services) rather than showing raw ids.
-const ops = useOps()
+// (users, roles and mesh services) rather than showing raw ids. The server
+// pages the events newest first; without from/to it covers the last 7 days.
+const audit = useAuditList()
 const dir = useDirectory()
+
+// --- server paging and sorting (page / size / order in the URL: ?audit.page=…) ---
+const lq = useListQuery('audit', AUDIT_LIST.opts)
+const current = ref<AuditFilter>({})
+async function load(): Promise<void> {
+  const res = await audit.list(current.value, lq.query.value)
+  if (res?.page) lq.clampTo(res.page)
+}
+watch(lq.query, () => void load())
 const filter = useZodForm(auditFilterSchema, {
   initial: { event_type: '', actor_id: '', from: '', to: '' },
-  onSubmit: (f) => ops.loadAudit({ event_type: f.event_type || undefined, actor_id: f.actor_id || undefined, from: f.from, to: f.to }),
+  onSubmit: async (f) => {
+    current.value = { event_type: f.event_type || undefined, actor_id: f.actor_id || undefined, from: f.from, to: f.to }
+    if (lq.page.value !== 1) lq.resetPage()
+    else await load()
+  },
 })
 const apply = () => void filter.submit()
-const more = () => {
-  const f = filter.validate()
-  if (f) void ops.loadAudit({ event_type: f.event_type || undefined, actor_id: f.actor_id || undefined, from: f.from, to: f.to }, ops.auditNext)
-}
 onMounted(async () => {
   await dir.loadRoles()
-  apply()
+  await load()
 })
-watch(() => ops.audit, (items) => dir.resolveUsers(items.map((i) => i.actor_id)))
+watch(() => audit.items, (items) => dir.resolveUsers(items.map((i) => i.actor_id)))
 const actor = (i: AuditItem) => (i.actor_kind === 'system' ? 'system' : dir.userName(i.actor_id) || '')
-const rows = computed(() => ops.audit.map((i, n) => ({ ...i, id: i.ts + ':' + n })))
-const columns: Column<(typeof rows.value)[number]>[] = [
-  { key: 'ts', label: 'When', format: (i) => new Date(i.ts).toLocaleString() },
+const columns: Column<AuditItem>[] = [
+  { key: 'ts', label: 'When', format: (i) => new Date(i.ts).toLocaleString(), sortable: true },
   { key: 'event_type', label: 'Event' },
   { key: 'actor', label: 'Actor', format: actor },
   { key: 'subject', label: 'Subject', format: (i) => i.subject_name || i.subject_id || i.subject_kind || '', hideOnStack: true },
   { key: 'outcome', label: 'Outcome', width: 'sm' },
 ]
+const windowHint = computed(() => (current.value.from || current.value.to ? '' : 'Showing the last 7 days. Set From / To for older events.'))
 </script>
 
 <template>
@@ -49,9 +60,10 @@ const columns: Column<(typeof rows.value)[number]>[] = [
         </div>
       </UiForm>
     </template>
-    <UiAlert v-if="ops.error" kind="error" class="mb-3">{{ ops.error }}</UiAlert>
+    <UiAlert v-if="audit.error" kind="error" class="mb-3">{{ audit.error }}</UiAlert>
+    <p v-if="windowHint" class="mb-2 text-sm text-base-content/70" data-test="audit-window">{{ windowHint }}</p>
     <UiCard :padded="false">
-      <UiDataTable :items="rows" :columns="columns" :loading="ops.loading" caption="Audit events" empty-title="No events" :has-more="!!ops.auditNext" data-test="audit-table" @load-more="more">
+      <UiDataTable :items="audit.items" :columns="columns" :loading="audit.loading" :total="audit.total" :page="lq.page.value" :page-size="lq.pageSize.value" :sort="lq.sort.value" caption="Audit events" empty-title="No events" data-test="audit-table" @update:page="lq.setPage" @update:page-size="lq.setPageSize" @update:sort="lq.setSort">
         <template #cell-outcome="{ row }"><UiStatusChip :status="row.outcome" :colors="{ ok: 'success', success: 'success', refused: 'warning', denied: 'error', failure: 'error' }" /></template>
       </UiDataTable>
     </UiCard>

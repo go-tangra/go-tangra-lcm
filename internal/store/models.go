@@ -211,6 +211,7 @@ type CertLogRow struct {
 
 // AuditRow is one persisted audit event (hypertable, insert+select only).
 type AuditRow struct {
+	ID            int64 // assigned by the store (insertion order); ties equal timestamps
 	TS            time.Time
 	TenantID      string
 	EventType     string

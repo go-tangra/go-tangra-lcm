@@ -1,27 +1,20 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
 import { api } from '@/api/client'
-import type { AcmeInput, Certificate, CertificateBundle, CertificateFilter, CertificateUpdate, IssueInput, Page } from '@/api/types'
+import type { AcmeInput, Certificate, CertificateBundle, CertificateFilter, CertificateUpdate, IssueInput } from '@/api/types'
+import { CERTIFICATE_LIST, listSpec, pagedList } from '@/stores/paged'
 
+/** The dashboard's "expiring soon" preview: the first page by expiry (its own list state). */
+export const EXPIRING_LIST = listSpec(['not_after'], 'not_after', 'asc', 10)
+export const useExpiringCertificates = defineStore('lcm-expiring-certificates', () => pagedList<Certificate, CertificateFilter>('certificates', EXPIRING_LIST.first))
+
+// The certificates table is one server page (list contract): page, size and
+// sort travel to the server, the total counts only the certificates the
+// caller may read. Live events reload the current page (debounced in the
+// live store) instead of inserting rows client-side, which would ignore the
+// sort and the page boundaries.
 export const useCertificates = defineStore('lcm-certificates', () => {
-  const items = ref<Certificate[]>([])
-  const next = ref<string | undefined>()
-  const loading = ref(false)
-  const error = ref('')
-
-  async function list(filter: CertificateFilter = {}, cursor?: string): Promise<void> {
-    loading.value = true
-    error.value = ''
-    try {
-      const page = await api<Page<Certificate>>('GET', 'certificates', undefined, { query: { ...filter, cursor, limit: 50 } })
-      items.value = cursor ? [...items.value, ...page.items] : page.items
-      next.value = page.next_cursor
-    } catch (e) {
-      error.value = (e as Error).message
-    } finally {
-      loading.value = false
-    }
-  }
+  const page = pagedList<Certificate, CertificateFilter>('certificates', CERTIFICATE_LIST.first)
+  const { items, total, params, filter, loading, loaded, error, list, reload } = page
 
   async function get(id: string): Promise<Certificate> {
     return api<Certificate>('GET', 'certificates/' + id)
@@ -50,7 +43,7 @@ export const useCertificates = defineStore('lcm-certificates', () => {
 
   async function renew(id: string): Promise<CertificateBundle> {
     const bundle = await api<CertificateBundle>('POST', 'certificates/' + id + '/renew')
-    if (bundle.certificate) items.value = [bundle.certificate, ...items.value.filter((c) => c.id !== bundle.certificate.id)]
+    void reload() // the renewal is a new row: its place depends on the sort
     return bundle
   }
 
@@ -68,6 +61,7 @@ export const useCertificates = defineStore('lcm-certificates', () => {
   async function remove(id: string): Promise<void> {
     await api('POST', 'certificates/' + id + '/remove')
     items.value = items.value.filter((c) => c.id !== id)
+    void reload() // the next page's first row moves up
   }
 
   async function deploy(id: string, targetId: string): Promise<unknown> {
@@ -86,30 +80,16 @@ export const useCertificates = defineStore('lcm-certificates', () => {
   }
 
   /**
-   * Reflects a live stream event in the list without a refetch. `issued` and
-   * `renewed` carry a Certificate; `revoked` carries at least an id.
+   * Reflects a live stream event on the visible page in place where it cannot
+   * move the row (a revocation's status); the caller reloads the page for
+   * everything else (debounced, see the live store).
    */
-  function upsert(c: Certificate): void {
-    items.value = [c, ...items.value.filter((x) => x.id !== c.id)]
-  }
-
   function applyEvent(type: string, data: unknown): void {
     const obj = (data ?? {}) as Partial<Certificate> & { id?: string; certificate?: Certificate; certificate_id?: string }
-    const cert = (obj.certificate ?? obj) as Certificate
+    const cert = (obj.certificate ?? obj) as Partial<Certificate>
     const id = cert.id ?? obj.id ?? obj.certificate_id
-    if (type === 'certificate.issued' || type === 'certificate.renewed') {
-      if (cert.id) {
-        upsert(cert)
-      } else if (id) {
-        // Lifecycle events carry only ids (issued via the async ACME path or the
-        // renew scheduler); fetch the full row so the list reflects it live.
-        void get(id).then(upsert).catch(() => {})
-      }
-    } else if (type === 'certificate.revoked') {
-      if (!id) return
-      items.value = items.value.map((c) => (c.id === id ? { ...c, status: 'revoked' } : c))
-    }
+    if (type === 'certificate.revoked' && id) items.value = items.value.map((c) => (c.id === id ? { ...c, status: 'revoked' } : c))
   }
 
-  return { items, next, loading, error, list, get, issue, obtainAcme, renew, revoke, update, remove, deploy, download, downloadKey, applyEvent }
+  return { items, total, params, filter, loading, loaded, error, list, reload, get, issue, obtainAcme, renew, revoke, update, remove, deploy, download, downloadKey, applyEvent }
 })

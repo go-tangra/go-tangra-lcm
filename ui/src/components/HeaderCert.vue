@@ -61,7 +61,7 @@ async function toggle(): Promise<void> {
         <span class="grow" />
         <RouterLink to="/lcm/certificates" class="btn btn-text btn-xs" data-test="cert-open" @click="open = false">Open</RouterLink>
       </div>
-      <p class="mb-2 text-xs text-base-content/70">{{ expiring }} expiring soon · {{ certs.items.length }} loaded</p>
+      <p class="mb-2 text-xs text-base-content/70">{{ expiring }} expiring soon · {{ certs.total }} visible</p>
       <p v-if="!events.length" class="text-xs text-base-content/70" data-test="cert-events-empty">No live events yet.</p>
       <ul v-else class="flex flex-col gap-1" data-test="cert-events"><li v-for="(e, i) in events" :key="i"><UiBadge size="xs">{{ e }}</UiBadge></li></ul>
     </div>

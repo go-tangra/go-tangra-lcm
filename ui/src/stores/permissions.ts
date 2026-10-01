@@ -1,7 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/api/client'
-import type { Effective, Grant, GrantInput, ResourceType } from '@/api/types'
+import type { Certificate, Effective, Grant, GrantInput, Issuer, ResourceType } from '@/api/types'
+import { CERTIFICATE_LIST, ISSUER_LIST, listSpec, pagedList } from '@/stores/paged'
+
+// The Permissions view pages the certificates and issuers the caller may read
+// (its own tables: their page / sort live under ?perm-certificates.… and
+// ?perm-issuers.…, independent of the Certificates and Issuers views).
+export const PERM_CERTIFICATE_LIST = listSpec(['identity', 'created_at'], 'identity')
+export const PERM_ISSUER_LIST = listSpec(['name', 'trust_domain'], 'name')
+export const usePermCertificates = defineStore('lcm-perm-certificates', () => pagedList<Certificate>('certificates', { ...CERTIFICATE_LIST.first, ...PERM_CERTIFICATE_LIST.first }))
+export const usePermIssuers = defineStore('lcm-perm-issuers', () => pagedList<Issuer>('issuers', { ...ISSUER_LIST.first, ...PERM_ISSUER_LIST.first }))
 
 // Grants and effective access over a certificate or issuer (Zanzibar
 // owner/editor/viewer/sharer), served by /grants and /access/*.

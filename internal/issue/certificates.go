@@ -3,6 +3,7 @@ package issue
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
@@ -105,6 +106,27 @@ func (s *Service) ListCertificates(ctx context.Context, subj authz.Subjects, f s
 		f.Limit = 50
 	}
 	out := []CertificateView{}
+	// The legacy HTTP cursor is the last certificate's id: resolve its
+	// creation time (within the caller's tenant) so the next page continues
+	// after it instead of starting over. An unknown cursor ends the list.
+	if f.CursorID != "" && f.CursorTS.IsZero() {
+		if !store.IsUUID(f.CursorID) {
+			return out, "", nil
+		}
+		cur, cerr := s.st.GetCertificate(ctx, subj.TenantID, f.CursorID)
+		if errors.Is(cerr, store.ErrNotFound) {
+			return out, "", nil
+		}
+		if cerr != nil {
+			return nil, "", cerr
+		}
+		// A cursor the caller may not read is unknown: its position must not
+		// reveal that it exists.
+		if !all && !ids[cur.ID] {
+			return out, "", nil
+		}
+		f.CursorTS = cur.CreatedAt
+	}
 	next := ""
 	for len(out) < f.Limit {
 		rows, lerr := s.st.ListCertificates(ctx, subj.TenantID, f)

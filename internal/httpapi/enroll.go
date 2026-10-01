@@ -4,8 +4,11 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/enroll"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 // EnrollDeps are the services behind the enrollment, request and job routes.
@@ -75,12 +78,14 @@ func (s *Server) RegisterEnroll(d EnrollDeps) {
 			return
 		}
 		q := r.URL.Query()
-		items, next, err := d.Enroll.ListRequests(r.Context(), subj, enroll.RequestFilter{Status: q.Get("status"), Cursor: q.Get("cursor"), Limit: limitParam(r)})
-		if err != nil {
-			s.fail(w, r, enrollError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items, "next_cursor": next})
+		serveList(s, w, r, store.RequestList, enrollError,
+			func() (map[string]any, error) {
+				items, next, err := d.Enroll.ListRequests(r.Context(), subj, enroll.RequestFilter{Status: q.Get("status"), Cursor: q.Get("cursor"), Limit: limitParam(r)})
+				return map[string]any{"items": items, "next_cursor": next}, err
+			},
+			func(req listquery.Request) (listquery.Page[enroll.RequestView], error) {
+				return d.Enroll.PageRequests(r.Context(), subj, q.Get("status"), req)
+			})
 	})
 	s.MustHandle("POST", Prefix+"/requests", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)
@@ -164,12 +169,14 @@ func (s *Server) RegisterEnroll(d EnrollDeps) {
 			return
 		}
 		q := r.URL.Query()
-		items, next, err := d.Enroll.ListJobs(r.Context(), subj, enroll.JobFilter{Status: q.Get("status"), Cursor: q.Get("cursor"), Limit: limitParam(r)})
-		if err != nil {
-			s.fail(w, r, enrollError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items, "next_cursor": next})
+		serveList(s, w, r, store.JobList, enrollError,
+			func() (map[string]any, error) {
+				items, next, err := d.Enroll.ListJobs(r.Context(), subj, enroll.JobFilter{Status: q.Get("status"), Cursor: q.Get("cursor"), Limit: limitParam(r)})
+				return map[string]any{"items": items, "next_cursor": next}, err
+			},
+			func(req listquery.Request) (listquery.Page[enroll.JobView], error) {
+				return d.Enroll.PageJobs(r.Context(), subj, q.Get("status"), req)
+			})
 	})
 	s.MustHandle("GET", Prefix+"/jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)

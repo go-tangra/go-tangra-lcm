@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
@@ -29,13 +31,16 @@ func (s *Server) RegisterCertificates(d CertDeps) {
 			return
 		}
 		q := r.URL.Query()
-		f := store.CertificateFilter{IssuerID: q.Get("issuer_id"), SpiffeID: q.Get("spiffe_id"), Status: q.Get("status"), CursorID: q.Get("cursor"), Limit: limitParam(r)}
-		items, next, err := d.Issue.ListCertificates(r.Context(), subj, f)
-		if err != nil {
-			s.fail(w, r, issueError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items, "next_cursor": next})
+		filter := issue.CertificateListFilter{IssuerID: q.Get("issuer_id"), SpiffeID: q.Get("spiffe_id"), Status: q.Get("status")}
+		serveList(s, w, r, store.CertificateList, issueError,
+			func() (map[string]any, error) {
+				f := store.CertificateFilter{IssuerID: filter.IssuerID, SpiffeID: filter.SpiffeID, Status: filter.Status, CursorID: q.Get("cursor"), Limit: limitParam(r)}
+				items, next, err := d.Issue.ListCertificates(r.Context(), subj, f)
+				return map[string]any{"items": items, "next_cursor": next}, err
+			},
+			func(req listquery.Request) (listquery.Page[issue.CertificateView], error) {
+				return d.Issue.PageCertificates(r.Context(), subj, filter, req)
+			})
 	})
 	s.MustHandle("POST", Prefix+"/certificates/issue", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)

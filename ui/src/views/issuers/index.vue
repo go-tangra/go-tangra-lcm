@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiBadge, UiIcon, UiDrawer, UiForm, UiInput, UiSelect, UiNumberInput, UiSwitch, UiSecretField, UiSection, useConfirm, type Column, type SelectOption } from '@go-tangra/ui'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiBadge, UiIcon, UiDrawer, UiForm, UiInput, UiSelect, UiNumberInput, UiSwitch, UiSecretField, UiSection, useConfirm, useListQuery, type Column, type SelectOption } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
 import { useIssuers } from '@/stores/issuers'
+import { ISSUER_LIST } from '@/stores/paged'
 import { describe } from '@/api/client'
 import { issuerSchema, ISSUER_TYPES, KEY_TYPES, providerHint } from '@/schemas'
 import { SET_MARKER, type Issuer, type IssuerInput } from '@/api/types'
@@ -12,8 +13,16 @@ const confirm = useConfirm()
 const drawer = ref(false)
 const selected = ref<Issuer | null>(null)
 const error = ref('')
+// --- server paging and sorting (page / size / sort in the URL: ?issuers.page=…) ---
+const lq = useListQuery('issuers', ISSUER_LIST.opts)
+async function load(): Promise<void> {
+  const res = await store.list({}, lq.query.value)
+  if (res?.page) lq.clampTo(res.page)
+}
+watch(lq.query, () => void load())
+const reload = () => void load()
 onMounted(() => {
-  void store.list()
+  reload()
   void store.loadDnsProviders()
 })
 const typeOptions: SelectOption[] = ISSUER_TYPES.map((t) => ({ title: t, value: t }))
@@ -34,7 +43,7 @@ const form = useZodForm(issuerSchema, {
   },
   onSuccess: () => {
     drawer.value = false
-    void store.list()
+    reload()
   },
 })
 const isAcme = computed(() => form.values.type === 'acme')
@@ -64,15 +73,15 @@ async function remove(): Promise<void> {
   try {
     await store.remove(selected.value.id)
     drawer.value = false
-    void store.list()
+    reload()
   } catch (e) {
     error.value = describe(e)
   }
 }
 const columns: Column<Issuer>[] = [
   { key: 'name', label: 'Name', sortable: true },
-  { key: 'type', label: 'Type', width: 'sm' },
-  { key: 'trust_domain', label: 'Trust domain' },
+  { key: 'type', label: 'Type', width: 'sm', sortable: true },
+  { key: 'trust_domain', label: 'Trust domain', sortable: true },
   { key: 'is_default', label: 'Default', width: 'sm', format: (i) => (i.is_default ? 'yes' : '') },
   { key: 'certificate_count', label: 'Certificates', align: 'end', format: (i) => String(i.certificate_count ?? 0) },
 ]
@@ -83,7 +92,7 @@ const columns: Column<Issuer>[] = [
     <template #actions><UiButton icon="mdi-plus" data-test="issuer-new" @click="open(null)">New issuer</UiButton></template>
     <UiAlert v-if="store.error" kind="error" class="mb-3">{{ store.error }}</UiAlert>
     <UiCard :padded="false">
-      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" caption="Issuers" empty-title="No issuers yet" clickable :row-attrs="(i) => ({ 'data-test': 'issuer-row-' + i.id })" data-test="issuers-table" @row-click="open">
+      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" :total="store.total" :page="lq.page.value" :page-size="lq.pageSize.value" :sort="lq.sort.value" caption="Issuers" empty-title="No issuers yet" clickable :row-attrs="(i) => ({ 'data-test': 'issuer-row-' + i.id })" data-test="issuers-table" @row-click="open" @update:page="lq.setPage" @update:page-size="lq.setPageSize" @update:sort="lq.setSort">
         <template #cell-type="{ row }"><UiBadge>{{ row.type }}</UiBadge></template>
         <template #cell-is_default="{ row }"><UiIcon v-if="row.is_default" name="mdi-star" size="sm" class="text-warning" label="Default issuer" /></template>
       </UiDataTable>

@@ -715,6 +715,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Without from/to the page covers the last 7 days (to = now, from = to - 7d); the total is exact within the window. */
         get: operations["auditTrail"];
         put?: never;
         post?: never;
@@ -858,7 +859,11 @@ export interface components {
         csrf: string;
         id: string;
         cursor: string;
+        /** @description legacy cursor style; 50 when omitted */
         limit: number;
+        page: number;
+        pageSize: number;
+        order: "asc" | "desc";
     };
     requestBodies: never;
     headers: never;
@@ -869,7 +874,12 @@ export interface operations {
     listIssuers: {
         parameters: {
             query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "name" | "type" | "trust_domain" | "created_at";
+                order?: components["parameters"]["order"];
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy cursor style; 50 when omitted */
                 limit?: components["parameters"]["limit"];
             };
             header?: never;
@@ -878,8 +888,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description issuers the caller may read */
+            /** @description page of the issuers the caller may read (total counts only those) */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed {param} */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1031,7 +1048,12 @@ export interface operations {
                 issuer_id?: string;
                 spiffe_id?: string;
                 status?: "active" | "expiring" | "expired" | "revoked";
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "identity" | "issuer" | "kind" | "status" | "not_before" | "not_after" | "created_at";
+                order?: components["parameters"]["order"];
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy cursor style; 50 when omitted */
                 limit?: components["parameters"]["limit"];
             };
             header?: never;
@@ -1040,8 +1062,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description certificates the caller may read (metadata only) */
+            /** @description page of the certificates the caller may read (metadata only; total counts only those) */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed {param} */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1353,7 +1382,12 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "pending" | "approved" | "rejected" | "issued" | "processing" | "failed";
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "identity" | "kind" | "status" | "created_at";
+                order?: components["parameters"]["order"];
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy cursor style; 50 when omitted */
                 limit?: components["parameters"]["limit"];
             };
             header?: never;
@@ -1362,8 +1396,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description certificate requests */
+            /** @description page of the certificate requests the caller may read */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed {param} */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1477,7 +1518,12 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "queued" | "processing" | "completed" | "failed";
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "type" | "status" | "attempts" | "run_after" | "created_at";
+                order?: components["parameters"]["order"];
                 cursor?: components["parameters"]["cursor"];
+                /** @description legacy cursor style; 50 when omitted */
                 limit?: components["parameters"]["limit"];
             };
             header?: never;
@@ -1486,8 +1532,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description jobs */
+            /** @description page of the jobs the caller may read */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed {param} */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1779,15 +1832,27 @@ export interface operations {
     };
     listSecrets: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "name" | "kind" | "created_at";
+                order?: components["parameters"]["order"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description secret names/kinds; values redacted */
+            /** @description page of secret names/kinds; values never read */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed {param} */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1911,15 +1976,27 @@ export interface operations {
     };
     listWebhooks: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "name" | "created_at";
+                order?: components["parameters"]["order"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description endpoints; signing secret redacted */
+            /** @description page of endpoints; signing secret never read */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed {param} */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2227,6 +2304,10 @@ export interface operations {
                 actor_id?: string;
                 from?: string;
                 to?: string;
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                sort?: "ts";
+                order?: components["parameters"]["order"];
                 cursor?: components["parameters"]["cursor"];
             };
             header?: never;
@@ -2237,6 +2318,13 @@ export interface operations {
         responses: {
             /** @description page of audit events (no key material; subject_name resolves live subjects) */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed {param} */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

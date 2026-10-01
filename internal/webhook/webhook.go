@@ -25,6 +25,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
+	"github.com/go-tangra/go-tangra/v4/listquery"
 )
 
 // Event types are the closed set a webhook may subscribe to.
@@ -72,6 +73,7 @@ func validEvent(t string) bool {
 
 // repoStore is the persistence the service needs (repo.Webhooks satisfies it).
 type repoStore interface {
+	PageWebhooks(ctx context.Context, tenantID string, req listquery.Request) ([]store.WebhookEndpoint, int, listquery.Request, error)
 	InsertWebhook(ctx context.Context, w store.WebhookEndpoint) error
 	GetWebhook(ctx context.Context, tenantID, id string) (store.WebhookEndpoint, error)
 	ListWebhooks(ctx context.Context, tenantID string) ([]store.WebhookEndpoint, error)
@@ -341,4 +343,18 @@ func view(r store.WebhookEndpoint) View {
 		ev = []string{}
 	}
 	return View{ID: r.ID, Name: r.Name, URL: r.URL, EventTypes: ev, Enabled: r.Enabled, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+}
+
+// Page returns one page of the tenant's webhooks (metadata only; sealed values
+// are never read for a listing).
+func (s *Service) Page(ctx context.Context, subj authz.Subjects, req listquery.Request) (listquery.Page[View], error) {
+	rows, total, applied, err := s.st.PageWebhooks(ctx, subj.TenantID, req)
+	if err != nil {
+		return listquery.Page[View]{}, err
+	}
+	out := make([]View, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, view(r))
+	}
+	return listquery.NewPage(out, total, applied), nil
 }

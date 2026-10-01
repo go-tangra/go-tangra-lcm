@@ -15,6 +15,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
+	"github.com/go-tangra/go-tangra/v4/listquery"
 )
 
 // ValidationError is a rejected input (field + message).
@@ -35,6 +36,7 @@ const (
 
 // repoStore is the persistence the service needs (repo.Secrets satisfies it).
 type repoStore interface {
+	PageSecrets(ctx context.Context, tenantID string, req listquery.Request) ([]store.TenantSecret, int, listquery.Request, error)
 	InsertSecret(ctx context.Context, s store.TenantSecret) error
 	GetSecret(ctx context.Context, tenantID, id string) (store.TenantSecret, error)
 	SecretByName(ctx context.Context, tenantID, name string) (store.TenantSecret, error)
@@ -291,4 +293,18 @@ func keysUnion(a, b sealed.Settings) []string {
 		}
 	}
 	return out
+}
+
+// Page returns one page of the tenant's secrets (metadata only; sealed values
+// are never read for a listing).
+func (s *Service) Page(ctx context.Context, subj authz.Subjects, req listquery.Request) (listquery.Page[View], error) {
+	rows, total, applied, err := s.st.PageSecrets(ctx, subj.TenantID, req)
+	if err != nil {
+		return listquery.Page[View]{}, err
+	}
+	out := make([]View, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, view(r))
+	}
+	return listquery.NewPage(out, total, applied), nil
 }

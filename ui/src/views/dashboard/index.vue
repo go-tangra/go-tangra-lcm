@@ -3,10 +3,10 @@ import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { UiPage, UiAlert, UiCard, UiStatGrid, UiStatTile, UiBarList, UiStatusChip, UiEmptyState, type BarItem } from '@go-tangra/ui'
 import { useOps } from '@/stores/ops'
-import { useCertificates } from '@/stores/certificates'
+import { useExpiringCertificates } from '@/stores/certificates'
 
 const ops = useOps()
-const certs = useCertificates()
+const certs = useExpiringCertificates()
 onMounted(async () => {
   await Promise.all([ops.loadStats(), certs.list({ status: 'expiring' })])
 })
@@ -35,7 +35,7 @@ const byStatus = computed<BarItem[]>(() => Object.entries(s.value?.certificates 
         <ul v-else class="divide-y divide-base-300">
           <li v-for="c in certs.items" :key="c.id">
             <RouterLink to="/lcm/certificates" class="flex items-center gap-3 px-4 py-2 hover:bg-base-200" :data-test="'expiring-' + c.id">
-              <span class="min-w-0 grow"><span class="block truncate">{{ c.spiffe_id }}</span><span class="block text-xs text-base-content/70">{{ c.not_after ? 'expires ' + new Date(c.not_after).toLocaleString() : '' }}</span></span>
+              <span class="min-w-0 grow"><span class="block truncate">{{ c.spiffe_id || c.sans?.join(', ') || c.subject }}</span><span class="block text-xs text-base-content/70">{{ c.not_after ? 'expires ' + new Date(c.not_after).toLocaleString() : '' }}</span></span>
               <UiStatusChip :status="c.status" :colors="{ expiring: 'warning' }" />
             </RouterLink>
           </li>

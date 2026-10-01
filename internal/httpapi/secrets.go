@@ -4,8 +4,11 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/secrets"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/webhook"
 )
 
@@ -51,12 +54,9 @@ func (s *Server) RegisterSecrets(d SecretDeps) {
 			Fail(w, r, nil, err)
 			return
 		}
-		items, err := d.Secrets.List(r.Context(), subj)
-		if err != nil {
-			s.fail(w, r, secretError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+		serveList(s, w, r, store.SecretList, secretError, nil, func(req listquery.Request) (listquery.Page[secrets.View], error) {
+			return d.Secrets.Page(r.Context(), subj, req)
+		})
 	})
 	s.MustHandle("POST", Prefix+"/secrets", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)
@@ -144,12 +144,9 @@ func (s *Server) RegisterWebhooks(d WebhookDeps) {
 			Fail(w, r, nil, err)
 			return
 		}
-		items, err := d.Webhooks.List(r.Context(), subj)
-		if err != nil {
-			s.fail(w, r, webhookError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+		serveList(s, w, r, store.WebhookList, webhookError, nil, func(req listquery.Request) (listquery.Page[webhook.View], error) {
+			return d.Webhooks.Page(r.Context(), subj, req)
+		})
 	})
 	s.MustHandle("POST", Prefix+"/webhooks", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)
