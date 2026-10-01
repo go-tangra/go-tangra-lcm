@@ -715,7 +715,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Without from/to the page covers the last 7 days (to = now, from = to - 7d); the total is exact within the window. */
+        /** @description Without from/to the page covers the last 7 days (to = now, from = to - 7d); the total is exact within the window. The range may span at most 90 days (wider: 422 validation_failed, param from). The legacy cursor/limit shape uses the same window. */
         get: operations["auditTrail"];
         put?: never;
         post?: never;
@@ -2302,7 +2302,9 @@ export interface operations {
             query?: {
                 event_type?: string;
                 actor_id?: string;
+                /** @description Start of the range (RFC 3339). Default: to - 7 days. to - from may not exceed 90 days; a wider range is 422 validation_failed with detail.param "from". */
                 from?: string;
+                /** @description End of the range (RFC 3339). Default: now. to - from may not exceed 90 days. */
                 to?: string;
                 page?: components["parameters"]["page"];
                 page_size?: components["parameters"]["pageSize"];

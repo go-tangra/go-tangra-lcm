@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -431,8 +432,43 @@ func TestAuditDefaultWindow(t *testing.T) {
 			t.Fatalf("from after to: %v", d)
 		}
 	}
+	// The span is capped at store.MaxAuditSpan on the paged and legacy paths:
+	// one day over is refused naming "from" (never echoing it), exactly 90
+	// days is served (security review F-2).
+	wideFrom, exactFrom := now.Add(-91*24*time.Hour).Format(time.RFC3339), now.Add(-90*24*time.Hour).Format(time.RFC3339)
+	for _, q := range []url.Values{
+		{"from": {wideFrom}, "to": {now.Format(time.RFC3339)}},
+		{"from": {wideFrom}},
+		{"from": {"1970-01-01T00:00:00Z"}, "page_size": {"10"}},
+		{"from": {wideFrom}, "to": {now.Format(time.RFC3339)}, "limit": {"10"}},
+		{"from": {"1970-01-01T00:00:00Z"}, "cursor": {now.Format(time.RFC3339Nano)}},
+	} {
+		w := f.req(t, "GET", Prefix+"/audit?"+q.Encode(), "admin", "")
+		mustStatus(t, w, http.StatusUnprocessableEntity)
+		b := jsonBody(t, w)
+		if d, _ := b["detail"].(map[string]any); b["reason"] != "validation_failed" || d["param"] != "from" {
+			t.Fatalf("%v: %v", q, b)
+		}
+		if strings.Contains(w.Body.String(), "1970") || strings.Contains(w.Body.String(), wideFrom) {
+			t.Fatalf("%v echoed: %s", q, w.Body.String())
+		}
+	}
+	if _, body = f.page(t, "/audit", "admin", url.Values{"from": {exactFrom}, "to": {now.Format(time.RFC3339)}}); body["total"].(float64) != 6 {
+		t.Fatalf("90-day span: %v", body["total"])
+	}
+	w := f.req(t, "GET", Prefix+"/audit?"+url.Values{"from": {exactFrom}, "to": {now.Format(time.RFC3339)}, "limit": {"50"}}.Encode(), "admin", "")
+	mustStatus(t, w, http.StatusOK)
+	if n := len(jsonBody(t, w)["items"].([]any)); n != 6 {
+		t.Fatalf("legacy 90-day span: %d", n)
+	}
+	// The legacy cursor path without from covers the default window too.
+	w = f.req(t, "GET", Prefix+"/audit?limit=50", "admin", "")
+	mustStatus(t, w, http.StatusOK)
+	if n := len(jsonBody(t, w)["items"].([]any)); n != 4 {
+		t.Fatalf("legacy default window: %d", n)
+	}
 	// Malformed window values name the parameter.
-	for _, c := range []struct{ from, to, param string }{{"yesterday", "", "from"}, {"", "soon", "to"}} {
+	for _, c := range []struct{ from, to, param string }{{"yesterday", "", "from"}, {"", "soon", "to"}, {"1970-01-01T00:00:00Z", "", "from"}} {
 		if _, _, p := auditWindow(c.from, c.to, now); p != c.param {
 			t.Fatalf("auditWindow(%q,%q) = %q", c.from, c.to, p)
 		}

@@ -261,8 +261,8 @@ paths:
     get:
       operationId: auditTrail
       x-freya-permission: stats:read
-      parameters: [{ name: event_type, in: query, schema: { type: string } }, { name: actor_id, in: query, schema: { type: string } }, { name: from, in: query, schema: { type: string, format: date-time } }, { name: to, in: query, schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [ts] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }]
-      description: 'Without from/to the page covers the last 7 days (to = now, from = to - 7d); the total is exact within the window.'
+      parameters: [{ name: event_type, in: query, schema: { type: string } }, { name: actor_id, in: query, schema: { type: string } }, { name: from, in: query, description: 'Start of the range (RFC 3339). Default: to - 7 days. to - from may not exceed 90 days; a wider range is 422 validation_failed with detail.param "from".', schema: { type: string, format: date-time } }, { name: to, in: query, description: 'End of the range (RFC 3339). Default: now. to - from may not exceed 90 days.', schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [ts] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }]
+      description: 'Without from/to the page covers the last 7 days (to = now, from = to - 7d); the total is exact within the window. The range may span at most 90 days (wider: 422 validation_failed, param from). The legacy cursor/limit shape uses the same window.'
       responses: { '200': { description: 'page of audit events (no key material; subject_name resolves live subjects)' }, '422': { description: 'validation_failed {param}' } }
   /api/lcm/v1/health:
     get: { operationId: health, x-freya-permission: stats:read, responses: { '200': { description: '{status, database, valkey, scheduler_last_tick, version}' } } }

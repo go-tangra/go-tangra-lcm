@@ -44,7 +44,7 @@ const columns: Column<AuditItem>[] = [
   { key: 'subject', label: 'Subject', format: (i) => i.subject_name || i.subject_id || i.subject_kind || '', hideOnStack: true },
   { key: 'outcome', label: 'Outcome', width: 'sm' },
 ]
-const windowHint = computed(() => (current.value.from || current.value.to ? '' : 'Showing the last 7 days. Set From / To for older events.'))
+const windowHint = computed(() => (current.value.from || current.value.to ? '' : 'Showing the last 7 days. Set From / To for older events (at most 90 days at a time).'))
 </script>
 
 <template>

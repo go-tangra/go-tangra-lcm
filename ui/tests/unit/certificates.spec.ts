@@ -42,6 +42,7 @@ class FakeSource {
 const newRouter = () => createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div/>' } }] })
 const ability = (): [Plugin, ...unknown[]] => [abilitiesPlugin as Plugin, createMongoAbility([{ action: 'manage', subject: 'all' }]), { useGlobalProperties: true }]
 const params = (url: string) => new URL(url, 'https://x').searchParams
+const daysAgo = (n: number) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10)
 const pathOf = (url: string) => new URL(url, 'https://x').pathname
 const header = (w: ReturnType<typeof mount>, label: string) => w.findAll('th button').find((b) => b.text().startsWith(label))
 const cert = (n: number) => ({ id: 'c' + n, kind: 'svid', serial: String(n), spiffe_id: 'spiffe://example.org/svc/' + n, status: 'active', not_after: '2030-01-01T00:00:00Z', created_at: '2026-01-01T00:00:00Z', permissions: {} })
@@ -183,11 +184,40 @@ describe('other lcm tables', () => {
     await flushPromises()
     expect(w.find('[data-test="audit-window"]').text()).toContain('last 7 days')
     expect(params(calls.at(-1)!.url).has('from')).toBe(false)
-    await w.find('[data-test="audit-filter-from"] input').setValue('2026-01-01')
+    const from = daysAgo(30)
+    await w.find('[data-test="audit-filter-from"] input').setValue(from)
     await w.find('[data-test="audit-apply"]').trigger('click')
     await flushPromises()
-    expect(params(calls.at(-1)!.url).get('from')).toContain('2026-01-01')
+    expect(params(calls.at(-1)!.url).get('from')).toContain(from)
     expect(w.find('[data-test="audit-window"]').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('audit refuses a range over 90 days before asking the server', async () => {
+    const calls = fetchMock(server(3))
+    const w = mount(Audit, { global: { plugins: [newRouter(), ability()] }, attachTo: document.body })
+    await flushPromises()
+    const before = calls.length
+    await w.find('[data-test="audit-filter-from"] input').setValue('2026-01-01')
+    await w.find('[data-test="audit-filter-to"] input').setValue('2026-04-02') // 91 days
+    await w.find('[data-test="audit-apply"]').trigger('click')
+    await flushPromises()
+    expect(calls.length).toBe(before)
+    expect(w.text()).toContain('Date range is limited to 90 days.')
+    // Exactly 90 days is sent.
+    await w.find('[data-test="audit-filter-to"] input').setValue('2026-04-01')
+    await w.find('[data-test="audit-apply"]').trigger('click')
+    await flushPromises()
+    expect(calls.length).toBe(before + 1)
+    expect([params(calls.at(-1)!.url).get('from'), params(calls.at(-1)!.url).get('to')]).toEqual(['2026-01-01T00:00:00.000Z', '2026-04-01T00:00:00.000Z'])
+    w.unmount()
+  })
+
+  it('audit shows the server 90-day refusal as the range limit', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ reason: 'validation_failed', detail: { param: 'from' } }), { status: 422, headers: { 'Content-Type': 'application/json' } })))
+    const w = mount(Audit, { global: { plugins: [newRouter(), ability()] }, attachTo: document.body })
+    await flushPromises()
+    expect(w.text()).toContain('Date range is limited to 90 days.')
     w.unmount()
   })
 })

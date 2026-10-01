@@ -34,7 +34,9 @@ per-tenant row-level security, and a Vue 3 / Vuetify Module Federation remote.
 - **Revocation & trust** — revoking a cert publishes a revocation feed and a
   signed CRL, and the service serves the trust bundle per trust domain.
 - **Operations** — tenant secrets, HMAC-signed webhooks, an append-only audit
-  trail, statistics, and tenant backup export/import.
+  trail, statistics, and tenant backup export/import. Audit queries cover the
+  last 7 days by default and at most 90 days per request (`to - from` wider
+  than 90 days is `422 validation_failed`, `param: from`).
 
 ## ACME DNS providers
 

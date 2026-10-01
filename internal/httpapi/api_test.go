@@ -321,7 +321,7 @@ func TestOpsRoutes(t *testing.T) {
 
 	mustStatus(t, f.req(t, "GET", Prefix+"/stats", "admin", ""), http.StatusOK)
 	mustStatus(t, f.req(t, "GET", Prefix+"/audit?limit=10", "admin", ""), http.StatusOK)
-	mustStatus(t, f.req(t, "GET", Prefix+"/audit?event_type=x&actor_id=y&from=2020-01-01T00:00:00Z&to=2030-01-01T00:00:00Z", "admin", ""), http.StatusOK)
+	mustStatus(t, f.req(t, "GET", Prefix+"/audit?event_type=x&actor_id=y&from=2029-11-01T00:00:00Z&to=2030-01-01T00:00:00Z", "admin", ""), http.StatusOK)
 	mustStatus(t, f.req(t, "GET", Prefix+"/trust-bundle?trust_domain=example.org", "admin", ""), http.StatusOK)
 	mustStatus(t, f.req(t, "GET", Prefix+"/revocations", "admin", ""), http.StatusOK)
 	mustStatus(t, f.req(t, "GET", Prefix+"/crl?trust_domain=example.org", "admin", ""), http.StatusOK)

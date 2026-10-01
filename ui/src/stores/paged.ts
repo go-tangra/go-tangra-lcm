@@ -40,9 +40,10 @@ function compact(f: object): Record<string, string | number> {
  * The state of one server-paged list at path. list() loads one page with the
  * filter and resolves with it, or null when it failed or a newer request
  * superseded it (its rows are then ignored); reload() reloads the current
- * page (a no-op until the list was first loaded).
+ * page (a no-op until the list was first loaded). explain, when given, may
+ * word a failure more specifically than the generic reason text.
  */
-export function pagedList<T, F extends object = Record<string, never>>(path: string, first: ListParams) {
+export function pagedList<T, F extends object = Record<string, never>>(path: string, first: ListParams, explain?: (e: unknown) => string | undefined) {
   const items = ref<T[]>([])
   const total = ref(0)
   const params = ref<ListParams>({ ...first })
@@ -66,7 +67,7 @@ export function pagedList<T, F extends object = Record<string, never>>(path: str
       total.value = res.total ?? 0
       return res
     } catch (e) {
-      if (mine === seq) error.value = describe(e)
+      if (mine === seq) error.value = explain?.(e) ?? describe(e)
       return null
     } finally {
       if (mine === seq) loading.value = false
