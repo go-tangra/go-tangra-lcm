@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiSelect, UiNumberInput, UiSwitch, UiTextarea, UiButton, UiDataTable, UiStatusChip, UiBadge, UiTabs, UiDrawer, UiKeyValueTable, useToast, useConfirm, useListQuery, type Column, type SelectOption, type TabItem } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
 import { useCertificates } from '@/stores/certificates'
+import CertificateDetails from './CertificateDetails.vue'
 import { useIssuers } from '@/stores/issuers'
 import { useDirectory } from '@/stores/directory'
 import { useLive } from '@/stores/live'
@@ -137,7 +138,10 @@ const canRevoke = computed(() => canManage.value && selected.value?.status !== '
 const meta = computed(() => {
   const c = selected.value
   if (!c) return []
-  return [{ label: 'Serial', value: c.serial, copyable: true }, { label: 'Subject', value: c.subject }, { label: 'Not before', value: c.not_before ? new Date(c.not_before).toLocaleString() : '' }, { label: 'Not after', value: c.not_after ? new Date(c.not_after).toLocaleString() : '' }, { label: 'Fingerprint', value: c.fingerprint_sha256, copyable: true }, { label: 'Owner', value: directory.userName(c.owner) }]
+  // Only record-level facts here: the certificate's own fields (subject,
+  // serial, validity, SANs, fingerprints) are decoded from the certificate
+  // bytes by CertificateDetails, never taken from the record's columns.
+  return [{ label: 'Owner', value: directory.userName(c.owner) }]
 })
 async function run(fn: () => Promise<void>): Promise<void> {
   busy.value = true
@@ -236,7 +240,7 @@ const renew = async () => {
       <template v-if="selected">
         <div class="mb-3 flex flex-wrap gap-1"><UiStatusChip :status="selected.status" :colors="statusColors" data-test="cert-status" /><UiBadge :color="selected.kind === 'generic' ? 'info' : 'primary'" data-test="cert-kind">{{ selected.kind === 'generic' ? 'generic' : 'SVID' }}</UiBadge></div>
         <UiKeyValueTable :items="meta" />
-        <div v-if="selected.sans?.length" class="mt-2 flex flex-wrap gap-1"><UiBadge v-for="s in selected.sans" :key="s" size="xs">{{ s }}</UiBadge></div>
+        <CertificateDetails :certificate-id="selected.id" />
         <UiSwitch id="cert-auto-renew" :model-value="selected.auto_renew ?? false" :disabled="!canManage || busy" label="Auto-renew before expiry" class="mt-3" data-test="cert-auto-renew" @update:model-value="toggleAutoRenew" />
         <h3 class="mb-2 mt-4 text-sm font-medium">Download</h3>
         <div class="flex flex-wrap gap-2">

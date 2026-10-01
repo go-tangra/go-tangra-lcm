@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { api } from '@/api/client'
-import type { AcmeInput, Certificate, CertificateBundle, CertificateFilter, CertificateUpdate, IssueInput } from '@/api/types'
+import type { AcmeInput, Certificate, CertificateBundle, CertificateDetailsResult, CertificateFilter, CertificateUpdate, IssueInput } from '@/api/types'
 import { CERTIFICATE_LIST, listSpec, pagedList } from '@/stores/paged'
 
 /** The dashboard's "expiring soon" preview: the first page by expiry (its own list state). */
@@ -73,6 +73,15 @@ export const useCertificates = defineStore('lcm-certificates', () => {
     return api<CertificateBundle>('GET', 'certificates/' + id + '/download')
   }
 
+  /**
+   * The certificate's details decoded server-side from the certificate bytes
+   * (never from the record's columns). An undecodable certificate answers
+   * available=false with a reason.
+   */
+  async function details(id: string): Promise<CertificateDetailsResult> {
+    return api<CertificateDetailsResult>('GET', 'certificates/' + id + '/details')
+  }
+
   /** Retrieve the retained private key (generic certs whose key lcm stores). */
   async function downloadKey(id: string): Promise<string> {
     const res = await api<{ key_pem: string }>('GET', 'certificates/' + id + '/key')
@@ -91,5 +100,5 @@ export const useCertificates = defineStore('lcm-certificates', () => {
     if (type === 'certificate.revoked' && id) items.value = items.value.map((c) => (c.id === id ? { ...c, status: 'revoked' } : c))
   }
 
-  return { items, total, params, filter, loading, loaded, error, list, reload, get, issue, obtainAcme, renew, revoke, update, remove, deploy, download, downloadKey, applyEvent }
+  return { items, total, params, filter, loading, loaded, error, list, reload, get, issue, obtainAcme, renew, revoke, update, remove, deploy, download, downloadKey, details, applyEvent }
 })

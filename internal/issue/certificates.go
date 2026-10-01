@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/certinfo"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/csr"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/repo"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
@@ -93,6 +94,22 @@ func (s *Service) GetCertificate(ctx context.Context, subj authz.Subjects, id st
 		return CertificateView{}, err
 	}
 	return s.certView(row, perms), nil
+}
+
+// CertificateDetails decodes the stored certificate itself (and its stored
+// chain) for a certificate the caller may read. Every value comes from the
+// certificate bytes, never from the row's columns; an undecodable certificate
+// is reported as Available=false rather than as an error. No key material is
+// read.
+func (s *Service) CertificateDetails(ctx context.Context, subj authz.Subjects, id string) (certinfo.Result, error) {
+	if err := s.az.Check(ctx, subj, authz.Certificate, id, authz.Read); err != nil {
+		return certinfo.Result{}, err
+	}
+	row, err := s.st.GetCertificate(ctx, subj.TenantID, id)
+	if err != nil {
+		return certinfo.Result{}, err
+	}
+	return certinfo.Decode(row.CertPEM, row.ChainPEM, s.now()), nil
 }
 
 // ListCertificates returns the certificates the caller may read matching the

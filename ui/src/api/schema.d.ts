@@ -132,6 +132,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/lcm/v1/certificates/{id}/details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Details decoded from the stored certificate bytes (crypto/x509), never from the record columns or the request. An undecodable certificate answers 200 with available=false, error=details_unavailable and a reason. No key material is returned. */
+        get: operations["getCertificateDetails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/lcm/v1/certificates/{id}/download": {
         parameters: {
             query?: never;
@@ -825,6 +842,83 @@ export interface components {
             created_at?: string;
             permissions?: components["schemas"]["Permissions"];
         };
+        CertificateName: {
+            /** @description RFC 2253 distinguished name */
+            dn: string;
+            cn: string;
+        };
+        CertificateChainEntry: {
+            subject: components["schemas"]["CertificateName"];
+            issuer: components["schemas"]["CertificateName"];
+            /** Format: date-time */
+            not_after: string;
+            /** @description colon-separated upper-case hex of the DER SHA-256 */
+            fingerprint_sha256: string;
+        };
+        CertificateDetails: {
+            subject: components["schemas"]["CertificateName"];
+            issuer: components["schemas"]["CertificateName"];
+            self_signed: boolean;
+            /** @description colon-separated upper-case hex */
+            serial: string;
+            version: number;
+            validity: {
+                /** Format: date-time */
+                not_before: string;
+                /** Format: date-time */
+                not_after: string;
+                /**
+                 * @description computed from the certificate dates
+                 * @enum {string}
+                 */
+                status: "not_yet_valid" | "valid" | "expired";
+                /** @description whole days until not_after (negative once expired) */
+                days_remaining: number;
+            };
+            sans: {
+                dns: string[];
+                ip: string[];
+                /** @description all URI SANs, SPIFFE IDs included */
+                uri: string[];
+                spiffe: string[];
+                email: string[];
+            };
+            public_key: {
+                algorithm: string;
+                size?: number;
+                curve?: string;
+            };
+            signature_algorithm: string;
+            key_usage: string[];
+            ext_key_usage: string[];
+            basic_constraints: {
+                present: boolean;
+                ca: boolean;
+                /** @description absent when unconstrained */
+                path_len?: number;
+            };
+            subject_key_id?: string;
+            authority_key_id?: string;
+            crl_distribution_points: string[];
+            ocsp_servers: string[];
+            issuing_certificate_urls: string[];
+            fingerprints: {
+                sha256: string;
+                sha1: string;
+            };
+            chain: components["schemas"]["CertificateChainEntry"][];
+            /** @description set when a stored chain certificate could not be parsed */
+            chain_error?: string;
+        };
+        CertificateDetailsResult: {
+            available: boolean;
+            /** @enum {string} */
+            source: "certificate";
+            /** @enum {string} */
+            error?: "details_unavailable";
+            reason?: string;
+            details?: components["schemas"]["CertificateDetails"];
+        };
         CertificateBundle: {
             certificate?: components["schemas"]["Certificate"];
             cert_pem?: string;
@@ -1216,6 +1310,35 @@ export interface operations {
         responses: {
             /** @description updated */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCertificateDetails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CertificateDetailsResult */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateDetailsResult"];
+                };
+            };
+            /** @description not_found (also when the caller may not read the certificate) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
