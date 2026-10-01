@@ -3,11 +3,16 @@ import { ref } from 'vue'
 import { api, ApiError, BASE } from '@/api/client'
 import { downloadJSON, readFile } from '@/api/download'
 import type { AuditFilter, AuditItem, BackupReport, Stats } from '@/api/types'
+import { AUDIT_LIST, pagedList } from '@/stores/paged'
+
+/**
+ * The audit table: one server page, newest first. Without from/to the server
+ * covers the last 7 days (the total is exact within that window).
+ */
+export const useAuditList = defineStore('lcm-audit-list', () => pagedList<AuditItem, AuditFilter>('audit', AUDIT_LIST.first))
 
 export const useOps = defineStore('lcm-ops', () => {
   const stats = ref<Stats | null>(null)
-  const audit = ref<AuditItem[]>([])
-  const auditNext = ref<string | undefined>()
   const loading = ref(false)
   const error = ref('')
 
@@ -16,20 +21,6 @@ export const useOps = defineStore('lcm-ops', () => {
       stats.value = await api<Stats>('GET', 'stats')
     } catch (e) {
       error.value = (e as Error).message
-    }
-  }
-
-  async function loadAudit(filter: AuditFilter = {}, cursor?: string): Promise<void> {
-    loading.value = true
-    error.value = ''
-    try {
-      const page = await api<{ items: AuditItem[]; next_cursor?: string }>('GET', 'audit', undefined, { query: { ...filter, cursor } })
-      audit.value = cursor ? [...audit.value, ...page.items] : page.items
-      auditNext.value = page.next_cursor
-    } catch (e) {
-      error.value = (e as Error).message
-    } finally {
-      loading.value = false
     }
   }
 
@@ -61,5 +52,5 @@ export const useOps = defineStore('lcm-ops', () => {
     return api<BackupReport>('POST', 'backup/import', doc, { query: { mode } })
   }
 
-  return { stats, audit, auditNext, loading, error, loadStats, loadAudit, exportBackup, importBackup }
+  return { stats, loading, error, loadStats, exportBackup, importBackup }
 })

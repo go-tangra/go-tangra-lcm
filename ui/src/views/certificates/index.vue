@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiSelect, UiNumberInput, UiSwitch, UiTextarea, UiButton, UiDataTable, UiStatusChip, UiBadge, UiTabs, UiDrawer, UiKeyValueTable, useToast, useConfirm, type Column, type SelectOption, type TabItem } from '@go-tangra/ui'
+import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiSelect, UiNumberInput, UiSwitch, UiTextarea, UiButton, UiDataTable, UiStatusChip, UiBadge, UiTabs, UiDrawer, UiKeyValueTable, useToast, useConfirm, useListQuery, type Column, type SelectOption, type TabItem } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
 import { useCertificates } from '@/stores/certificates'
 import { useIssuers } from '@/stores/issuers'
 import { useDirectory } from '@/stores/directory'
 import { useLive } from '@/stores/live'
+import { CERTIFICATE_LIST } from '@/stores/paged'
 import { describe } from '@/api/client'
 import { saveText } from '@/api/download'
 import { certificateFilterSchema, issueSvidSchema, issueAcmeSchema, revokeSchema, CERTIFICATE_STATUSES } from '@/schemas'
-import type { Certificate, CertificateBundle } from '@/api/types'
+import type { Certificate, CertificateBundle, CertificateFilter } from '@/api/types'
 
 const store = useCertificates()
 const issuers = useIssuers()
@@ -20,21 +21,35 @@ const toast = useToast()
 const confirm = useConfirm()
 
 const statusOptions: SelectOption[] = CERTIFICATE_STATUSES.map((s) => ({ title: s, value: s }))
-const issuerOptions = computed<SelectOption[]>(() => issuers.items.map((i) => ({ title: i.name, value: i.id })))
-const filter = useZodForm(certificateFilterSchema, { initial: { spiffe_id: '' }, onSubmit: (f) => store.list({ status: f.status, issuer_id: f.issuer_id || undefined, spiffe_id: f.spiffe_id || undefined }) })
-const reload = () => void filter.submit()
-const more = () => {
-  const f = filter.validate()
-  if (f) void store.list({ status: f.status, issuer_id: f.issuer_id || undefined, spiffe_id: f.spiffe_id || undefined }, store.next)
+const issuerOptions = computed<SelectOption[]>(() => issuers.options.map((i) => ({ title: i.name, value: i.id })))
+
+// --- server paging and sorting (page / size / sort in the URL: ?certificates.page=…) ---
+const lq = useListQuery('certificates', CERTIFICATE_LIST.opts)
+let current: CertificateFilter = {}
+async function load(): Promise<void> {
+  const res = await store.list(current, lq.query.value)
+  if (res?.page) lq.clampTo(res.page) // a page beyond the end answers the last page
 }
+watch(lq.query, () => void load())
+const filter = useZodForm(certificateFilterSchema, {
+  initial: { spiffe_id: '' },
+  onSubmit: async (f) => {
+    current = { status: f.status, issuer_id: f.issuer_id || undefined, spiffe_id: f.spiffe_id || undefined }
+    // A filter change starts at page 1 (which reloads), else reload in place.
+    if (lq.page.value !== 1) lq.resetPage()
+    else await load()
+  },
+})
+const apply = () => void filter.submit()
+const reload = () => void load()
 
 let release: (() => void) | null = null
 let offLive: (() => void) | null = null
 const route = useRoute()
 const linkError = ref('')
 onMounted(() => {
-  reload()
-  void issuers.list()
+  reload() // the page / size / sort of the URL apply as they are
+  void issuers.loadOptions()
   // Deep link (e.g. from an issued ACME request): open that certificate.
   const id = route.query.id
   if (typeof id === 'string' && id) {
@@ -60,11 +75,12 @@ onUnmounted(() => {
 const statusColors = { expiring: 'warning', expired: 'neutral' } as const
 const identity = (c: Certificate) => c.spiffe_id || (c.sans?.length ? c.sans.join(', ') : '') || c.subject || c.serial || c.id
 const columns: Column<Certificate>[] = [
-  { key: 'identity', label: 'Identity', format: identity },
-  { key: 'kind', label: 'Kind', width: 'sm', format: (c) => (c.kind === 'generic' ? 'generic' : 'SVID') },
+  { key: 'identity', label: 'Identity', format: identity, sortable: true },
+  { key: 'kind', label: 'Kind', width: 'sm', format: (c) => (c.kind === 'generic' ? 'generic' : 'SVID'), sortable: true },
   { key: 'serial', label: 'Serial', hideOnStack: true },
-  { key: 'status', label: 'Status', width: 'sm' },
+  { key: 'status', label: 'Status', width: 'sm', sortable: true },
   { key: 'not_after', label: 'Not after', format: (c) => (c.not_after ? new Date(c.not_after).toLocaleDateString() : ''), sortable: true },
+  { key: 'created_at', label: 'Issued', format: (c) => (c.created_at ? new Date(c.created_at).toLocaleDateString() : ''), sortable: true, hideOnStack: true },
 ]
 
 // --- request drawer: SVID (mesh) or ACME (public), one schema each ---
@@ -72,8 +88,8 @@ const issueOpen = ref(false)
 const mode = ref('svid')
 const queued = ref(false)
 const modeTabs: TabItem[] = [{ key: 'svid', label: 'SVID (mesh)' }, { key: 'acme', label: 'ACME / public' }]
-const svidIssuers = computed<SelectOption[]>(() => issuers.items.filter((i) => i.type !== 'acme').map((i) => ({ title: i.name + ' (' + i.trust_domain + ')', value: i.id })))
-const acmeIssuers = computed<SelectOption[]>(() => issuers.items.filter((i) => i.type === 'acme').map((i) => ({ title: i.name + ' (' + i.trust_domain + ')', value: i.id })))
+const svidIssuers = computed<SelectOption[]>(() => issuers.options.filter((i) => i.type !== 'acme').map((i) => ({ title: i.name + ' (' + i.trust_domain + ')', value: i.id })))
+const acmeIssuers = computed<SelectOption[]>(() => issuers.options.filter((i) => i.type === 'acme').map((i) => ({ title: i.name + ' (' + i.trust_domain + ')', value: i.id })))
 const svid = useZodForm(issueSvidSchema, {
   onSubmit: (v) => store.issue({ spiffe_id: v.spiffe_id, issuer_id: v.issuer_id, subject: v.subject, dns_sans: v.dns_sans.length ? v.dns_sans : undefined, validity_seconds: v.validity_days > 0 ? v.validity_days * 86400 : undefined, csr_pem: v.csr_pem }),
   onSuccess: () => (queued.value = true),
@@ -82,7 +98,7 @@ const acme = useZodForm(issueAcmeSchema, {
   onSubmit: (v) => store.obtainAcme({ issuer_id: v.issuer_id, domains: v.domains, auto_renew: v.auto_renew, csr_pem: v.csr_pem }),
   onSuccess: () => (queued.value = true),
 })
-const current = computed(() => (mode.value === 'acme' ? acme : svid))
+const currentForm = computed(() => (mode.value === 'acme' ? acme : svid))
 function openIssue(): void {
   mode.value = 'svid'
   queued.value = false
@@ -168,16 +184,16 @@ const renew = async () => {
     <template #filters>
       <UiForm :form="filter" class="w-full">
         <div class="grid grid-cols-2 gap-2 md:grid-cols-12 md:items-end">
-          <div class="md:col-span-3"><UiSelect v-bind="filter.field('status')" label="Status" :options="statusOptions" size="sm" data-test="cert-filter-status" @update:model-value="reload" /></div>
-          <div class="md:col-span-4"><UiSelect v-bind="filter.field('issuer_id')" label="Issuer" :options="issuerOptions" size="sm" data-test="cert-filter-issuer" @update:model-value="reload" /></div>
-          <div class="col-span-2 md:col-span-5"><UiInput v-bind="filter.field('spiffe_id')" label="SPIFFE ID contains" type="search" size="sm" data-test="cert-filter-spiffe" @enter="reload" /></div>
+          <div class="md:col-span-3"><UiSelect v-bind="filter.field('status')" label="Status" :options="statusOptions" size="sm" data-test="cert-filter-status" @update:model-value="apply" /></div>
+          <div class="md:col-span-4"><UiSelect v-bind="filter.field('issuer_id')" label="Issuer" :options="issuerOptions" size="sm" data-test="cert-filter-issuer" @update:model-value="apply" /></div>
+          <div class="col-span-2 md:col-span-5"><UiInput v-bind="filter.field('spiffe_id')" label="SPIFFE ID" type="search" size="sm" data-test="cert-filter-spiffe" @enter="apply" /></div>
         </div>
       </UiForm>
     </template>
     <UiAlert v-if="store.error" kind="error" class="mb-3">{{ store.error }}</UiAlert>
     <UiAlert v-if="linkError" kind="error" class="mb-3" data-test="cert-link-error">{{ linkError }}</UiAlert>
     <UiCard :padded="false">
-      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" caption="Certificates" empty-title="No certificates" clickable :has-more="!!store.next" :row-attrs="(c) => ({ 'data-test': 'cert-row-' + c.id })" data-test="certificates-table" @row-click="open" @load-more="more">
+      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" :total="store.total" :page="lq.page.value" :page-size="lq.pageSize.value" :sort="lq.sort.value" caption="Certificates" empty-title="No certificates" clickable :row-attrs="(c) => ({ 'data-test': 'cert-row-' + c.id })" data-test="certificates-table" @row-click="open" @update:page="lq.setPage" @update:page-size="lq.setPageSize" @update:sort="lq.setSort">
         <template #cell-kind="{ row }"><UiBadge :color="row.kind === 'generic' ? 'info' : 'primary'">{{ row.kind === 'generic' ? 'generic' : 'SVID' }}</UiBadge></template>
         <template #cell-status="{ row }"><UiStatusChip :status="row.status" :colors="statusColors" :data-test="'cert-status-' + row.id" /></template>
       </UiDataTable>
@@ -210,7 +226,7 @@ const renew = async () => {
       <template #actions>
         <template v-if="!queued">
           <UiButton variant="text" @click="issueOpen = false">Cancel</UiButton>
-          <UiButton :loading="current.submitting.value" data-test="issue-submit" @click="current.submit()">{{ mode === 'acme' ? 'Request' : 'Issue' }}</UiButton>
+          <UiButton :loading="currentForm.submitting.value" data-test="issue-submit" @click="currentForm.submit()">{{ mode === 'acme' ? 'Request' : 'Issue' }}</UiButton>
         </template>
         <UiButton v-else data-test="issue-done" @click="issueOpen = false">Done</UiButton>
       </template>

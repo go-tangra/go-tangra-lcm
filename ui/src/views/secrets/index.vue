@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiBadge, UiIcon, UiDrawer, UiForm, UiInput, UiSelect, UiTextarea, UiSecretField, useConfirm, type Column, type SelectOption } from '@go-tangra/ui'
+import { onMounted, ref, watch } from 'vue'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, UiBadge, UiIcon, UiDrawer, UiForm, UiInput, UiSelect, UiTextarea, UiSecretField, useConfirm, useListQuery, type Column, type SelectOption } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
-import { useSecrets } from '@/stores/secrets'
+import { useSecretList, useSecrets, useWebhookList } from '@/stores/secrets'
+import { SECRET_LIST, WEBHOOK_LIST } from '@/stores/paged'
 import { describe } from '@/api/client'
 import { secretSchema, webhookSchema, SECRET_KINDS } from '@/schemas'
 import type { Secret, Webhook } from '@/api/types'
@@ -12,8 +13,24 @@ const confirm = useConfirm()
 const drawer = ref(false)
 const selected = ref<Secret | null>(null)
 const error = ref('')
+const secrets = useSecretList()
+const webhooks = useWebhookList()
+
+// --- server paging and sorting, one query per table (?secrets.page=…, ?webhooks.page=…) ---
+const sq = useListQuery('secrets', SECRET_LIST.opts)
+const wq = useListQuery('webhooks', WEBHOOK_LIST.opts)
+async function loadSecrets(): Promise<void> {
+  const res = await secrets.list({}, sq.query.value)
+  if (res?.page) sq.clampTo(res.page)
+}
+async function loadWebhooks(): Promise<void> {
+  const res = await webhooks.list({}, wq.query.value)
+  if (res?.page) wq.clampTo(res.page)
+}
+watch(sq.query, () => void loadSecrets())
+watch(wq.query, () => void loadWebhooks())
 onMounted(async () => {
-  await Promise.all([store.listSecrets(), store.listWebhooks()])
+  await Promise.all([loadSecrets(), loadWebhooks()])
 })
 const kindOptions: SelectOption[] = SECRET_KINDS.map((k) => ({ title: k, value: k }))
 
@@ -28,7 +45,7 @@ const secretForm = useZodForm(secretSchema, {
   onSuccess: () => {
     drawer.value = false
     secretForm.reset({ name: '', kind: 'dns_credential', value: '' })
-    void store.listSecrets()
+    void loadSecrets()
   },
 })
 function open(s: Secret | null): void {
@@ -42,7 +59,7 @@ async function remove(): Promise<void> {
   try {
     await store.removeSecret(selected.value.id)
     drawer.value = false
-    void store.listSecrets()
+    void loadSecrets()
   } catch (e) {
     error.value = describe(e)
   }
@@ -50,24 +67,28 @@ async function remove(): Promise<void> {
 const webhookForm = useZodForm(webhookSchema, {
   initial: { name: '', url: '', event_types: '', secret: '' },
   onSubmit: (v) => store.createWebhook({ name: v.name, url: v.url, event_types: v.event_types, ...(v.secret ? { secret: v.secret } : {}) }),
-  onSuccess: () => webhookForm.reset({ name: '', url: '', event_types: '', secret: '' }),
+  onSuccess: () => {
+    webhookForm.reset({ name: '', url: '', event_types: '', secret: '' })
+    void loadWebhooks()
+  },
 })
 async function removeWebhook(w: Webhook): Promise<void> {
   if (!(await confirm.ask({ title: `Remove webhook ${w.name}?`, danger: true, confirmLabel: 'Remove' }))) return
   error.value = ''
   try {
     await store.removeWebhook(w.id)
+    await loadWebhooks()
   } catch (e) {
     error.value = describe(e)
   }
 }
 const secretColumns: Column<Secret>[] = [
   { key: 'name', label: 'Name', sortable: true },
-  { key: 'kind', label: 'Kind', width: 'sm' },
+  { key: 'kind', label: 'Kind', width: 'sm', sortable: true },
   { key: 'in_use', label: 'In use', width: 'sm', format: (s) => (s.in_use ? 'yes' : '') },
 ]
 const webhookColumns: Column<Webhook>[] = [
-  { key: 'name', label: 'Name' },
+  { key: 'name', label: 'Name', sortable: true },
   { key: 'url', label: 'URL' },
   { key: 'event_types', label: 'Events', format: (w) => w.event_types.join(', '), hideOnStack: true },
 ]
@@ -76,9 +97,9 @@ const webhookColumns: Column<Webhook>[] = [
 <template>
   <UiPage title="Secrets">
     <template #actions><UiButton icon="mdi-plus" data-test="secret-new" @click="open(null)">New secret</UiButton></template>
-    <UiAlert v-if="store.error || error" kind="error" class="mb-3">{{ store.error || error }}</UiAlert>
+    <UiAlert v-if="secrets.error || webhooks.error || error" kind="error" class="mb-3">{{ secrets.error || webhooks.error || error }}</UiAlert>
     <UiCard title="Tenant secrets" subtitle="Values are write-only and never returned." :padded="false" class="mb-4" data-test="secrets-card">
-      <UiDataTable :items="store.secrets" :columns="secretColumns" caption="Tenant secrets" empty-title="No secrets" :row-attrs="(s) => ({ 'data-test': 'secret-row-' + s.id })" data-test="secrets-table">
+      <UiDataTable :items="secrets.items" :columns="secretColumns" :loading="secrets.loading" :total="secrets.total" :page="sq.page.value" :page-size="sq.pageSize.value" :sort="sq.sort.value" caption="Tenant secrets" empty-title="No secrets" :row-attrs="(s) => ({ 'data-test': 'secret-row-' + s.id })" data-test="secrets-table" @update:page="sq.setPage" @update:page-size="sq.setPageSize" @update:sort="sq.setSort">
         <template #cell-kind="{ row }"><UiBadge>{{ row.kind }}</UiBadge></template>
         <template #cell-in_use="{ row }"><UiIcon v-if="row.in_use" name="mdi-link-variant" size="sm" label="In use" /></template>
         <template #actions="{ row }"><UiButton size="xs" variant="text" :data-test="'secret-rotate-' + row.id" @click="open(row)">Rotate</UiButton></template>
@@ -94,7 +115,7 @@ const webhookColumns: Column<Webhook>[] = [
           <div class="md:col-span-6"><UiSecretField v-bind="webhookForm.field('secret')" label="Signing secret (optional, write-only)" data-test="webhook-secret" /></div>
         </div>
       </UiForm>
-      <UiDataTable :items="store.webhooks" :columns="webhookColumns" caption="Webhooks" empty-title="No webhooks" :row-attrs="(w) => ({ 'data-test': 'webhook-row-' + w.id })" data-test="webhooks-table">
+      <UiDataTable :items="webhooks.items" :columns="webhookColumns" :loading="webhooks.loading" :total="webhooks.total" :page="wq.page.value" :page-size="wq.pageSize.value" :sort="wq.sort.value" caption="Webhooks" empty-title="No webhooks" :row-attrs="(w) => ({ 'data-test': 'webhook-row-' + w.id })" data-test="webhooks-table" @update:page="wq.setPage" @update:page-size="wq.setPageSize" @update:sort="wq.setSort">
         <template #actions="{ row }"><UiButton size="xs" variant="text" color="error" icon="mdi-close" icon-only label="Remove webhook" :data-test="'webhook-remove-' + row.id" @click="removeWebhook(row)" /></template>
       </UiDataTable>
     </UiCard>

@@ -1,26 +1,22 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/api/client'
-import type { DnsProvider, Issuer, IssuerInput, Page } from '@/api/types'
+import type { DnsProvider, Issuer, IssuerInput } from '@/api/types'
+import { ISSUER_LIST, loadOptions, pagedList } from '@/stores/paged'
 
+// The issuers table is one server page (list contract; the total counts only
+// the issuers the caller may read). options holds the readable issuers (up to
+// the largest page) for the issuer selects of other views.
 export const useIssuers = defineStore('lcm-issuers', () => {
-  const items = ref<Issuer[]>([])
-  const next = ref<string | undefined>()
+  const { items, total, params, loading, loaded, error, list, reload } = pagedList<Issuer>('issuers', ISSUER_LIST.first)
+  const options = ref<Issuer[]>([])
   const dnsProviders = ref<DnsProvider[]>([])
-  const loading = ref(false)
-  const error = ref('')
 
-  async function list(cursor?: string): Promise<void> {
-    loading.value = true
-    error.value = ''
+  async function loadOptions_(): Promise<void> {
     try {
-      const page = await api<Page<Issuer>>('GET', 'issuers', undefined, { query: { cursor, limit: 50 } })
-      items.value = cursor ? [...items.value, ...page.items] : page.items
-      next.value = page.next_cursor
-    } catch (e) {
-      error.value = (e as Error).message
-    } finally {
-      loading.value = false
+      options.value = await loadOptions<Issuer>('issuers', 'name')
+    } catch {
+      options.value = []
     }
   }
 
@@ -39,9 +35,7 @@ export const useIssuers = defineStore('lcm-issuers', () => {
   }
 
   async function create(input: IssuerInput): Promise<Issuer> {
-    const i = await api<Issuer>('POST', 'issuers', input)
-    items.value = [i, ...items.value]
-    return i
+    return api<Issuer>('POST', 'issuers', input)
   }
 
   async function update(id: string, input: IssuerInput): Promise<Issuer> {
@@ -56,5 +50,5 @@ export const useIssuers = defineStore('lcm-issuers', () => {
     items.value = items.value.filter((x) => x.id !== id)
   }
 
-  return { items, next, dnsProviders, loading, error, list, get, loadDnsProviders, create, update, remove }
+  return { items, total, params, loading, loaded, error, list, reload, options, loadOptions: loadOptions_, dnsProviders, get, loadDnsProviders, create, update, remove }
 })

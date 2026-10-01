@@ -1,65 +1,42 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
 import { api } from '@/api/client'
-import type { CertRequest, Job, Page } from '@/api/types'
+import type { CertRequest, Job } from '@/api/types'
+import { JOB_LIST, pagedList, REQUEST_LIST } from '@/stores/paged'
+
+type StatusFilter = { status?: string | undefined }
+
+/** The certificate-requests table: one server page (only requests the caller may read). */
+export const useRequestList = defineStore('lcm-request-list', () => pagedList<CertRequest, StatusFilter>('requests', REQUEST_LIST.first))
+
+/** The jobs table: one server page (only jobs the caller may read). */
+export const useJobList = defineStore('lcm-job-list', () => pagedList<Job, StatusFilter>('jobs', JOB_LIST.first))
 
 // The Requests view covers both certificate requests (approve/reject) and the
-// issuance jobs they queue (cancel/retry).
+// issuance jobs they queue (cancel/retry). Actions patch the visible row; the
+// view reloads the page where a row may move.
 export const useRequests = defineStore('lcm-requests', () => {
-  const requests = ref<CertRequest[]>([])
-  const requestsNext = ref<string | undefined>()
-  const jobs = ref<Job[]>([])
-  const jobsNext = ref<string | undefined>()
-  const loading = ref(false)
-  const error = ref('')
-
-  async function listRequests(status?: string, cursor?: string): Promise<void> {
-    loading.value = true
-    error.value = ''
-    try {
-      const page = await api<Page<CertRequest>>('GET', 'requests', undefined, { query: { status, cursor, limit: 50 } })
-      requests.value = cursor ? [...requests.value, ...page.items] : page.items
-      requestsNext.value = page.next_cursor
-    } catch (e) {
-      error.value = (e as Error).message
-    } finally {
-      loading.value = false
-    }
-  }
-
-  async function listJobs(status?: string, cursor?: string): Promise<void> {
-    loading.value = true
-    error.value = ''
-    try {
-      const page = await api<Page<Job>>('GET', 'jobs', undefined, { query: { status, cursor, limit: 50 } })
-      jobs.value = cursor ? [...jobs.value, ...page.items] : page.items
-      jobsNext.value = page.next_cursor
-    } catch (e) {
-      error.value = (e as Error).message
-    } finally {
-      loading.value = false
-    }
-  }
+  const requests = useRequestList()
+  const jobs = useJobList()
 
   async function approve(id: string): Promise<void> {
     const r = await api<CertRequest>('POST', 'requests/' + id + '/approve')
-    requests.value = requests.value.map((x) => (x.id === id ? { ...x, ...r, status: r?.status ?? 'approved' } : x))
+    requests.items = requests.items.map((x) => (x.id === id ? { ...x, ...r, status: r?.status ?? 'approved' } : x))
   }
 
   async function reject(id: string): Promise<void> {
     const r = await api<CertRequest>('POST', 'requests/' + id + '/reject')
-    requests.value = requests.value.map((x) => (x.id === id ? { ...x, ...r, status: r?.status ?? 'rejected' } : x))
+    requests.items = requests.items.map((x) => (x.id === id ? { ...x, ...r, status: r?.status ?? 'rejected' } : x))
   }
 
   async function cancelJob(id: string): Promise<void> {
     await api('POST', 'jobs/' + id + '/cancel')
-    jobs.value = jobs.value.map((j) => (j.id === id ? { ...j, status: 'failed' } : j))
+    jobs.items = jobs.items.map((j) => (j.id === id ? { ...j, status: 'failed' } : j))
   }
 
   async function retryJob(id: string): Promise<void> {
     const j = await api<Job>('POST', 'jobs/' + id + '/retry')
-    jobs.value = jobs.value.map((x) => (x.id === id ? { ...x, ...j, status: j?.status ?? 'queued' } : x))
+    jobs.items = jobs.items.map((x) => (x.id === id ? { ...x, ...j, status: j?.status ?? 'queued' } : x))
   }
 
-  return { requests, requestsNext, jobs, jobsNext, loading, error, listRequests, listJobs, approve, reject, cancelJob, retryJob }
+  return { approve, reject, cancelJob, retryJob }
 })
