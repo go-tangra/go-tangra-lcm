@@ -8,6 +8,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
@@ -134,6 +136,20 @@ type Stats interface {
 	TenantStats(ctx context.Context, tenantID string, now time.Time, window time.Duration) (store.Stats, error)
 }
 
+// Pages are the list-contract pages behind the browser tables (go-tangra
+// specs/032-server-side-tables): each counts and selects under the same
+// tenant, filter and visibility constraint and returns the page, the total
+// and the request actually applied (clamped to the last page).
+type Pages interface {
+	PageCertificates(ctx context.Context, tenantID string, f store.CertificatePageFilter, req listquery.Request) ([]store.IssuedCertificate, int, listquery.Request, error)
+	PageIssuers(ctx context.Context, tenantID string, v store.Visible, req listquery.Request) ([]store.Issuer, int, listquery.Request, error)
+	PageRequests(ctx context.Context, tenantID, status string, s store.RequestScope, req listquery.Request) ([]store.CertificateRequest, int, listquery.Request, error)
+	PageJobs(ctx context.Context, tenantID, status string, s store.RequestScope, req listquery.Request) ([]store.CertificateJob, int, listquery.Request, error)
+	PageSecrets(ctx context.Context, tenantID string, req listquery.Request) ([]store.TenantSecret, int, listquery.Request, error)
+	PageWebhooks(ctx context.Context, tenantID string, req listquery.Request) ([]store.WebhookEndpoint, int, listquery.Request, error)
+	PageAudit(ctx context.Context, tenantID string, f store.AuditPageFilter, req listquery.Request) ([]store.AuditRow, int, listquery.Request, error)
+}
+
 // Store is everything, plus Atomic: fn runs against a Store whose writes are
 // committed together or not at all.
 type Store interface {
@@ -151,5 +167,6 @@ type Store interface {
 	CertLog
 	Audit
 	Stats
+	Pages
 	Atomic(ctx context.Context, tenantID string, fn func(Store) error) error
 }

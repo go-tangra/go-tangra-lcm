@@ -10,7 +10,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
-// The Audit page sends no limit: the listing must still return rows (a zero
+// The legacy Audit page sent no limit: the listing must still return rows (a zero
 // limit reached SQL as LIMIT 0), bounded by the default and the maximum.
 func TestAuditListingDefaultsTheLimit(t *testing.T) {
 	f := newAPI(t)
@@ -30,8 +30,13 @@ func TestAuditListingDefaultsTheLimit(t *testing.T) {
 		items, _ := jsonBody(t, w)["items"].([]any)
 		return len(items)
 	}
-	if n := count("/audit"); n != store.DefaultAuditLimit {
-		t.Fatalf("no limit: %d rows, want %d", n, store.DefaultAuditLimit)
+	// No parameters: the list contract's default page (store.AuditList).
+	if n := count("/audit"); n != store.AuditList.DefaultSize {
+		t.Fatalf("no params: %d rows, want %d", n, store.AuditList.DefaultSize)
+	}
+	// The legacy cursor path without a limit keeps its default.
+	if n := count("/audit?cursor="); n != store.DefaultAuditLimit {
+		t.Fatalf("legacy without limit: %d rows, want %d", n, store.DefaultAuditLimit)
 	}
 	if n := count("/audit?limit=10"); n != 10 {
 		t.Fatalf("limit=10: %d rows", n)

@@ -4,9 +4,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/acme"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 type issuerBody struct {
@@ -68,12 +71,14 @@ func (s *Server) RegisterIssuers(d CertDeps) {
 			Fail(w, r, nil, err)
 			return
 		}
-		items, next, err := d.Issue.ListIssuers(r.Context(), subj, r.URL.Query().Get("cursor"), limitParam(r))
-		if err != nil {
-			s.fail(w, r, issueError(err))
-			return
-		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items, "next_cursor": next})
+		serveList(s, w, r, store.IssuerList, issueError,
+			func() (map[string]any, error) {
+				items, next, err := d.Issue.ListIssuers(r.Context(), subj, r.URL.Query().Get("cursor"), limitParam(r))
+				return map[string]any{"items": items, "next_cursor": next}, err
+			},
+			func(req listquery.Request) (listquery.Page[issue.IssuerView], error) {
+				return d.Issue.PageIssuers(r.Context(), subj, req)
+			})
 	})
 	s.MustHandle("POST", Prefix+"/issuers", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)

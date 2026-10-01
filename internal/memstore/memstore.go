@@ -1320,9 +1320,35 @@ func (m *Mem) InsertAuditRows(_ context.Context, rows []store.AuditRow) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, r := range rows {
-		m.Audit = append(m.Audit, cpAudit(r))
+		r = cpAudit(r)
+		r.ID = int64(len(m.Audit) + 1)
+		m.Audit = append(m.Audit, r)
 	}
 	return nil
+}
+
+// subjectName resolves a live audit subject to its name like the SQL read:
+// issuers/secrets/webhooks by name, certificates by SPIFFE ID.
+func (m *Mem) subjectName(tid string, r store.AuditRow) string {
+	switch r.SubjectKind {
+	case "issuer":
+		if x, ok := m.Issuers[r.SubjectID]; ok && x.TenantID == tid {
+			return x.Name
+		}
+	case "certificate":
+		if x, ok := m.Certificates[r.SubjectID]; ok && x.TenantID == tid {
+			return x.SpiffeID
+		}
+	case "secret":
+		if x, ok := m.Secrets[r.SubjectID]; ok && x.TenantID == tid {
+			return x.Name
+		}
+	case "webhook":
+		if x, ok := m.Webhooks[r.SubjectID]; ok && x.TenantID == tid {
+			return x.Name
+		}
+	}
+	return ""
 }
 
 func (m *Mem) QueryAudit(_ context.Context, tid string, f store.AuditFilter) ([]store.AuditRow, error) {
@@ -1338,24 +1364,7 @@ func (m *Mem) QueryAudit(_ context.Context, tid string, f store.AuditFilter) ([]
 			continue
 		}
 		r = cpAudit(r)
-		switch r.SubjectKind {
-		case "issuer":
-			if x, ok := m.Issuers[r.SubjectID]; ok && x.TenantID == tid {
-				r.SubjectName = x.Name
-			}
-		case "certificate":
-			if x, ok := m.Certificates[r.SubjectID]; ok && x.TenantID == tid {
-				r.SubjectName = x.SpiffeID
-			}
-		case "secret":
-			if x, ok := m.Secrets[r.SubjectID]; ok && x.TenantID == tid {
-				r.SubjectName = x.Name
-			}
-		case "webhook":
-			if x, ok := m.Webhooks[r.SubjectID]; ok && x.TenantID == tid {
-				r.SubjectName = x.Name
-			}
-		}
+		r.SubjectName = m.subjectName(tid, r)
 		out = append(out, r)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].TS.After(out[j].TS) })

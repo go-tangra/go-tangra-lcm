@@ -3,6 +3,7 @@ package store
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"regexp"
 	"time"
 )
 
@@ -17,3 +18,8 @@ func NewID() string {
 	h := hex.EncodeToString(b[:])
 	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:32]
 }
+
+var uuidPattern = regexp.MustCompile(uuidRE)
+
+// IsUUID reports whether s is a textual UUID (any version).
+func IsUUID(s string) bool { return uuidPattern.MatchString(s) }

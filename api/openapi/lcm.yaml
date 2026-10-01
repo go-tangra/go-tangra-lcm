@@ -20,7 +20,14 @@ components:
     csrf: { name: X-CSRF-Token, in: header, required: false, schema: { type: string } }
     id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
     cursor: { name: cursor, in: query, schema: { type: string } }
-    limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    limit: { name: limit, in: query, description: "legacy cursor style; 50 when omitted", schema: { type: integer, minimum: 1, maximum: 100 } }
+    # List contract (go-tangra specs/032-server-side-tables, contracts/http-list.md):
+    # page/page_size/sort/order in, {items,total,page,page_size,sort,order} out. The
+    # legacy cursor/limit style keeps its shape (+ total) for one release; mixing
+    # both styles is 422 validation_failed {param: cursor}.
+    page: { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
+    pageSize: { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+    order: { name: order, in: query, schema: { type: string, enum: [asc, desc] } }
   schemas:
     Error: { type: object, required: [reason], properties: { reason: { type: string }, detail: { type: object } } }
     Name: { type: string, minLength: 1, maxLength: 100, pattern: '^[^\p{Cc}]+$' }
@@ -109,7 +116,7 @@ components:
 paths:
   # ---- issuers ----
   /api/lcm/v1/issuers:
-    get: { operationId: listIssuers, x-freya-permission: issuers:read, parameters: [{ $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: 'issuers the caller may read' } } }
+    get: { operationId: listIssuers, x-freya-permission: issuers:read, parameters: [{ $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [name, type, trust_domain, created_at] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: 'page of the issuers the caller may read (total counts only those)' }, '422': { description: 'validation_failed {param}' } } }
     post:
       operationId: createIssuer
       x-freya-permission: issuers:manage
@@ -128,8 +135,8 @@ paths:
     get:
       operationId: listCertificates
       x-freya-permission: certificates:read
-      parameters: [{ name: issuer_id, in: query, schema: { type: string, format: uuid } }, { name: spiffe_id, in: query, schema: { type: string } }, { name: status, in: query, schema: { type: string, enum: [active, expiring, expired, revoked] } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
-      responses: { '200': { description: 'certificates the caller may read (metadata only)' } }
+      parameters: [{ name: issuer_id, in: query, schema: { type: string, format: uuid } }, { name: spiffe_id, in: query, schema: { type: string } }, { name: status, in: query, schema: { type: string, enum: [active, expiring, expired, revoked] } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [identity, issuer, kind, status, not_before, not_after, created_at] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }]
+      responses: { '200': { description: 'page of the certificates the caller may read (metadata only; total counts only those)' }, '422': { description: 'validation_failed {param}' } }
   /api/lcm/v1/certificates/issue:
     post:
       operationId: issueCertificate
@@ -163,7 +170,7 @@ paths:
     post: { operationId: deleteCertificate, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: deleted } } }
   # ---- requests & jobs ----
   /api/lcm/v1/requests:
-    get: { operationId: listRequests, x-freya-permission: certificates:read, parameters: [{ name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, issued, processing, failed] } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: 'certificate requests' } } }
+    get: { operationId: listRequests, x-freya-permission: certificates:read, parameters: [{ name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, issued, processing, failed] } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [identity, kind, status, created_at] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: 'page of the certificate requests the caller may read' }, '422': { description: 'validation_failed {param}' } } }
     post: { operationId: createRequest, x-freya-permission: certificates:issue, parameters: [{ $ref: '#/components/parameters/csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/IssueInput' } } } }, responses: { '201': { description: 'pending (or issued when auto-approve is on)' } } }
   /api/lcm/v1/requests/{id}:
     get: { operationId: getRequest, x-freya-permission: certificates:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: request }, '404': { description: not_found } } }
@@ -172,7 +179,7 @@ paths:
   /api/lcm/v1/requests/{id}/reject:
     post: { operationId: rejectRequest, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '200': { description: rejected } } }
   /api/lcm/v1/jobs:
-    get: { operationId: listJobs, x-freya-permission: jobs:read, parameters: [{ name: status, in: query, schema: { type: string, enum: [queued, processing, completed, failed] } }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: jobs } } }
+    get: { operationId: listJobs, x-freya-permission: jobs:read, parameters: [{ name: status, in: query, schema: { type: string, enum: [queued, processing, completed, failed] } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [type, status, attempts, run_after, created_at] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }, { $ref: '#/components/parameters/limit' }], responses: { '200': { description: 'page of the jobs the caller may read' }, '422': { description: 'validation_failed {param}' } } }
   /api/lcm/v1/jobs/{id}:
     get: { operationId: getJob, x-freya-permission: jobs:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: 'job status + result reference' }, '404': { description: not_found } } }
   /api/lcm/v1/jobs/{id}/cancel:
@@ -213,7 +220,7 @@ paths:
     get: { operationId: listInstalled, x-freya-permission: certificates:read, parameters: [{ name: client_id, in: query, schema: { type: string } }, { $ref: '#/components/parameters/cursor' }], responses: { '200': { description: 'installed certificates reported by workloads' } } }
   # ---- tenant secrets ----
   /api/lcm/v1/secrets:
-    get: { operationId: listSecrets, x-freya-permission: secrets:manage, responses: { '200': { description: 'secret names/kinds; values redacted' } } }
+    get: { operationId: listSecrets, x-freya-permission: secrets:manage, parameters: [{ $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [name, kind, created_at] } }, { $ref: '#/components/parameters/order' }], responses: { '200': { description: 'page of secret names/kinds; values never read' }, '422': { description: 'validation_failed {param}' } } }
     post: { operationId: createSecret, x-freya-permission: secrets:manage, parameters: [{ $ref: '#/components/parameters/csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SecretInput' } } } }, responses: { '201': { description: created }, '409': { description: 'name taken' } } }
   /api/lcm/v1/secrets/{id}:
     put: { operationId: updateSecret, x-freya-permission: secrets:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SecretInput' } } } }, responses: { '200': { description: updated } } }
@@ -223,7 +230,7 @@ paths:
     post: { operationId: deleteSecret, x-freya-permission: secrets:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: deleted }, '409': { description: 'in use by an issuer' } } }
   # ---- webhooks ----
   /api/lcm/v1/webhooks:
-    get: { operationId: listWebhooks, x-freya-permission: webhooks:manage, responses: { '200': { description: 'endpoints; signing secret redacted' } } }
+    get: { operationId: listWebhooks, x-freya-permission: webhooks:manage, parameters: [{ $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [name, created_at] } }, { $ref: '#/components/parameters/order' }], responses: { '200': { description: 'page of endpoints; signing secret never read' }, '422': { description: 'validation_failed {param}' } } }
     post: { operationId: createWebhook, x-freya-permission: webhooks:manage, parameters: [{ $ref: '#/components/parameters/csrf' }], requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [name, url, event_types], properties: { name: { $ref: '#/components/schemas/Name' }, url: { type: string, maxLength: 2048 }, event_types: { type: array, items: { type: string } }, secret: { type: string } } } } } }, responses: { '201': { description: created } } }
   /api/lcm/v1/webhooks/{id}/remove:
     post: { operationId: deleteWebhook, x-freya-permission: webhooks:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], responses: { '204': { description: deleted } } }
@@ -254,7 +261,8 @@ paths:
     get:
       operationId: auditTrail
       x-freya-permission: stats:read
-      parameters: [{ name: event_type, in: query, schema: { type: string } }, { name: actor_id, in: query, schema: { type: string } }, { name: from, in: query, schema: { type: string, format: date-time } }, { name: to, in: query, schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/cursor' }]
-      responses: { '200': { description: 'page of audit events (no key material; subject_name resolves live subjects)' } }
+      parameters: [{ name: event_type, in: query, schema: { type: string } }, { name: actor_id, in: query, schema: { type: string } }, { name: from, in: query, schema: { type: string, format: date-time } }, { name: to, in: query, schema: { type: string, format: date-time } }, { $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/pageSize' }, { name: sort, in: query, schema: { type: string, enum: [ts] } }, { $ref: '#/components/parameters/order' }, { $ref: '#/components/parameters/cursor' }]
+      description: 'Without from/to the page covers the last 7 days (to = now, from = to - 7d); the total is exact within the window.'
+      responses: { '200': { description: 'page of audit events (no key material; subject_name resolves live subjects)' }, '422': { description: 'validation_failed {param}' } }
   /api/lcm/v1/health:
     get: { operationId: health, x-freya-permission: stats:read, responses: { '200': { description: '{status, database, valkey, scheduler_last_tick, version}' } } }

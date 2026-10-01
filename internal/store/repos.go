@@ -872,18 +872,28 @@ func InsertAuditRows(ctx context.Context, tx pgx.Tx, rows []AuditRow) error {
 	return nil
 }
 
-// QueryAudit pages events newest first (AuditLimit(f.Limit) rows); cursor = ts
-// of the last row seen. Live subjects resolve to a name: issuers/secrets/webhooks
-// by name, certificates by spiffe id. Ids are only cast when they look like UUIDs.
-func QueryAudit(ctx context.Context, tx pgx.Tx, tenantID string, f AuditFilter) ([]AuditRow, error) {
-	rows, err := tx.Query(ctx, `SELECT a.ts, a.tenant_id, a.event_type, a.actor_kind, a.actor_id, a.subject_kind, a.subject_id, a.outcome, a.reason, a.correlation_id, a.details,
-		COALESCE(CASE WHEN a.subject_id !~ '`+uuidRE+`' THEN NULL
+// auditCols are the audit columns read back (lcm_audit_events a). Live
+// subjects resolve to a name: issuers/secrets/webhooks by name, certificates
+// by spiffe id. Ids are only cast when they look like UUIDs.
+const auditCols = `a.id, a.ts, a.tenant_id, a.event_type, a.actor_kind, a.actor_id, a.subject_kind, a.subject_id, a.outcome, a.reason, a.correlation_id, a.details,
+		COALESCE(CASE WHEN a.subject_id !~ '` + uuidRE + `' THEN NULL
 			WHEN a.subject_kind = 'issuer' THEN (SELECT s.name FROM issuers s WHERE s.tenant_id = a.tenant_id AND s.id = a.subject_id::uuid)
 			WHEN a.subject_kind = 'certificate' THEN (SELECT s.spiffe_id FROM issued_certificates s WHERE s.tenant_id = a.tenant_id AND s.id = a.subject_id::uuid)
 			WHEN a.subject_kind = 'secret' THEN (SELECT s.name FROM tenant_secrets s WHERE s.tenant_id = a.tenant_id AND s.id = a.subject_id::uuid)
-			WHEN a.subject_kind = 'webhook' THEN (SELECT s.name FROM webhook_endpoints s WHERE s.tenant_id = a.tenant_id AND s.id = a.subject_id::uuid) END, '')
+			WHEN a.subject_kind = 'webhook' THEN (SELECT s.name FROM webhook_endpoints s WHERE s.tenant_id = a.tenant_id AND s.id = a.subject_id::uuid) END, '')`
+
+func scanAudit(rows pgx.Rows) (AuditRow, error) {
+	var r AuditRow
+	err := rows.Scan(&r.ID, &r.TS, &r.TenantID, &r.EventType, &r.ActorKind, &r.ActorID, &r.SubjectKind, &r.SubjectID, &r.Outcome, &r.Reason, &r.CorrelationID, &r.Details, &r.SubjectName)
+	return r, err
+}
+
+// QueryAudit pages events newest first (AuditLimit(f.Limit) rows); cursor = ts
+// of the last row seen (the legacy cursor path).
+func QueryAudit(ctx context.Context, tx pgx.Tx, tenantID string, f AuditFilter) ([]AuditRow, error) {
+	rows, err := tx.Query(ctx, `SELECT `+auditCols+`
 		FROM lcm_audit_events a WHERE a.tenant_id = $1 AND ($2 = '' OR a.event_type = $2) AND ($3 = '' OR a.actor_id = $3)
-		AND ($4::timestamptz IS NULL OR a.ts >= $4) AND ($5::timestamptz IS NULL OR a.ts <= $5) AND ($6::timestamptz IS NULL OR a.ts < $6) ORDER BY a.ts DESC LIMIT $7`,
+		AND ($4::timestamptz IS NULL OR a.ts >= $4) AND ($5::timestamptz IS NULL OR a.ts <= $5) AND ($6::timestamptz IS NULL OR a.ts < $6) ORDER BY a.ts DESC, a.id DESC LIMIT $7`,
 		tenantID, f.EventType, f.ActorID, nullTime(f.From), nullTime(f.To), nullTime(f.Cursor), AuditLimit(f.Limit))
 	if err != nil {
 		return nil, err
@@ -891,8 +901,8 @@ func QueryAudit(ctx context.Context, tx pgx.Tx, tenantID string, f AuditFilter) 
 	defer rows.Close()
 	var out []AuditRow
 	for rows.Next() {
-		var r AuditRow
-		if err := rows.Scan(&r.TS, &r.TenantID, &r.EventType, &r.ActorKind, &r.ActorID, &r.SubjectKind, &r.SubjectID, &r.Outcome, &r.Reason, &r.CorrelationID, &r.Details, &r.SubjectName); err != nil {
+		r, err := scanAudit(rows)
+		if err != nil {
 			return nil, err
 		}
 		out = append(out, r)
