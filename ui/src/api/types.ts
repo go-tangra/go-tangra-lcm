@@ -1,4 +1,5 @@
 // Domain types mirroring the lcm OpenAPI contract (api/openapi/lcm.yaml).
+import type { components } from './schema'
 export type IssuerType = 'self_signed' | 'acme'
 export type CertificateKind = 'svid' | 'generic'
 export type CertificateStatus = 'active' | 'expiring' | 'expired' | 'revoked'
@@ -96,6 +97,10 @@ export interface Certificate {
   created_at?: string
   permissions?: Permissions
 }
+
+/** Details decoded from the stored certificate bytes (GET certificates/{id}/details). */
+export type CertificateDetailsResult = components['schemas']['CertificateDetailsResult']
+export type CertificateDetails = components['schemas']['CertificateDetails']
 
 export interface CertificateBundle {
   certificate: Certificate

@@ -146,6 +146,19 @@ func (s *Server) RegisterCertificates(d CertDeps) {
 		}
 		WriteJSON(w, http.StatusOK, out)
 	})
+	s.MustHandle("GET", Prefix+"/certificates/{id}/details", func(w http.ResponseWriter, r *http.Request) {
+		subj, err := subjects(r)
+		if err != nil {
+			Fail(w, r, nil, err)
+			return
+		}
+		out, err := d.Issue.CertificateDetails(r.Context(), subj, r.PathValue("id"))
+		if err != nil {
+			s.fail(w, r, issueReadError(err))
+			return
+		}
+		WriteJSON(w, http.StatusOK, out)
+	})
 	s.MustHandle("PUT", Prefix+"/certificates/{id}", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)
 		if err != nil {

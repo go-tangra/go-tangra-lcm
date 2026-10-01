@@ -86,6 +86,85 @@ components:
         owner: { type: string }
         created_at: { type: string, format: date-time }
         permissions: { $ref: '#/components/schemas/Permissions' }
+    CertificateName:
+      type: object
+      required: [dn, cn]
+      properties:
+        dn: { type: string, description: 'RFC 2253 distinguished name' }
+        cn: { type: string }
+    CertificateChainEntry:
+      type: object
+      required: [subject, issuer, not_after, fingerprint_sha256]
+      properties:
+        subject: { $ref: '#/components/schemas/CertificateName' }
+        issuer: { $ref: '#/components/schemas/CertificateName' }
+        not_after: { type: string, format: date-time }
+        fingerprint_sha256: { type: string, description: 'colon-separated upper-case hex of the DER SHA-256' }
+    CertificateDetails:
+      type: object
+      required: [subject, issuer, self_signed, serial, version, validity, sans, public_key, signature_algorithm, key_usage, ext_key_usage, basic_constraints, crl_distribution_points, ocsp_servers, issuing_certificate_urls, fingerprints, chain]
+      properties:
+        subject: { $ref: '#/components/schemas/CertificateName' }
+        issuer: { $ref: '#/components/schemas/CertificateName' }
+        self_signed: { type: boolean }
+        serial: { type: string, description: 'colon-separated upper-case hex' }
+        version: { type: integer }
+        validity:
+          type: object
+          required: [not_before, not_after, status, days_remaining]
+          properties:
+            not_before: { type: string, format: date-time }
+            not_after: { type: string, format: date-time }
+            status: { type: string, enum: [not_yet_valid, valid, expired], description: 'computed from the certificate dates' }
+            days_remaining: { type: integer, description: 'whole days until not_after (negative once expired)' }
+        sans:
+          type: object
+          required: [dns, ip, uri, spiffe, email]
+          properties:
+            dns: { type: array, items: { type: string } }
+            ip: { type: array, items: { type: string } }
+            uri: { type: array, items: { type: string }, description: 'all URI SANs, SPIFFE IDs included' }
+            spiffe: { type: array, items: { type: string } }
+            email: { type: array, items: { type: string } }
+        public_key:
+          type: object
+          required: [algorithm]
+          properties:
+            algorithm: { type: string }
+            size: { type: integer }
+            curve: { type: string }
+        signature_algorithm: { type: string }
+        key_usage: { type: array, items: { type: string } }
+        ext_key_usage: { type: array, items: { type: string } }
+        basic_constraints:
+          type: object
+          required: [present, ca]
+          properties:
+            present: { type: boolean }
+            ca: { type: boolean }
+            path_len: { type: integer, description: 'absent when unconstrained' }
+        subject_key_id: { type: string }
+        authority_key_id: { type: string }
+        crl_distribution_points: { type: array, items: { type: string } }
+        ocsp_servers: { type: array, items: { type: string } }
+        issuing_certificate_urls: { type: array, items: { type: string } }
+        fingerprints:
+          type: object
+          required: [sha256, sha1]
+          properties:
+            sha256: { type: string }
+            sha1: { type: string }
+        chain: { type: array, items: { $ref: '#/components/schemas/CertificateChainEntry' } }
+        chain_error: { type: string, description: 'set when a stored chain certificate could not be parsed' }
+    CertificateDetailsResult:
+      type: object
+      required: [available, source]
+      properties:
+        available: { type: boolean }
+        source: { type: string, enum: [certificate] }
+        error: { type: string, enum: [details_unavailable] }
+        reason: { type: string }
+        details: { $ref: '#/components/schemas/CertificateDetails' }
     CertificateBundle:
       type: object
       properties:
@@ -156,6 +235,8 @@ paths:
   /api/lcm/v1/certificates/{id}:
     get: { operationId: getCertificate, x-freya-permission: certificates:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: certificate }, '404': { description: not_found } } }
     put: { operationId: updateCertificate, x-freya-permission: certificates:manage, parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }], requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, properties: { owner: { type: string }, labels: { type: object } } } } } }, responses: { '200': { description: updated } } }
+  /api/lcm/v1/certificates/{id}/details:
+    get: { operationId: getCertificateDetails, x-freya-permission: certificates:read, description: 'Details decoded from the stored certificate bytes (crypto/x509), never from the record columns or the request. An undecodable certificate answers 200 with available=false, error=details_unavailable and a reason. No key material is returned.', parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: 'CertificateDetailsResult', content: { application/json: { schema: { $ref: '#/components/schemas/CertificateDetailsResult' } } } }, '404': { description: 'not_found (also when the caller may not read the certificate)' } } }
   /api/lcm/v1/certificates/{id}/download:
     get: { operationId: downloadCertificate, x-freya-permission: certificates:read, parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { description: 'CertificateBundle without key_pem (the key is delivered only at issuance)' }, '404': { description: not_found } } }
   /api/lcm/v1/certificates/{id}/key:
