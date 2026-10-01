@@ -1,6 +1,8 @@
 # Freya service-to-service policy for lcm: the gateway forwards browser traffic
 # and probes health; auth verifies SVIDs/trust bundles; notification publishes
-# lifecycle events; the scheduler runs lcm's scheduled tasks.
+# lifecycle events; the scheduler runs lcm's scheduled tasks; the deployer and
+# inventory (feature 033: relaying certificates to inventory agents) download
+# issued certificates.
 # (contracts/manifest.md, deploy/policy.yaml)
 version: lcm-dev-1
 rules:
@@ -26,6 +28,14 @@ rules:
     effect: allow
   - id: deployer-download
     from: ["spiffe://example.org/svc/deployer"]
+    to: ["lcm"]
+    operations: ["/lcm.v1.Certificates/Download"]
+    effect: allow
+  - id: inventory-download
+    # inventory relays certificates to its agents (feature 033): it fetches
+    # cert + chain (+ retained key) at the moment an agent pulls a delivery
+    # the deployer created; nothing is persisted by inventory.
+    from: ["spiffe://example.org/svc/inventory"]
     to: ["lcm"]
     operations: ["/lcm.v1.Certificates/Download"]
     effect: allow
