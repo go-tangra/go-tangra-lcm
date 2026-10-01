@@ -13,6 +13,8 @@ import type { CertificateDetails, CertificateDetailsResult } from '@/api/types'
 import { durationLabel, elapsedPercent, expiryBadge, hexGroups, isWebURL, keyLabel, parseDN, shortHex, validityState, widthClass, type BadgeColor } from './certDetailsFormat'
 
 const props = defineProps<{ certificateId: string }>()
+// title reports the decoded name (subject CN, else first SAN) so the drawer header shows it; '' until decoded or when unavailable.
+const emit = defineEmits<{ title: [value: string] }>()
 const store = useCertificates()
 
 const loading = ref(false)
@@ -58,6 +60,7 @@ const title = computed(() => {
   const s = x.sans
   return x.subject.cn || s.dns[0] || s.ip[0] || s.uri[0] || s.email[0] || x.subject.dn || 'Unnamed certificate'
 })
+watch(title, (t) => emit('title', t), { immediate: true })
 const issuedBy = computed(() => {
   const x = d.value
   if (!x) return ''

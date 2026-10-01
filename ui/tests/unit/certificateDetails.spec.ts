@@ -322,6 +322,8 @@ describe('certificate drawer', () => {
     expect(drawer.textContent).not.toContain('column-subject')
     expect(drawer.textContent).not.toContain('column-fp')
     expect(drawer.textContent).not.toContain('db-serial')
+    // The header is the decoded subject CN, not the record's identity (its SPIFFE id here).
+    expect(drawer.querySelector('h2')!.textContent).toBe('api.example.org')
     w.unmount()
   })
 })
