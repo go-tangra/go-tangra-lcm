@@ -112,6 +112,8 @@ watch(issueOpen, (o) => { if (!o && queued.value) reload() })
 // --- detail drawer ---
 const drawer = ref(false)
 const selected = ref<Certificate | null>(null)
+// decodedTitle is the drawer header from the certificate itself; the record's identity shows only until it is decoded.
+const decodedTitle = ref('')
 const error = ref('')
 const busy = ref(false)
 const bundle = ref<CertificateBundle | null>(null)
@@ -126,6 +128,7 @@ const revokeForm = useZodForm(revokeSchema, {
 })
 function open(c: Certificate): void {
   selected.value = c
+  decodedTitle.value = ''
   error.value = ''
   bundle.value = null
   showRevoke.value = false
@@ -236,11 +239,11 @@ const renew = async () => {
       </template>
     </UiDrawer>
 
-    <UiDrawer v-model="drawer" :title="selected ? identity(selected) : ''" size="lg" data-test="certificate-drawer">
+    <UiDrawer v-model="drawer" :title="decodedTitle || (selected ? identity(selected) : '')" size="lg" data-test="certificate-drawer">
       <template v-if="selected">
         <div class="mb-3 flex flex-wrap gap-1"><UiStatusChip :status="selected.status" :colors="statusColors" data-test="cert-status" /><UiBadge :color="selected.kind === 'generic' ? 'info' : 'primary'" data-test="cert-kind">{{ selected.kind === 'generic' ? 'generic' : 'SVID' }}</UiBadge></div>
         <UiKeyValueTable :items="meta" />
-        <CertificateDetails :certificate-id="selected.id" />
+        <CertificateDetails :certificate-id="selected.id" @title="decodedTitle = $event" />
         <UiSwitch id="cert-auto-renew" :model-value="selected.auto_renew ?? false" :disabled="!canManage || busy" label="Auto-renew before expiry" class="mt-3" data-test="cert-auto-renew" @update:model-value="toggleAutoRenew" />
         <h3 class="mb-2 mt-4 text-sm font-medium">Download</h3>
         <div class="flex flex-wrap gap-2">
