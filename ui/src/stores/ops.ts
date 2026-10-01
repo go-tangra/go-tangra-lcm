@@ -4,12 +4,20 @@ import { api, ApiError, BASE } from '@/api/client'
 import { downloadJSON, readFile } from '@/api/download'
 import type { AuditFilter, AuditItem, BackupReport, Stats } from '@/api/types'
 import { AUDIT_LIST, pagedList } from '@/stores/paged'
+import { AUDIT_SPAN_MESSAGE } from '@/schemas'
 
 /**
  * The audit table: one server page, newest first. Without from/to the server
- * covers the last 7 days (the total is exact within that window).
+ * covers the last 7 days (the total is exact within that window); a range
+ * over 90 days is refused naming "from", shown as the range limit.
  */
-export const useAuditList = defineStore('lcm-audit-list', () => pagedList<AuditItem, AuditFilter>('audit', AUDIT_LIST.first))
+export const useAuditList = defineStore('lcm-audit-list', () =>
+  pagedList<AuditItem, AuditFilter>('audit', AUDIT_LIST.first, (e) =>
+    e instanceof ApiError && e.reason === 'validation_failed' && e.detail?.param === 'from'
+      ? AUDIT_SPAN_MESSAGE
+      : undefined,
+  ),
+)
 
 export const useOps = defineStore('lcm-ops', () => {
   const stats = ref<Stats | null>(null)

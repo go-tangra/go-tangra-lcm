@@ -10,13 +10,24 @@ import Audit from '@/views/audit/index.vue'
 import Secrets from '@/views/secrets/index.vue'
 import Requests from '@/views/requests/index.vue'
 import HeaderCert from '@/components/HeaderCert.vue'
-import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSchema, providerHint, FREYA_DNS_PROVIDER, requestFilterSchema } from '@/schemas'
+import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSchema, providerHint, FREYA_DNS_PROVIDER, requestFilterSchema, auditFilterSchema } from '@/schemas'
 
 class FakeSource { onopen = null; onerror = null; addEventListener() {} close() {} }
 const mountView = (c: unknown) => mount(c as never, { global: { plugins: plugins() }, attachTo: document.body })
 const drawer = () => document.body.querySelector('aside[role=dialog]')!
 
 describe('lcm schemas', () => {
+  it('audit filter: the range spans at most 90 days (to defaults to now) and to is not before from', () => {
+    const ok = (f: Record<string, string>) => auditFilterSchema.safeParse(f).success
+    expect(ok({ from: '2026-01-01', to: '2026-04-01' })).toBe(true) // 90 days
+    expect(ok({ from: '2026-01-01', to: '2026-04-02' })).toBe(false) // 91 days
+    const r = auditFilterSchema.safeParse({ from: '2026-01-01', to: '2026-04-02' })
+    expect(r.success ? [] : r.error.issues.map((i) => [i.path[0], i.message])).toEqual([['from', 'Date range is limited to 90 days.']])
+    expect(ok({ to: '2026-04-02' })).toBe(true)
+    expect(ok({ from: new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10) })).toBe(true)
+    expect(ok({ from: new Date(Date.now() - 91 * 864e5).toISOString().slice(0, 10) })).toBe(false)
+    expect(ok({ from: '2026-02-01', to: '2026-01-01' })).toBe(false)
+  })
   it('issuer: ACME requires directory/email/provider; secrets marker is dropped', () => {
     expect(issuerSchema.safeParse({ name: 'a', type: 'self_signed', trust_domain: 'example.org', key_type: 'ecdsa-p256', validity_ceiling_days: 90 }).success).toBe(true)
     const acme = issuerSchema.safeParse({ name: 'a', type: 'acme', trust_domain: 'example.org', key_type: 'ecdsa-p256', validity_ceiling_days: 90, directory: '', email: '', dns_provider: '' })

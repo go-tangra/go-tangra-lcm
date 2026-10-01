@@ -42,7 +42,8 @@ func (d OpsDeps) now() time.Time {
 
 // auditWindow resolves the audit time window: to defaults to now, from to
 // to - store.AuditWindow (research D6). It returns the offending parameter
-// name for a malformed value or from after to.
+// name for a malformed value, from after to, or a span wider than
+// store.MaxAuditSpan ("from"; security review F-2).
 func auditWindow(fromQ, toQ string, now time.Time) (from, to time.Time, param string) {
 	to = now
 	if toQ != "" {
@@ -60,7 +61,7 @@ func auditWindow(fromQ, toQ string, now time.Time) (from, to time.Time, param st
 		}
 		from = t
 	}
-	if from.After(to) {
+	if from.After(to) || to.Sub(from) > store.MaxAuditSpan {
 		return from, to, "from"
 	}
 	return from, to, ""
@@ -117,14 +118,9 @@ func (s *Server) RegisterOps(d OpsDeps) {
 		pf := store.AuditPageFilter{EventType: q.Get("event_type"), ActorID: q.Get("actor_id"), From: from, To: to}
 		serveList(s, w, r, store.AuditList, domainError,
 			func() (map[string]any, error) {
-				// Legacy cursor path: the window applies only when from/to are sent.
-				f := store.AuditFilter{EventType: pf.EventType, ActorID: pf.ActorID, Limit: limitParam(r)}
-				if q.Get("from") != "" {
-					f.From = from
-				}
-				if q.Get("to") != "" {
-					f.To = to
-				}
+				// Legacy cursor path: the same bounded window as a page (default
+				// the last store.AuditWindow, at most store.MaxAuditSpan).
+				f := store.AuditFilter{EventType: pf.EventType, ActorID: pf.ActorID, Limit: limitParam(r), From: from, To: to}
 				if v := q.Get("cursor"); v != "" {
 					f.Cursor, _ = time.Parse(time.RFC3339Nano, v)
 				}

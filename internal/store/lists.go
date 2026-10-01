@@ -97,6 +97,11 @@ const CertIdentityExpr = "COALESCE(c.spiffe_id, c.sans->>0, NULLIF(c.subject, ''
 // cheap on the hypertable (research D6).
 const AuditWindow = 7 * 24 * time.Hour
 
+// MaxAuditSpan caps to - from on every audit query: an explicit wide from
+// (e.g. 1970) would otherwise force an exact count(*) and OFFSET over the
+// whole hypertable on every page (specs/032 security review F-2).
+const MaxAuditSpan = 90 * 24 * time.Hour
+
 // ListRequest completes r with the Spec's defaults (a zero Request from an
 // internal caller pages with the defaults); an invalid hand-built Request
 // falls back to the defaults entirely.
