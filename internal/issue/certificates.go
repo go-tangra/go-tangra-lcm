@@ -256,7 +256,7 @@ func (s *Service) DownloadKey(ctx context.Context, subj authz.Subjects, certID s
 		return "", err
 	}
 	if len(c.KeySealed) == 0 {
-		return "", invalid("key", "no stored private key for this certificate")
+		return "", &ValidationError{Field: "key", Message: "no stored private key for this certificate", cause: ErrNoStoredKey}
 	}
 	clear, oerr := s.env.Open(c.KeySealed, sealed.ADCertKey(c.ID))
 	if oerr != nil {

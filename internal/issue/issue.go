@@ -53,7 +53,15 @@ var issuerSecretFields = append([]string{"acme_account_key", "dns_credential", "
 type ValidationError struct {
 	Field   string
 	Message string
+	// cause, when set, is a sentinel the rejection also matches (errors.Is),
+	// for callers that must tell one specific rejection apart.
+	cause error
 }
+
+// ErrNoStoredKey is matched by the rejection DownloadKey returns for a
+// certificate whose private key lcm does not retain (SVIDs, CSR-issued
+// certificates). It is a permanent condition of the certificate, not a fault.
+var ErrNoStoredKey = errors.New("issue: no stored private key")
 
 func (e *ValidationError) Error() string {
 	if e.Field != "" {
@@ -61,6 +69,9 @@ func (e *ValidationError) Error() string {
 	}
 	return "issue: " + e.Message
 }
+
+// Unwrap exposes the rejection's sentinel cause, if any.
+func (e *ValidationError) Unwrap() error { return e.cause }
 
 func invalid(field, msg string) error { return &ValidationError{Field: field, Message: msg} }
 

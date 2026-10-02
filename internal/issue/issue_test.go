@@ -836,3 +836,29 @@ func TestLongTrustDomainRejected(t *testing.T) {
 		t.Fatalf("want trust_domain ValidationError, got %v", err)
 	}
 }
+
+// TestDownloadKeyWithoutStoredKey: a certificate whose key lcm does not retain
+// rejects DownloadKey with a ValidationError (the HTTP API's 422 shape) that
+// also matches ErrNoStoredKey (the gRPC API's InvalidArgument mapping).
+func TestDownloadKeyWithoutStoredKey(t *testing.T) {
+	f := newFixture(t)
+	iv := mustIssuer(t, f, "primary", true)
+	b, err := f.svc.Issue(context.Background(), f.admin, IssueInput{
+		IssuerID: iv.ID, SpiffeID: "spiffe://example.org/nokey", DeliverKey: true, ValiditySeconds: 3600,
+	})
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	_, err = f.svc.DownloadKey(context.Background(), f.admin, b.Certificate.ID)
+	if !errors.Is(err, ErrNoStoredKey) {
+		t.Fatalf("DownloadKey err = %v, want ErrNoStoredKey", err)
+	}
+	var ve *ValidationError
+	if !errors.As(err, &ve) || ve.Field != "key" || !strings.Contains(ve.Message, "no stored private key") {
+		t.Fatalf("DownloadKey err = %#v, want a key ValidationError", err)
+	}
+	// Other validation rejections do not match the sentinel.
+	if errors.Is(invalid("name", "bad"), ErrNoStoredKey) {
+		t.Fatalf("generic ValidationError matched ErrNoStoredKey")
+	}
+}
