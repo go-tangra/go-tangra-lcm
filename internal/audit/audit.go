@@ -31,6 +31,7 @@ const (
 	RequestRejected               EventType = "request_rejected"
 	CertificateIssued             EventType = "certificate_issued"
 	CertificateRenewed            EventType = "certificate_renewed"
+	CertificateImported           EventType = "certificate_imported"
 	CertificateRevoked            EventType = "certificate_revoked"
 	CertificateDeleted            EventType = "certificate_deleted"
 	CertificateDeployed           EventType = "certificate_deployed"
@@ -87,7 +88,7 @@ var known = map[EventType]struct{}{}
 func init() {
 	for _, t := range []EventType{
 		IssuerCreated, IssuerUpdated, IssuerDeleted, CAGenerated, BundleRotated,
-		CertificateRequested, RequestApproved, RequestRejected, CertificateIssued, CertificateRenewed,
+		CertificateRequested, RequestApproved, RequestRejected, CertificateIssued, CertificateRenewed, CertificateImported,
 		CertificateRevoked, CertificateDeleted, CertificateDeployed, CertificateInstalled,
 		SecretCreated, SecretUpdated, SecretRotated, SecretDeleted,
 		WebhookCreated, WebhookUpdated, WebhookDeleted,

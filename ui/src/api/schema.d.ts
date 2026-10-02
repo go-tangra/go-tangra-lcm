@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/lcm/v1/certificates/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importAcmeCertificate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/lcm/v1/certificates/{id}": {
         parameters: {
             query?: never;
@@ -779,6 +795,7 @@ export interface components {
             name: components["schemas"]["Name"];
             /** @enum {string} */
             type: "self_signed" | "acme";
+            /** @description DNS-style trust domain; "*" (any trust domain) for ACME issuers only */
             trust_domain: string;
             /** @default false */
             is_default: boolean;
@@ -1253,6 +1270,55 @@ export interface operations {
                 content?: never;
             };
             /** @description validation_failed (issuer, or a malformed / redundant domain, named in the message) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    importAcmeCertificate: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: components["parameters"]["csrf"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description ACME issuer that renews the certificate (caller needs use on it) */
+                    issuer_id: string;
+                    /** @description leaf certificate, optionally followed by the chain (certbot fullchain.pem) */
+                    cert_pem: string;
+                    /** @description optional extra chain (certbot chain.pem) */
+                    chain_pem?: string;
+                    /** @description unencrypted PKCS#8, PKCS#1 RSA or SEC1 EC private key matching the certificate (RSA >= 2048, ECDSA P-256/P-384); stored sealed as PKCS#8 and kept across renewals */
+                    key_pem: string;
+                    /** @default true */
+                    auto_renew?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description { certificate, renewal: off | scheduled | started } — the certificate is recorded as a generic certificate of the ACME issuer and renewed by the scheduler for its DNS names; "started": it was already due or expired and an ACME renewal runs now (outcome over SSE: certificate.renewed | certificate.failed) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not entitled to the issuer */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description validation_failed (issuer, certificate, chain or key, named in the field; a certificate already in lcm) */
             422: {
                 headers: {
                     [name: string]: unknown;

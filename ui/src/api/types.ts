@@ -120,6 +120,22 @@ export interface IssueInput {
   deliver_key?: boolean | undefined
 }
 
+export interface ImportCertInput {
+  issuer_id: string
+  cert_pem: string
+  chain_pem?: string | undefined
+  key_pem: string
+  auto_renew?: boolean | undefined
+}
+
+/** off: no auto-renew; scheduled: the renewer renews it before expiry; started: it was due or expired and renews now. */
+export type ImportRenewal = 'off' | 'scheduled' | 'started'
+
+export interface ImportCertResult {
+  certificate: Certificate
+  renewal: ImportRenewal
+}
+
 export interface AcmeInput {
   issuer_id: string
   domains: string[]
