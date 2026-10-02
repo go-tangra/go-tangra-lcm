@@ -2,6 +2,7 @@ package grpcapi
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -272,6 +273,7 @@ func TestGRPCErrorMapping(t *testing.T) {
 		{store.ErrNotFound, codes.NotFound},
 		{authz.ErrInput, codes.InvalidArgument},
 		{store.ErrConflict, codes.AlreadyExists},
+		{issue.ErrNoStoredKey, codes.InvalidArgument},
 		{context.DeadlineExceeded, codes.Unavailable},
 	}
 	for _, c := range cases {
@@ -299,3 +301,39 @@ func TestServiceCallerAndRegister(t *testing.T) {
 type recordingRegistrar struct{ n int }
 
 func (r *recordingRegistrar) RegisterService(*grpc.ServiceDesc, any) { r.n++ }
+
+// TestCertificatesDownloadWithoutStoredKey pins the contract inventory and the
+// deployer rely on: include_key for a certificate lcm holds no private key for
+// is InvalidArgument naming "no stored private key" — not Unavailable, so it
+// is never retried as a transient fault — and the bundle without the key
+// still downloads.
+func TestCertificatesDownloadWithoutStoredKey(t *testing.T) {
+	f := newGRPC(t)
+	ctx := context.Background()
+	certs := &CertificatesServer{Svc: f.svid.Svc}
+
+	withCaller(gSpiffe, true, func() {
+		// An SVID's key is delivered once and never retained.
+		b, err := f.svid.Issue(ctx, &lcmv1.IssueRequest{TenantId: gTenant, SpiffeId: gSpiffe})
+		if err != nil {
+			t.Fatalf("Issue: %v", err)
+		}
+		certID := b.GetCertificate().GetId()
+		if _, err := f.az.Grant(ctx, adminSubj(), authz.GrantInput{ResourceType: authz.Certificate, ResourceID: certID, SubjectType: authz.SubjectTenant, Relation: authz.Owner}); err != nil {
+			t.Fatalf("grant: %v", err)
+		}
+
+		if nb, err := certs.Download(ctx, &lcmv1.DownloadRequest{TenantId: gTenant, CertificateId: certID}); err != nil || nb.GetCertPem() == "" || nb.GetKeyPem() != "" {
+			t.Fatalf("Download without key: %+v %v", nb, err)
+		}
+
+		_, err = certs.Download(ctx, &lcmv1.DownloadRequest{TenantId: gTenant, CertificateId: certID, IncludeKey: true})
+		st := status.Convert(err)
+		if st.Code() != codes.InvalidArgument {
+			t.Fatalf("Download include_key code = %v (%q), want InvalidArgument", st.Code(), st.Message())
+		}
+		if !strings.Contains(st.Message(), "no stored private key") {
+			t.Fatalf("Download include_key message = %q, want it to name the missing key", st.Message())
+		}
+	})
+}

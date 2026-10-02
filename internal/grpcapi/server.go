@@ -69,6 +69,10 @@ func grpcError(err error) error {
 		return status.Error(codes.InvalidArgument, "invalid_argument")
 	case errors.Is(err, store.ErrConflict):
 		return status.Error(codes.AlreadyExists, "conflict")
+	case errors.Is(err, issue.ErrNoStoredKey):
+		// A permanent property of the certificate: callers (inventory,
+		// deployer) match this message and must not retry it as transient.
+		return status.Error(codes.InvalidArgument, "no stored private key")
 	}
 	return status.Error(codes.Unavailable, "temporarily_unavailable")
 }
