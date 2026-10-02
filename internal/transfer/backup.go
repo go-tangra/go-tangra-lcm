@@ -268,6 +268,13 @@ func DecodeBounded(raw []byte) (*Document, error) {
 	if len(doc.Issuers)+len(doc.Certificates)+len(doc.Permissions)+len(doc.Secrets) > MaxItems {
 		return nil, fmt.Errorf("%w: more than %d items", ErrInvalid, MaxItems)
 	}
+	for i, di := range doc.Issuers {
+		// The same rule as an issuer create: a DNS-style trust domain, or "*"
+		// for ACME issuers only.
+		if !store.ValidIssuerTrustDomain(di.Type, di.TrustDomain) {
+			return nil, fmt.Errorf("%w: issuers[%d].trust_domain", ErrInvalid, i)
+		}
+	}
 	return &doc, nil
 }
 

@@ -862,3 +862,35 @@ func TestDownloadKeyWithoutStoredKey(t *testing.T) {
 		t.Fatalf("generic ValidationError matched ErrNoStoredKey")
 	}
 }
+
+// TestCreateIssuerAnyTrustDomain: "*" (any trust domain) is accepted for ACME
+// issuers only; a self-signed issuer signs SPIFFE IDs of exactly its trust
+// domain and gets no "*" CA.
+func TestCreateIssuerAnyTrustDomain(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	var ve *ValidationError
+	_, err := f.svc.CreateIssuer(ctx, f.admin, IssuerInput{Name: "ss", Type: "self_signed", TrustDomain: "*", Enabled: true})
+	if !errors.As(err, &ve) || ve.Field != "trust_domain" || !strings.Contains(ve.Message, "ACME issuers only") {
+		t.Fatalf("self-signed *: %v", err)
+	}
+	if cas, _ := f.mem.CAsForDomain(ctx, f.admin.TenantID, "*"); len(cas) != 0 {
+		t.Fatalf("refused issuer created a CA: %v", cas)
+	}
+	iv, err := f.svc.CreateIssuer(ctx, f.admin, IssuerInput{
+		Name: "le-any", Type: "acme", TrustDomain: "*", Enabled: true, IsDefault: true,
+		ACMEDirectoryURL: "https://127.0.0.1:1/dir", ACMEEmail: "ops@example.org", DNSProvider: "cloudflare",
+	})
+	if err != nil || iv.TrustDomain != "*" || !iv.IsDefault {
+		t.Fatalf("acme *: %+v %v", iv, err)
+	}
+	if cas, _ := f.mem.CAsForDomain(ctx, f.admin.TenantID, "*"); len(cas) != 0 {
+		t.Fatalf("ACME issuer created a CA: %v", cas)
+	}
+	// "*" is the whole value, never a pattern.
+	for _, td := range []string{"*.example.org", "**", "* ", "a*b"} {
+		if _, err := f.svc.CreateIssuer(ctx, f.admin, IssuerInput{Name: "x", Type: "acme", TrustDomain: td, Enabled: true}); !errors.As(err, &ve) || ve.Field != "trust_domain" {
+			t.Errorf("%q accepted: %v", td, err)
+		}
+	}
+}

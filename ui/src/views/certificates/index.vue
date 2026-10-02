@@ -11,7 +11,7 @@ import { useLive } from '@/stores/live'
 import { CERTIFICATE_LIST } from '@/stores/paged'
 import { describe } from '@/api/client'
 import { saveText } from '@/api/download'
-import { certificateFilterSchema, issueSvidSchema, issueAcmeSchema, revokeSchema, CERTIFICATE_STATUSES } from '@/schemas'
+import { certificateFilterSchema, issueSvidSchema, issueAcmeSchema, revokeSchema, CERTIFICATE_STATUSES, trustDomainLabel } from '@/schemas'
 import type { Certificate, CertificateBundle, CertificateFilter } from '@/api/types'
 
 const store = useCertificates()
@@ -89,8 +89,8 @@ const issueOpen = ref(false)
 const mode = ref('svid')
 const queued = ref(false)
 const modeTabs: TabItem[] = [{ key: 'svid', label: 'SVID (mesh)' }, { key: 'acme', label: 'ACME / public' }]
-const svidIssuers = computed<SelectOption[]>(() => issuers.options.filter((i) => i.type !== 'acme').map((i) => ({ title: i.name + ' (' + i.trust_domain + ')', value: i.id })))
-const acmeIssuers = computed<SelectOption[]>(() => issuers.options.filter((i) => i.type === 'acme').map((i) => ({ title: i.name + ' (' + i.trust_domain + ')', value: i.id })))
+const svidIssuers = computed<SelectOption[]>(() => issuers.options.filter((i) => i.type !== 'acme').map((i) => ({ title: i.name + ' (' + trustDomainLabel(i.trust_domain) + ')', value: i.id })))
+const acmeIssuers = computed<SelectOption[]>(() => issuers.options.filter((i) => i.type === 'acme').map((i) => ({ title: i.name + ' (' + trustDomainLabel(i.trust_domain) + ')', value: i.id })))
 const svid = useZodForm(issueSvidSchema, {
   onSubmit: (v) => store.issue({ spiffe_id: v.spiffe_id, issuer_id: v.issuer_id, subject: v.subject, dns_sans: v.dns_sans.length ? v.dns_sans : undefined, validity_seconds: v.validity_days > 0 ? v.validity_days * 86400 : undefined, csr_pem: v.csr_pem }),
   onSuccess: () => (queued.value = true),

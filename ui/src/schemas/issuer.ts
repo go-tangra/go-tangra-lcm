@@ -5,6 +5,14 @@ import { SET_MARKER } from '@/api/types'
 export const ISSUER_TYPES = ['self_signed', 'acme'] as const
 export const KEY_TYPES = ['ecdsa-p256', 'ecdsa-p384', 'rsa-2048', 'rsa-4096'] as const
 
+/** The trust domain of an ACME issuer that is not bound to one trust domain (Go store.AnyTrustDomain). */
+export const ANY_TRUST_DOMAIN = '*'
+
+/** How a trust domain reads in lists and pickers. */
+export function trustDomainLabel(td: string): string {
+  return td === ANY_TRUST_DOMAIN ? 'any trust domain' : td
+}
+
 /** The platform DNS module provider: no credentials (mesh identity), hosted zones only. */
 export const FREYA_DNS_PROVIDER = 'freya-dns'
 
@@ -22,7 +30,7 @@ export const issuerSchema = z
   .object({
     name: nonEmpty(200),
     type: z.enum(ISSUER_TYPES),
-    trust_domain: nonEmpty(253).pipe(z.string().regex(/^[a-z0-9.-]+$/i, 'Use a DNS-style trust domain (example.org).')),
+    trust_domain: nonEmpty(253).pipe(z.string().regex(/^(\*|[a-z0-9.-]+)$/i, 'Use a DNS-style trust domain (example.org), or * for an ACME issuer.')),
     is_default: z.boolean().optional().transform((v) => v ?? false),
     key_type: z.enum(KEY_TYPES),
     validity_ceiling_days: positiveInt.pipe(z.number().min(1, 'At least 1 day.').max(3650, 'At most 3650 days.')),
@@ -34,6 +42,7 @@ export const issuerSchema = z
     credentials: z.record(z.string(), z.string()).optional().transform((v) => v ?? {}),
   })
   .superRefine((o, ctx) => {
+    if (o.type !== 'acme' && o.trust_domain === ANY_TRUST_DOMAIN) ctx.addIssue({ code: 'custom', path: ['trust_domain'], message: '* (any trust domain) is allowed for ACME issuers only.' })
     if (o.type !== 'acme') return
     if (!o.directory) ctx.addIssue({ code: 'custom', path: ['directory'], message: 'The ACME directory URL is required.' })
     if (!o.email) ctx.addIssue({ code: 'custom', path: ['email'], message: 'The ACME account e-mail is required.' })

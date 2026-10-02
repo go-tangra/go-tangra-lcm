@@ -51,25 +51,6 @@ type IssuerView struct {
 	Permissions      authz.Permissions `json:"permissions"`
 }
 
-// validTrustDomain reports whether host is a non-empty run (<=253 bytes) of
-// lowercase letters, digits, dots and hyphens.
-func validTrustDomain(host string) bool {
-	if host == "" || len(host) > 253 {
-		return false
-	}
-	for i := 0; i < len(host); i++ {
-		c := host[i]
-		switch {
-		case c >= 'a' && c <= 'z':
-		case c >= '0' && c <= '9':
-		case c == '.' || c == '-':
-		default:
-			return false
-		}
-	}
-	return true
-}
-
 // validate checks the shape of an issuer request.
 func (s *Service) validate(in IssuerInput) error {
 	if l := len(in.Name); l < 1 || l > 100 {
@@ -78,7 +59,10 @@ func (s *Service) validate(in IssuerInput) error {
 	if in.Type != "self_signed" && in.Type != "acme" {
 		return invalid("type", "type must be self_signed or acme")
 	}
-	if !validTrustDomain(in.TrustDomain) {
+	if in.TrustDomain == store.AnyTrustDomain && in.Type != "acme" {
+		return invalid("trust_domain", "* (any trust domain) is allowed for ACME issuers only")
+	}
+	if !store.ValidIssuerTrustDomain(in.Type, in.TrustDomain) {
 		return invalid("trust_domain", "trust domain is not a valid host")
 	}
 	if in.Type == "acme" && in.DNSProvider != "" && !acme.IsSupported(in.DNSProvider) {

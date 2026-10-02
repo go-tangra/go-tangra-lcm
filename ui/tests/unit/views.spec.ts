@@ -10,7 +10,7 @@ import Audit from '@/views/audit/index.vue'
 import Secrets from '@/views/secrets/index.vue'
 import Requests from '@/views/requests/index.vue'
 import HeaderCert from '@/components/HeaderCert.vue'
-import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSchema, providerHint, FREYA_DNS_PROVIDER, requestFilterSchema, auditFilterSchema } from '@/schemas'
+import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSchema, providerHint, FREYA_DNS_PROVIDER, requestFilterSchema, auditFilterSchema, trustDomainLabel } from '@/schemas'
 
 class FakeSource { onopen = null; onerror = null; addEventListener() {} close() {} }
 const mountView = (c: unknown) => mount(c as never, { global: { plugins: plugins() }, attachTo: document.body })
@@ -35,6 +35,15 @@ describe('lcm schemas', () => {
     expect(acme.success ? [] : acme.error.issues.map((i) => i.path[0])).toEqual(['directory', 'email', 'dns_provider'])
     expect(issuerSchema.parse({ name: 'a', type: 'self_signed', trust_domain: 'example.org', key_type: 'rsa-2048', validity_ceiling_days: '30', eab_hmac_key: '__set__' }).eab_hmac_key).toBeUndefined()
     expect(issuerSchema.safeParse({ name: 'a', type: 'self_signed', trust_domain: 'bad domain', key_type: 'rsa-2048', validity_ceiling_days: 1 }).success).toBe(false)
+    // "*" (any trust domain) for ACME issuers only; never a pattern.
+    const acmeBase = { name: 'a', type: 'acme', key_type: 'ecdsa-p256', validity_ceiling_days: 90, directory: 'https://acme.test/dir', email: 'ops@x.test', dns_provider: 'cloudflare' }
+    expect(issuerSchema.safeParse({ ...acmeBase, trust_domain: '*' }).success).toBe(true)
+    const selfAny = issuerSchema.safeParse({ name: 'a', type: 'self_signed', trust_domain: '*', key_type: 'rsa-2048', validity_ceiling_days: 1 })
+    expect(selfAny.success).toBe(false)
+    expect(selfAny.error?.issues.find((i) => i.path[0] === 'trust_domain')?.message).toContain('ACME issuers only')
+    expect(issuerSchema.safeParse({ ...acmeBase, trust_domain: '*.example.org' }).success).toBe(false)
+    expect(trustDomainLabel('*')).toBe('any trust domain')
+    expect(trustDomainLabel('example.org')).toBe('example.org')
   })
   it('issue: SPIFFE id shape, domain lists, PEM guard; secrets/webhooks; grants', () => {
     expect(issueSvidSchema.safeParse({ spiffe_id: 'spiffe://example.org/svc/api', dns_sans: 'a.example, b.example', validity_days: 30 }).data).toMatchObject({ dns_sans: ['a.example', 'b.example'] })

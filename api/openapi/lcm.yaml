@@ -40,7 +40,7 @@ components:
       properties:
         name: { $ref: '#/components/schemas/Name' }
         type: { type: string, enum: [self_signed, acme] }
-        trust_domain: { type: string, maxLength: 253, pattern: '^[a-z0-9.-]+$' }
+        trust_domain: { type: string, maxLength: 253, pattern: '^(\*|[a-z0-9.-]+)$', description: 'DNS-style trust domain; "*" (any trust domain) for ACME issuers only' }
         is_default: { type: boolean, default: false }
         settings: { type: object, description: 'non-secret config: key type, validity ceiling, ACME directory/email/dns_provider' }
         secrets: { type: object, description: 'write-only: ACME account key / DNS credentials; "__set__" or omitted keeps stored values' }

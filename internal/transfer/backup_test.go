@@ -485,3 +485,19 @@ func TestCredentialFreeReimportFabricatesNothing(t *testing.T) {
 		}
 	}
 }
+
+// TestDecodeBoundedTrustDomain: an imported issuer follows the create rule —
+// a DNS-style trust domain, or "*" for ACME issuers only.
+func TestDecodeBoundedTrustDomain(t *testing.T) {
+	doc := func(typ, td string) []byte {
+		return []byte(`{"version":1,"exported_at":"2024-01-01T00:00:00Z","tenant":"t","issuers":[{"name":"a","type":"` + typ + `","trust_domain":"` + td + `"}],"certificates":[],"permissions":[]}`)
+	}
+	if d, err := DecodeBounded(doc("acme", "*")); err != nil || d.Issuers[0].TrustDomain != "*" {
+		t.Fatalf("acme *: %v", err)
+	}
+	for _, c := range []struct{ typ, td string }{{"self_signed", "*"}, {"acme", "*.example.org"}, {"self_signed", "Bad Domain"}, {"acme", ""}} {
+		if _, err := DecodeBounded(doc(c.typ, c.td)); !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "issuers[0].trust_domain") {
+			t.Errorf("%s %q: %v", c.typ, c.td, err)
+		}
+	}
+}
