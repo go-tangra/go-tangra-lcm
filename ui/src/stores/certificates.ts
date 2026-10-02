@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { api } from '@/api/client'
-import type { AcmeInput, Certificate, CertificateBundle, CertificateDetailsResult, CertificateFilter, CertificateUpdate, IssueInput } from '@/api/types'
+import type { AcmeInput, ImportCertInput, ImportCertResult, Certificate, CertificateBundle, CertificateDetailsResult, CertificateFilter, CertificateUpdate, IssueInput } from '@/api/types'
 import { CERTIFICATE_LIST, listSpec, pagedList } from '@/stores/paged'
 
 /** The dashboard's "expiring soon" preview: the first page by expiry (its own list state). */
@@ -39,6 +39,14 @@ export const useCertificates = defineStore('lcm-certificates', () => {
    */
   async function obtainAcme(input: AcmeInput): Promise<{ status: string; domains: string[]; request_id?: string }> {
     return api<{ status: string; domains: string[]; request_id?: string }>('POST', 'certificates/acme', input)
+  }
+
+  /**
+   * Import a certificate (+ chain) and key issued by an ACME CA elsewhere; lcm
+   * stores it under the ACME issuer and renews it like its own.
+   */
+  async function importCertificate(input: ImportCertInput): Promise<ImportCertResult> {
+    return api<ImportCertResult>('POST', 'certificates/import', input)
   }
 
   async function renew(id: string): Promise<CertificateBundle> {
@@ -100,5 +108,5 @@ export const useCertificates = defineStore('lcm-certificates', () => {
     if (type === 'certificate.revoked' && id) items.value = items.value.map((c) => (c.id === id ? { ...c, status: 'revoked' } : c))
   }
 
-  return { items, total, params, filter, loading, loaded, error, list, reload, get, issue, obtainAcme, renew, revoke, update, remove, deploy, download, downloadKey, details, applyEvent }
+  return { items, total, params, filter, loading, loaded, error, list, reload, get, issue, obtainAcme, importCertificate, renew, revoke, update, remove, deploy, download, downloadKey, details, applyEvent }
 })

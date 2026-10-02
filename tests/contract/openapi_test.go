@@ -50,8 +50,8 @@ func TestOpenAPIDocument(t *testing.T) {
 			}
 		}
 	}
-	if n != 55 {
-		t.Fatalf("operations %d, want 55", n)
+	if n != 56 {
+		t.Fatalf("operations %d, want 56", n)
 	}
 	s, err := httpapi.NewHandler(testrt.New(t, testutil.MustCA("example.org"), "lcm"))
 	if err != nil {

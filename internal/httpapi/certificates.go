@@ -133,6 +133,56 @@ func (s *Server) RegisterCertificates(d CertDeps) {
 		}()
 		WriteJSON(w, http.StatusAccepted, map[string]any{"status": "processing", "domains": domains, "request_id": order.RequestID})
 	})
+	s.MustHandle("POST", Prefix+"/certificates/import", func(w http.ResponseWriter, r *http.Request) {
+		subj, err := subjects(r)
+		if err != nil {
+			Fail(w, r, nil, err)
+			return
+		}
+		var in struct {
+			IssuerID  string `json:"issuer_id"`
+			CertPEM   string `json:"cert_pem"`
+			ChainPEM  string `json:"chain_pem"`
+			KeyPEM    string `json:"key_pem"`
+			AutoRenew *bool  `json:"auto_renew"`
+		}
+		if err := DecodeJSON(r, &in, importMaxBody); err != nil {
+			Fail(w, r, nil, err)
+			return
+		}
+		autoRenew := in.AutoRenew == nil || *in.AutoRenew // default on
+		view, err := d.Issue.ImportACME(r.Context(), subj, issue.ImportInput{IssuerID: in.IssuerID, CertPEM: in.CertPEM, ChainPEM: in.ChainPEM, KeyPEM: in.KeyPEM, AutoRenew: autoRenew})
+		if err != nil {
+			s.fail(w, r, issueError(err))
+			return
+		}
+		publish(d, subj.TenantID, "imported", view)
+		renewal := "off"
+		if autoRenew {
+			renewal = "scheduled"
+			due := store.IssuedCertificate{NotBefore: view.NotBefore, NotAfter: view.NotAfter}
+			if d.RenewDue != nil && d.RenewDue(due, time.Now()) {
+				// Already due or expired: renew now (an expired certificate is
+				// never picked up by the scheduler). The outcome is reported
+				// like an ACME issuance: certificate.renewed | certificate.failed.
+				renewal = "started"
+				go func() {
+					ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 6*time.Minute)
+					defer cancel()
+					b, rerr := d.Issue.Renew(ctx, subj, view.ID)
+					if rerr != nil {
+						s.rt.Logger().Warn("renewal of an imported certificate failed", "tenant", subj.TenantID, "certificate", view.ID, "error", issue.FailReason(rerr))
+						if d.PubFail != nil {
+							d.PubFail(ctx, subj.TenantID, map[string]any{"certificate_id": view.ID, "domains": view.SANs, "error": issueFailMessage(rerr)})
+						}
+						return
+					}
+					publish(d, subj.TenantID, "renewed", b.Certificate)
+				}()
+			}
+		}
+		WriteJSON(w, http.StatusCreated, map[string]any{"certificate": view, "renewal": renewal})
+	})
 	s.MustHandle("GET", Prefix+"/certificates/{id}", func(w http.ResponseWriter, r *http.Request) {
 		subj, err := subjects(r)
 		if err != nil {
@@ -259,6 +309,10 @@ func (s *Server) RegisterCertificates(d CertDeps) {
 // sanitises its own errors) carry no secrets; the reason is single-line and
 // bounded (issue.FailReason).
 func issueFailMessage(err error) string { return issue.FailReason(err) }
+
+// importMaxBody bounds an import request: three PEM inputs of at most
+// issue.MaxImportPEMBytes each, JSON-escaped, plus the envelope.
+const importMaxBody = 4 * issue.MaxImportPEMBytes
 
 // publish fans a certificate lifecycle event out to the tenant's live streams.
 func publish(d CertDeps, tenantID, eventType string, c issue.CertificateView) {

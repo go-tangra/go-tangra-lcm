@@ -26,6 +26,16 @@ export const issueAcmeSchema = z.object({
 })
 export type IssueAcmeOutput = z.output<typeof issueAcmeSchema>
 
+/** Import of a certificate issued by an ACME CA elsewhere (POST /certificates/import). */
+export const importCertSchema = z.object({
+  issuer_id: nonEmpty(64),
+  cert_pem: nonEmpty(65536).pipe(z.string().regex(/-----BEGIN CERTIFICATE-----/, 'Paste or choose the certificate (fullchain.pem or cert.pem).')),
+  chain_pem: optionalString(65536).pipe(z.string().regex(/-----BEGIN CERTIFICATE-----/, 'The chain must contain CERTIFICATE blocks.').optional()),
+  key_pem: nonEmpty(65536).pipe(z.string().regex(/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'Paste or choose the private key (privkey.pem).')),
+  auto_renew: z.boolean().optional().transform((v) => v ?? true),
+})
+export type ImportCertOutput = z.output<typeof importCertSchema>
+
 export const revokeSchema = z.object({ reason: optionalString(500) })
 
 export const certificateFilterSchema = z.object({

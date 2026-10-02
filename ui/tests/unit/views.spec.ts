@@ -10,7 +10,7 @@ import Audit from '@/views/audit/index.vue'
 import Secrets from '@/views/secrets/index.vue'
 import Requests from '@/views/requests/index.vue'
 import HeaderCert from '@/components/HeaderCert.vue'
-import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSchema, providerHint, FREYA_DNS_PROVIDER, requestFilterSchema, auditFilterSchema, trustDomainLabel } from '@/schemas'
+import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSchema, providerHint, FREYA_DNS_PROVIDER, requestFilterSchema, auditFilterSchema, trustDomainLabel, importCertSchema } from '@/schemas'
 
 class FakeSource { onopen = null; onerror = null; addEventListener() {} close() {} }
 const mountView = (c: unknown) => mount(c as never, { global: { plugins: plugins() }, attachTo: document.body })
@@ -44,6 +44,12 @@ describe('lcm schemas', () => {
     expect(issuerSchema.safeParse({ ...acmeBase, trust_domain: '*.example.org' }).success).toBe(false)
     expect(trustDomainLabel('*')).toBe('any trust domain')
     expect(trustDomainLabel('example.org')).toBe('example.org')
+    // Import: certificate and private key are required PEM; the chain is optional.
+    const certPem = '-----BEGIN CERTIFICATE-----\nAAA\n-----END CERTIFICATE-----'
+    expect(importCertSchema.safeParse({ issuer_id: 'i1', cert_pem: certPem, key_pem: '-----BEGIN EC PARAMETERS-----\nx\n-----END EC PARAMETERS-----\n-----BEGIN EC PRIVATE KEY-----\ny\n-----END EC PRIVATE KEY-----' }).success).toBe(true)
+    expect(importCertSchema.safeParse({ issuer_id: 'i1', cert_pem: certPem, key_pem: certPem }).success).toBe(false)
+    expect(importCertSchema.safeParse({ issuer_id: 'i1', cert_pem: '', key_pem: '-----BEGIN PRIVATE KEY-----' }).success).toBe(false)
+    expect(importCertSchema.safeParse({ issuer_id: 'i1', cert_pem: certPem, chain_pem: 'junk', key_pem: '-----BEGIN PRIVATE KEY-----' }).success).toBe(false)
   })
   it('issue: SPIFFE id shape, domain lists, PEM guard; secrets/webhooks; grants', () => {
     expect(issueSvidSchema.safeParse({ spiffe_id: 'spiffe://example.org/svc/api', dns_sans: 'a.example, b.example', validity_days: 30 }).data).toMatchObject({ dns_sans: ['a.example', 'b.example'] })
@@ -229,6 +235,45 @@ describe('certificates view', () => {
     expect(queued.textContent).toContain('processing')
     expect(queued.textContent).toContain('Requests')
     expect(dialog.querySelector('[data-test="issue-requests-link"]')?.getAttribute('href')).toBe('/lcm/requests')
+    w.unmount()
+  })
+  it('imports a certificate and key under an ACME issuer and reports the renewal', async () => {
+    const bodies: unknown[] = []
+    stubFetch((url, init) => {
+      if (init?.method === 'POST') {
+        bodies.push({ url, body: JSON.parse(String(init.body)) })
+        return { status: 201, body: { certificate: { id: 'c1', kind: 'generic', status: 'active', sans: ['www.example.org'] }, renewal: 'started' } }
+      }
+      if (url.includes('/issuers')) return { status: 200, body: { items: [{ id: 'i1', name: 'le', type: 'acme', trust_domain: '*', settings: {} }] } }
+      return { status: 200, body: { items: [] } }
+    })
+    const w = mountView(Certificates)
+    await flushPromises()
+    await w.find('[data-test="cert-issue-open"]').trigger('click')
+    await flushPromises()
+    const dialog = document.body.querySelector('[data-test=issue-dialog]')!
+    const tab = Array.from(dialog.querySelectorAll('[role=tab]')).find((t) => t.textContent?.includes('Import')) as HTMLElement
+    tab.click()
+    await flushPromises()
+    const issuer = dialog.querySelector<HTMLSelectElement>('select[data-field=issuer_id]')!
+    expect(issuer.textContent).toContain('any trust domain')
+    issuer.value = 'i1'
+    issuer.dispatchEvent(new Event('change'))
+    const set = (field: string, value: string) => {
+      const el = dialog.querySelector<HTMLTextAreaElement>('textarea[data-field=' + field + ']')!
+      el.value = value
+      el.dispatchEvent(new Event('input'))
+    }
+    // Without a key nothing is sent.
+    set('cert_pem', '-----BEGIN CERTIFICATE-----\nAAA\n-----END CERTIFICATE-----\n')
+    ;(dialog.querySelector('[data-test="issue-submit"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(bodies).toEqual([])
+    set('key_pem', '-----BEGIN RSA PRIVATE KEY-----\nBBB\n-----END RSA PRIVATE KEY-----\n')
+    ;(dialog.querySelector('[data-test="issue-submit"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(bodies).toEqual([{ url: '/api/lcm/v1/certificates/import', body: { issuer_id: 'i1', cert_pem: '-----BEGIN CERTIFICATE-----\nAAA\n-----END CERTIFICATE-----', key_pem: '-----BEGIN RSA PRIVATE KEY-----\nBBB\n-----END RSA PRIVATE KEY-----', auto_renew: true } }]) // trimmed by the form
+    expect(dialog.querySelector('[data-test="import-done"]')?.textContent).toContain('renewal is running now')
     w.unmount()
   })
   it('opens the certificate named in the ?id= query', async () => {

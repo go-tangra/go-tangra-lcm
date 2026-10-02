@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/issue"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 )
 
 // CertDeps are the services behind the issuer and certificate routes.
@@ -18,6 +19,10 @@ type CertDeps struct {
 	Pub func(ctx context.Context, tenantID, eventType, certificateID, spiffeID string, notAfter time.Time)
 	// PubFail fans a certificate.failed event (async issuance failure) to the tenant.
 	PubFail func(ctx context.Context, tenantID string, detail map[string]any)
+	// RenewDue reports whether the renewal scheduler would renew c at now; an
+	// imported certificate that is already due (or expired, which the
+	// scheduler never picks up) is renewed right after the import. nil: never.
+	RenewDue func(c store.IssuedCertificate, now time.Time) bool
 }
 
 // issueError maps issue-service errors (validation, in-use) onto refusals in

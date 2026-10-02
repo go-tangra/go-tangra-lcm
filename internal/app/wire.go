@@ -15,6 +15,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/revoke"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/secrets"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/stats"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/stream"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/transfer"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/webhook"
@@ -67,7 +68,11 @@ func Wire(a *App) error {
 	a.Deploy = deploy.New(a.Repo, a.Authz, a.Envelope, a.Audit, nil)
 
 	// HTTP handlers (every declared route is mounted).
-	cd := httpapi.CertDeps{Issue: a.Issue, Perms: a.Perms, Pub: pub.Publish, PubFail: pub.PublishFailed}
+	cd := httpapi.CertDeps{Issue: a.Issue, Perms: a.Perms, Pub: pub.Publish, PubFail: pub.PublishFailed,
+		// The renewal scheduler is built below; the closure reads it per call.
+		RenewDue: func(c store.IssuedCertificate, now time.Time) bool {
+			return a.RenewSched != nil && a.RenewSched.Due(c, now)
+		}}
 	a.HTTP.RegisterIssuers(cd)
 	a.HTTP.RegisterCertificates(cd)
 	a.HTTP.RegisterGrants(httpapi.GrantDeps{Authz: a.Authz})

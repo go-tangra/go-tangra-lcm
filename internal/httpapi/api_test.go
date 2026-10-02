@@ -21,6 +21,7 @@ import (
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/sealed"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/secrets"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/stats"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/store"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/stream"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/transfer"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/webhook"
@@ -98,7 +99,8 @@ func newAPI(t *testing.T) *apiFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cd := CertDeps{Issue: issueSvc, Perms: perms, Pub: pub}
+	cd := CertDeps{Issue: issueSvc, Perms: perms, Pub: pub,
+		RenewDue: func(c store.IssuedCertificate, now time.Time) bool { return c.NotAfter.Sub(now) < 30*24*time.Hour }}
 	s.RegisterIssuers(cd)
 	s.RegisterCertificates(cd)
 	s.RegisterGrants(GrantDeps{Authz: az})

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiSelect, UiNumberInput, UiSwitch, UiTextarea, UiButton, UiDataTable, UiStatusChip, UiBadge, UiTabs, UiDrawer, UiKeyValueTable, useToast, useConfirm, useListQuery, type Column, type SelectOption, type TabItem } from '@go-tangra/ui'
+import { UiPage, UiAlert, UiCard, UiForm, UiInput, UiSelect, UiNumberInput, UiSwitch, UiTextarea, UiFilePicker, UiButton, UiDataTable, UiStatusChip, UiBadge, UiTabs, UiDrawer, UiKeyValueTable, useToast, useConfirm, useListQuery, type Column, type SelectOption, type TabItem } from '@go-tangra/ui'
 import { useZodForm } from '@go-tangra/ui/forms'
 import { useCertificates } from '@/stores/certificates'
 import CertificateDetails from './CertificateDetails.vue'
@@ -11,8 +11,8 @@ import { useLive } from '@/stores/live'
 import { CERTIFICATE_LIST } from '@/stores/paged'
 import { describe } from '@/api/client'
 import { saveText } from '@/api/download'
-import { certificateFilterSchema, issueSvidSchema, issueAcmeSchema, revokeSchema, CERTIFICATE_STATUSES, trustDomainLabel } from '@/schemas'
-import type { Certificate, CertificateBundle, CertificateFilter } from '@/api/types'
+import { certificateFilterSchema, issueSvidSchema, issueAcmeSchema, importCertSchema, revokeSchema, CERTIFICATE_STATUSES, trustDomainLabel } from '@/schemas'
+import type { Certificate, CertificateBundle, CertificateFilter, ImportRenewal } from '@/api/types'
 
 const store = useCertificates()
 const issuers = useIssuers()
@@ -88,7 +88,7 @@ const columns: Column<Certificate>[] = [
 const issueOpen = ref(false)
 const mode = ref('svid')
 const queued = ref(false)
-const modeTabs: TabItem[] = [{ key: 'svid', label: 'SVID (mesh)' }, { key: 'acme', label: 'ACME / public' }]
+const modeTabs: TabItem[] = [{ key: 'svid', label: 'SVID (mesh)' }, { key: 'acme', label: 'ACME / public' }, { key: 'import', label: 'Import' }]
 const svidIssuers = computed<SelectOption[]>(() => issuers.options.filter((i) => i.type !== 'acme').map((i) => ({ title: i.name + ' (' + trustDomainLabel(i.trust_domain) + ')', value: i.id })))
 const acmeIssuers = computed<SelectOption[]>(() => issuers.options.filter((i) => i.type === 'acme').map((i) => ({ title: i.name + ' (' + trustDomainLabel(i.trust_domain) + ')', value: i.id })))
 const svid = useZodForm(issueSvidSchema, {
@@ -99,12 +99,30 @@ const acme = useZodForm(issueAcmeSchema, {
   onSubmit: (v) => store.obtainAcme({ issuer_id: v.issuer_id, domains: v.domains, auto_renew: v.auto_renew, csr_pem: v.csr_pem }),
   onSuccess: () => (queued.value = true),
 })
-const currentForm = computed(() => (mode.value === 'acme' ? acme : svid))
+// Import of a certificate issued by an ACME CA elsewhere (certbot layout):
+// stored under the ACME issuer and renewed by lcm, keeping the key.
+const imported = ref<ImportRenewal | null>(null)
+const importForm = useZodForm(importCertSchema, {
+  onSubmit: async (v) => {
+    const r = await store.importCertificate({ issuer_id: v.issuer_id, cert_pem: v.cert_pem, chain_pem: v.chain_pem, key_pem: v.key_pem, auto_renew: v.auto_renew })
+    imported.value = r.renewal
+  },
+  onSuccess: () => (queued.value = true),
+})
+const PEM_MAX_BYTES = 65536
+/** Loads a chosen PEM file into its form field (the textarea stays editable). */
+async function loadPem(field: 'cert_pem' | 'chain_pem' | 'key_pem', file: File | null): Promise<void> {
+  if (!file) return
+  importForm.values[field] = await file.text()
+}
+const currentForm = computed(() => (mode.value === 'acme' ? acme : mode.value === 'import' ? importForm : svid))
 function openIssue(): void {
   mode.value = 'svid'
   queued.value = false
   svid.reset({ issuer_id: '', spiffe_id: '', subject: '', dns_sans: '', validity_days: 30, csr_pem: '' })
   acme.reset({ issuer_id: '', domains: '', auto_renew: true, csr_pem: '' })
+  importForm.reset({ issuer_id: '', cert_pem: '', chain_pem: '', key_pem: '', auto_renew: true })
+  imported.value = null
   issueOpen.value = true
 }
 watch(issueOpen, (o) => { if (!o && queued.value) reload() })
@@ -219,7 +237,7 @@ const renew = async () => {
             <UiTextarea v-bind="svid.field('csr_pem')" label="CSR PEM (optional; leave blank to generate a key pair)" :rows="3" hint="When a key pair is generated, it is retained and downloadable from the certificate afterwards." data-test="issue-csr" />
           </div>
         </UiForm>
-        <UiForm v-else :form="acme">
+        <UiForm v-else-if="mode === 'acme'" :form="acme">
           <div class="flex flex-col gap-3">
             <UiSelect v-bind="acme.field('issuer_id')" label="ACME issuer" :options="acmeIssuers" :placeholder="acmeIssuers.length ? '—' : 'No ACME issuers. Add one under Issuers.'" required data-test="issue-acme-issuer" />
             <UiInput v-bind="acme.field('domains')" label="Domains (comma-separated)" placeholder="example.com, www.example.com" hint="Validity is set by the ACME provider. DNS-01 is solved with the issuer's configured DNS provider." required data-test="issue-domains" />
@@ -227,13 +245,32 @@ const renew = async () => {
             <UiTextarea v-bind="acme.field('csr_pem')" label="CSR PEM (optional; leave blank to generate a key pair)" :rows="3" data-test="issue-csr" />
           </div>
         </UiForm>
+        <UiForm v-else :form="importForm">
+          <div class="flex flex-col gap-3">
+            <UiAlert kind="info">Bring a certificate issued by an ACME CA elsewhere (for example certbot). lcm keeps the key, renews the certificate for the same domains through the chosen issuer's ACME account and DNS provider, and serves it like one it issued.</UiAlert>
+            <UiSelect v-bind="importForm.field('issuer_id')" label="ACME issuer that renews it" :options="acmeIssuers" :placeholder="acmeIssuers.length ? '—' : 'No ACME issuers. Add one under Issuers.'" required data-test="import-issuer" />
+            <UiFilePicker id="import-cert-file" label="Certificate file" accept=".pem,.crt,.cer" :max-bytes="PEM_MAX_BYTES" hint="fullchain.pem or cert.pem" data-test="import-cert-file" @update:model-value="(f) => loadPem('cert_pem', f)" />
+            <UiTextarea v-bind="importForm.field('cert_pem')" label="Certificate PEM (leaf first, chain may follow)" :rows="4" required data-test="import-cert" />
+            <UiFilePicker id="import-chain-file" label="Chain file (optional)" accept=".pem,.crt,.cer" :max-bytes="PEM_MAX_BYTES" hint="chain.pem, when the certificate file has no chain" data-test="import-chain-file" @update:model-value="(f) => loadPem('chain_pem', f)" />
+            <UiTextarea v-bind="importForm.field('chain_pem')" label="Chain PEM (optional)" :rows="3" data-test="import-chain" />
+            <UiFilePicker id="import-key-file" label="Private key file" accept=".pem,.key" :max-bytes="PEM_MAX_BYTES" hint="privkey.pem (unencrypted RSA or ECDSA)" data-test="import-key-file" @update:model-value="(f) => loadPem('key_pem', f)" />
+            <UiTextarea v-bind="importForm.field('key_pem')" label="Private key PEM" :rows="4" required data-test="import-key" />
+            <UiSwitch v-bind="importForm.field('auto_renew')" label="Auto-renew before expiry" data-test="import-auto-renew" />
+          </div>
+        </UiForm>
       </template>
+      <UiAlert v-else-if="mode === 'import'" :kind="imported === 'off' ? 'info' : 'success'" data-test="import-done">
+        Certificate imported.
+        <template v-if="imported === 'started'">It was already due for renewal, so an ACME renewal is running now; the renewed certificate appears in the list, or an error is shown if it fails.</template>
+        <template v-else-if="imported === 'scheduled'">lcm renews it automatically before it expires.</template>
+        <template v-else>Auto-renew is off; renew it from the certificate when needed.</template>
+      </UiAlert>
       <UiAlert v-else-if="mode === 'acme'" kind="info" data-test="issue-queued">ACME order submitted and processing. It is recorded under <RouterLink to="/lcm/requests" class="link" data-test="issue-requests-link">Requests</RouterLink>, where it ends issued or failed with the CA's reason; the certificate appears in this list when issued.</UiAlert>
       <UiAlert v-else kind="info" data-test="issue-queued">Certificate requested. Issuance runs in the background — it will appear in the list when issued, or an error will be shown if it fails.</UiAlert>
       <template #actions>
         <template v-if="!queued">
           <UiButton variant="text" @click="issueOpen = false">Cancel</UiButton>
-          <UiButton :loading="currentForm.submitting.value" data-test="issue-submit" @click="currentForm.submit()">{{ mode === 'acme' ? 'Request' : 'Issue' }}</UiButton>
+          <UiButton :loading="currentForm.submitting.value" data-test="issue-submit" @click="currentForm.submit()">{{ mode === 'acme' ? 'Request' : mode === 'import' ? 'Import' : 'Issue' }}</UiButton>
         </template>
         <UiButton v-else data-test="issue-done" @click="issueOpen = false">Done</UiButton>
       </template>
