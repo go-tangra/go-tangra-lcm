@@ -5,7 +5,7 @@ import { useZodForm } from '@go-tangra/ui/forms'
 import { useIssuers } from '@/stores/issuers'
 import { ISSUER_LIST } from '@/stores/paged'
 import { describe } from '@/api/client'
-import { issuerSchema, ISSUER_TYPES, KEY_TYPES, providerHint } from '@/schemas'
+import { issuerSchema, ISSUER_TYPES, KEY_TYPES, providerHint, trustDomainLabel } from '@/schemas'
 import { SET_MARKER, type Issuer, type IssuerInput } from '@/api/types'
 
 const store = useIssuers()
@@ -81,7 +81,7 @@ async function remove(): Promise<void> {
 const columns: Column<Issuer>[] = [
   { key: 'name', label: 'Name', sortable: true },
   { key: 'type', label: 'Type', width: 'sm', sortable: true },
-  { key: 'trust_domain', label: 'Trust domain', sortable: true },
+  { key: 'trust_domain', label: 'Trust domain', sortable: true, format: (i) => trustDomainLabel(i.trust_domain) },
   { key: 'is_default', label: 'Default', width: 'sm', format: (i) => (i.is_default ? 'yes' : '') },
   { key: 'certificate_count', label: 'Certificates', align: 'end', format: (i) => String(i.certificate_count ?? 0) },
 ]
@@ -103,7 +103,7 @@ const columns: Column<Issuer>[] = [
         <div class="flex flex-col gap-3">
           <UiInput v-bind="form.field('name')" label="Name" required data-test="issuer-name" />
           <UiSelect v-bind="form.field('type')" label="Type" :options="typeOptions" :clearable="false" :disabled="!!selected" required data-test="issuer-type" />
-          <UiInput v-bind="form.field('trust_domain')" label="Trust domain" :disabled="!!selected" required data-test="issuer-trust-domain" />
+          <UiInput v-bind="form.field('trust_domain')" label="Trust domain" :hint="isAcme ? 'Use * when this ACME issuer is not tied to one trust domain.' : ''" :disabled="!!selected" required data-test="issuer-trust-domain" />
           <UiSelect v-bind="form.field('key_type')" label="Key type" :options="keyOptions" :clearable="false" required data-test="issuer-key-type" />
           <UiNumberInput v-bind="form.field('validity_ceiling_days')" label="Validity ceiling (days)" :min="1" :max="3650" required data-test="issuer-validity" />
           <UiSection v-if="isAcme" title="ACME">
