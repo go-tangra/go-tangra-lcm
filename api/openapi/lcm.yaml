@@ -10,7 +10,8 @@ info:
     and issuers (read/write/delete/share/use). Errors are
     {"reason": "<closed vocabulary>", "detail"?: {...}}: unauthenticated,
     forbidden, not_found, validation_failed, conflict, rate_limited,
-    body_too_large, temporarily_unavailable. CA/issuer/DNS/ACME keys, workload
+    body_too_large, temporarily_unavailable (enroll adds its own refusal
+    reasons, see /api/lcm/v1/enroll). CA/issuer/DNS/ACME keys, workload
     private keys and tenant-secret values never appear in any response (fields
     are "__set__"); a private key is returned exactly once when the module
     generated it.
@@ -286,7 +287,7 @@ paths:
       x-freya-public: true
       x-freya-timeout-seconds: 60
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [spiffe_id, enrollment_token], properties: { spiffe_id: { $ref: '#/components/schemas/SpiffeId' }, csr_pem: { type: string, maxLength: 16384 }, enrollment_token: { type: string, description: 'auth-minted single-use enrollment token' } } } } } }
-      responses: { '200': { description: 'CertificateBundle (auto-approve)' }, '202': { description: 'pending request (manual approval)' }, '401': { description: 'missing or invalid enrollment token' }, '403': { description: 'not entitled to the SPIFFE id' }, '422': { description: validation_failed } }
+      responses: { '200': { description: 'CertificateBundle (auto-approve)' }, '202': { description: 'pending request (manual approval)' }, '401': { description: 'missing or refused enrollment token: unauthenticated (missing), enrollment_token_expired, enrollment_token_not_yet_valid, enrollment_token_used, enrollment_token_invalid' }, '403': { description: 'the token does not authorise the SPIFFE id: enrollment_spiffe_id_not_allowed, or enrollment_trust_domain_mismatch with detail {expected_trust_domain} (or {expected_trust_domains})' }, '503': { description: 'temporarily_unavailable (the token could not be verified; retry)' }, '422': { description: validation_failed } }
   /api/lcm/v1/bootstrap-bundle:
     get:
       operationId: getBootstrapBundle

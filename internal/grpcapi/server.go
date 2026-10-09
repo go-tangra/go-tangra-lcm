@@ -56,7 +56,14 @@ func caller(ctx context.Context, tenantID string) (authz.Subjects, error) {
 
 // grpcError maps a service error to a gRPC status.
 func grpcError(err error) error {
+	var re *enroll.RefusalError
 	switch {
+	case errors.As(err, &re):
+		// An enrollment-token refusal keeps its reason as the message.
+		if re.TokenRefused() {
+			return status.Error(codes.Unauthenticated, re.Reason)
+		}
+		return status.Error(codes.PermissionDenied, re.Reason)
 	case errors.Is(err, authz.ErrForbidden):
 		return status.Error(codes.PermissionDenied, "forbidden")
 	case errors.Is(err, authz.ErrNotFound), errors.Is(err, store.ErrNotFound):
