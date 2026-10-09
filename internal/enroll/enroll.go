@@ -12,6 +12,9 @@ package enroll
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
@@ -26,6 +29,46 @@ import (
 // entitled to the requested SPIFFE identity. It aliases authz.ErrForbidden so
 // callers may match either.
 var ErrForbidden = authz.ErrForbidden
+
+// Enrollment-token refusal reasons: a closed vocabulary returned verbatim to the
+// enrolling workload so an operator can see WHY a join failed. The first four
+// are the auth service's verdict on the token; the last two are lcm's own
+// refusal of an authentic token. None carries the token or any secret.
+const (
+	ReasonTokenExpired        = "enrollment_token_expired"
+	ReasonTokenNotYetValid    = "enrollment_token_not_yet_valid"
+	ReasonTokenUsed           = "enrollment_token_used"
+	ReasonTokenInvalid        = "enrollment_token_invalid"
+	ReasonSpiffeIDNotAllowed  = "enrollment_spiffe_id_not_allowed"
+	ReasonTrustDomainMismatch = "enrollment_trust_domain_mismatch"
+)
+
+// RefusalError refuses a token enrollment with a stable Reason and an optional
+// client-safe Detail. It unwraps to ErrForbidden so errors.Is(err, ErrForbidden)
+// still holds for every refusal.
+type RefusalError struct {
+	Reason string
+	Detail map[string]any
+}
+
+func (e *RefusalError) Error() string { return "enroll: " + e.Reason }
+
+func (e *RefusalError) Unwrap() error { return ErrForbidden }
+
+// TokenRefused reports whether the token itself was refused (the caller is
+// unauthenticated) rather than the identity it asked for (forbidden).
+func (e *RefusalError) TokenRefused() bool {
+	switch e.Reason {
+	case ReasonTokenExpired, ReasonTokenNotYetValid, ReasonTokenUsed, ReasonTokenInvalid:
+		return true
+	}
+	return false
+}
+
+// ErrVerifierUnavailable marks a TokenVerifier failure that is not a verdict on
+// the token (auth unreachable, jti burn failed): the enrollment is retryable and
+// answers temporarily_unavailable, never a refusal reason.
+var ErrVerifierUnavailable = errors.New("enroll: enrollment token verifier unavailable")
 
 // ValidationError is a client-safe rejection carrying the offending field.
 type ValidationError struct {
@@ -75,6 +118,35 @@ func (g EnrollGrant) authorises(spiffeID string) bool {
 		}
 	}
 	return false
+}
+
+// refusal explains why the grant does not authorise an id in trustDomain: a
+// trust domain the grant never names (a misconfigured workload, e.g. verax.net
+// instead of infra.verax.net) is told apart from a path it does not name. The
+// expected trust domain is the grant's own (the caller holds the token, and
+// trust domains are public), never a secret.
+func (g EnrollGrant) refusal(trustDomain string) *RefusalError {
+	var domains []string
+	for _, p := range g.SpiffePaths {
+		id, perr := csr.ParseSPIFFEID(p)
+		if perr != nil {
+			continue
+		}
+		td := id.TrustDomain
+		if td == trustDomain {
+			return &RefusalError{Reason: ReasonSpiffeIDNotAllowed}
+		}
+		if !slices.Contains(domains, td) {
+			domains = append(domains, td)
+		}
+	}
+	switch len(domains) {
+	case 0:
+		return &RefusalError{Reason: ReasonSpiffeIDNotAllowed}
+	case 1:
+		return &RefusalError{Reason: ReasonTrustDomainMismatch, Detail: map[string]any{"expected_trust_domain": domains[0]}}
+	}
+	return &RefusalError{Reason: ReasonTrustDomainMismatch, Detail: map[string]any{"expected_trust_domains": domains}}
 }
 
 // TokenVerifier decouples enroll from the auth service: it exchanges an
@@ -143,7 +215,8 @@ type EnrollResult struct {
 // Enroll authorises the request (token grant, or the platform identity delegated
 // to issue.Service), then either issues inline or creates a pending request.
 func (s *Service) Enroll(ctx context.Context, subj authz.Subjects, in EnrollInput) (EnrollResult, error) {
-	if _, err := csr.ParseSPIFFEID(in.SpiffeID); err != nil {
+	sid, err := csr.ParseSPIFFEID(in.SpiffeID)
+	if err != nil {
 		return EnrollResult{}, invalid("spiffe_id", "invalid SPIFFE ID")
 	}
 
@@ -155,16 +228,26 @@ func (s *Service) Enroll(ctx context.Context, subj authz.Subjects, in EnrollInpu
 	if in.EnrollmentToken != "" {
 		grant, verr := s.tok.VerifyEnrollment(ctx, in.EnrollmentToken)
 		if verr != nil {
+			if errors.Is(verr, ErrVerifierUnavailable) {
+				// No verdict on the token: retryable, never a refusal.
+				return EnrollResult{}, fmt.Errorf("enroll: verify enrollment token: %w", verr)
+			}
 			// Replayed, expired or unknown token: single-use is the verifier's
-			// contract, and we never fall back to a shared secret.
-			s.refuse(ctx, tenant, subj.ActorKind(), actorID, in.SpiffeID, "enrollment token rejected")
-			return EnrollResult{}, ErrForbidden
+			// contract, and we never fall back to a shared secret. A verdict
+			// without a known reason stays opaque (enrollment_token_invalid).
+			var re *RefusalError
+			if !errors.As(verr, &re) || !re.TokenRefused() {
+				re = &RefusalError{Reason: ReasonTokenInvalid}
+			}
+			s.refuse(ctx, tenant, subj.ActorKind(), actorID, in.SpiffeID, "enrollment token rejected: "+re.Reason)
+			return EnrollResult{}, re
 		}
 		if !grant.authorises(in.SpiffeID) {
 			// The grant is authoritative, but only for the identities it names.
+			re := grant.refusal(sid.TrustDomain)
 			s.refuse(ctx, orTenant(grant.TenantID, tenant), audit.ActorService, in.SpiffeID, in.SpiffeID,
-				"token does not authorise the requested identity")
-			return EnrollResult{}, ErrForbidden
+				"token does not authorise the requested identity: "+re.Reason)
+			return EnrollResult{}, re
 		}
 		tenant = grant.TenantID
 		actor = authz.ServiceSubjects(tenant, in.SpiffeID)

@@ -3,7 +3,11 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	authv1 "github.com/go-tangra/go-tangra-auth/sdk/v4/api/proto/auth/v1"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
@@ -93,7 +97,35 @@ type authEnrollTokens struct{ client authv1.EnrollmentClient }
 func (a authEnrollTokens) VerifyEnrollment(ctx context.Context, token string) (enroll.EnrollGrant, error) {
 	resp, err := a.client.VerifyEnrollmentToken(ctx, &authv1.VerifyEnrollmentTokenRequest{Token: token})
 	if err != nil {
-		return enroll.EnrollGrant{}, err
+		return enroll.EnrollGrant{}, verifyError(err)
 	}
 	return enroll.EnrollGrant{TenantID: resp.GetTenantId(), SpiffePaths: resp.GetSpiffePaths()}, nil
+}
+
+// authTokenReasons are the closed reasons auth puts in the status message of a
+// codes.Unauthenticated VerifyEnrollmentToken refusal. Matching the message
+// (not a new proto field) works with the released auth SDK.
+var authTokenReasons = map[string]string{
+	"enrollment_token_expired":       enroll.ReasonTokenExpired,
+	"enrollment_token_not_yet_valid": enroll.ReasonTokenNotYetValid,
+	"enrollment_token_used":          enroll.ReasonTokenUsed,
+	"enrollment_token_invalid":       enroll.ReasonTokenInvalid,
+	// Older auth releases: the replay refusal had its own fixed message.
+	"enrollment token cannot be used": enroll.ReasonTokenUsed,
+}
+
+// verifyError turns an auth verify failure into an enroll refusal: an
+// Unauthenticated verdict carries its reason (unknown text, e.g. an older auth,
+// stays enrollment_token_invalid); anything else is no verdict on the token and
+// is retryable (auth unreachable, jti burn failed, lcm not permitted).
+func verifyError(err error) error {
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.Unauthenticated {
+		return fmt.Errorf("%w: %w", enroll.ErrVerifierUnavailable, err)
+	}
+	reason, known := authTokenReasons[st.Message()]
+	if !known {
+		reason = enroll.ReasonTokenInvalid
+	}
+	return &enroll.RefusalError{Reason: reason}
 }

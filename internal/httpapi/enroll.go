@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-tangra/go-tangra/v4/listquery"
@@ -17,17 +18,35 @@ type EnrollDeps struct {
 	Perms  PermissionChecker
 }
 
-// enrollError maps enroll-service errors onto refusals.
+// enrollError maps enroll-service errors onto refusals. A token enrollment
+// refusal answers its own reason so the workload can log why: 401 when the
+// token was refused, 403 when the identity it asked for was.
 func enrollError(err error) error {
+	var re *enroll.RefusalError
 	var ve *enroll.ValidationError
 	var ce *enroll.ConflictError
 	switch {
+	case errors.As(err, &re):
+		e := &Error{Status: http.StatusForbidden, Reason: re.Reason}
+		if re.TokenRefused() {
+			e.Status = http.StatusUnauthorized
+		}
+		if len(re.Detail) > 0 {
+			return &DetailError{Err: e, Detail: re.Detail}
+		}
+		return e
 	case errors.As(err, &ve):
 		return &DetailError{Err: ErrValidation, Detail: map[string]any{"field": ve.Field, "message": ve.Message}}
 	case errors.As(err, &ce):
 		return ErrConflict
 	}
 	return domainError(err)
+}
+
+// FailEnroll writes the response for an Enroll error; the dedicated enroll
+// listener shares it so both enrollment routes answer the same reasons.
+func FailEnroll(w http.ResponseWriter, r *http.Request, log *slog.Logger, err error) {
+	failDetail(w, r, log, enrollError(err))
 }
 
 // enrollReadError masks forbidden as not_found for single reads (SR-005).

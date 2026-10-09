@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/enroll"
+	"github.com/go-tangra/go-tangra-lcm/v4/internal/httpapi"
 )
 
 // startEnrollListener runs a dedicated, server-auth-only (tls.NoClientCert) TLS
@@ -47,7 +48,7 @@ func (a *App) startEnrollListener(addr string) error {
 		res, eerr := a.Enroll.Enroll(r.Context(), authz.ServiceSubjects("", in.SpiffeID),
 			enroll.EnrollInput{SpiffeID: in.SpiffeID, CSRPEM: in.CSRPEM, EnrollmentToken: in.EnrollmentToken})
 		if eerr != nil {
-			http.Error(w, `{"reason":"forbidden"}`, http.StatusForbidden)
+			httpapi.FailEnroll(w, r, a.Log, eerr)
 			return
 		}
 		if res.Status != "issued" || res.Bundle == nil {

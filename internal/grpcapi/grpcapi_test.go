@@ -283,6 +283,24 @@ func TestGRPCErrorMapping(t *testing.T) {
 	}
 }
 
+// An enrollment refusal keeps its reason as the status message.
+func TestGRPCErrorEnrollRefusal(t *testing.T) {
+	for _, c := range []struct {
+		reason string
+		want   codes.Code
+	}{
+		{enroll.ReasonTokenExpired, codes.Unauthenticated},
+		{enroll.ReasonTokenUsed, codes.Unauthenticated},
+		{enroll.ReasonTrustDomainMismatch, codes.PermissionDenied},
+		{enroll.ReasonSpiffeIDNotAllowed, codes.PermissionDenied},
+	} {
+		st, _ := status.FromError(grpcError(&enroll.RefusalError{Reason: c.reason}))
+		if st.Code() != c.want || st.Message() != c.reason {
+			t.Errorf("%s: %v %q", c.reason, st.Code(), st.Message())
+		}
+	}
+}
+
 func TestServiceCallerAndRegister(t *testing.T) {
 	withCaller(gSpiffe, true, func() {
 		if id, ok := ServiceCaller(context.Background()); !ok || id != gSpiffe {

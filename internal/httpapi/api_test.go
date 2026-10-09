@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -122,9 +123,19 @@ func adminSubj() authz.Subjects {
 	return authz.Subjects{TenantID: apiTenant, UserID: apiAdmin, Roles: []string{"admin"}}
 }
 
+// stubTokens answers a fixed auth verdict per token; any other token gets a
+// verdict without a reason (opaque refusal).
 type stubTokens struct{}
 
-func (stubTokens) VerifyEnrollment(context.Context, string) (enroll.EnrollGrant, error) {
+func (stubTokens) VerifyEnrollment(_ context.Context, tok string) (enroll.EnrollGrant, error) {
+	switch tok {
+	case enroll.ReasonTokenExpired, enroll.ReasonTokenNotYetValid, enroll.ReasonTokenUsed, enroll.ReasonTokenInvalid:
+		return enroll.EnrollGrant{}, &enroll.RefusalError{Reason: tok}
+	case "auth-down":
+		return enroll.EnrollGrant{}, fmt.Errorf("%w: auth unreachable", enroll.ErrVerifierUnavailable)
+	case "grant":
+		return enroll.EnrollGrant{TenantID: apiTenant, SpiffePaths: []string{"spiffe://infra.example.org/svc/a"}}, nil
+	}
 	return enroll.EnrollGrant{}, authz.ErrForbidden
 }
 
@@ -257,10 +268,10 @@ func TestEnrollRequestsJobs(t *testing.T) {
 	mustStatus(t, f.req(t, "POST", Prefix+"/issuers", "admin", `{"name":"root","type":"self_signed","trust_domain":"example.org","is_default":true}`), http.StatusCreated)
 
 	// /enroll is a public, enrollment-token-authenticated route. The test
-	// verifier rejects tokens, so a bogus token is forbidden; inline auto-approve
+	// verifier refuses a bogus token (401, opaque reason); inline auto-approve
 	// issuance is covered by the enroll service tests (fake verifier).
 	w := f.req(t, "POST", Prefix+"/enroll", "admin", `{"spiffe_id":"spiffe://example.org/agent","enrollment_token":"bogus"}`)
-	mustStatus(t, w, http.StatusForbidden)
+	mustStatus(t, w, http.StatusUnauthorized)
 
 	mustStatus(t, f.req(t, "GET", Prefix+"/requests", "admin", ""), http.StatusOK)
 

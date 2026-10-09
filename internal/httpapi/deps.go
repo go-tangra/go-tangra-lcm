@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -89,12 +90,16 @@ func (e *DetailError) Unwrap() error { return e.Err }
 
 // fail writes a domain error (with detail when present).
 func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
+	failDetail(w, r, s.rt.Logger(), err)
+}
+
+func failDetail(w http.ResponseWriter, r *http.Request, log *slog.Logger, err error) {
 	var de *DetailError
 	if errors.As(err, &de) {
 		WriteDetail(w, de.Err, de.Detail)
 		return
 	}
-	Fail(w, r, s.rt.Logger(), err)
+	Fail(w, r, log, err)
 }
 
 func limitParam(r *http.Request) int {
