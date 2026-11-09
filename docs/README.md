@@ -46,6 +46,7 @@ issuer form offers only these; others are refused):
 | Provider | Credentials | Notes |
 |---|---|---|
 | Cloudflare | `api_token`, optional `zone_id` | Token with **Zone → DNS → Edit** on the zone. Without `zone_id` it also needs **Zone → Zone → Read** to find the zone. lcm creates the `_acme-challenge` TXT record, waits (up to 2 min) until the zone's name servers serve it, and deletes it afterwards. |
+| Google Cloud DNS (`gcloud`) | `service_account_key` (the service account's JSON key file, pasted as is or base64-encoded), optional `project` (default: the key's `project_id`), optional `managed_zone` (the zone's *name*, e.g. `example-com`) | Service account with **DNS Administrator** (`roles/dns.admin`) on the project, or a custom role with `dns.changes.create`, `dns.changes.get`, `dns.resourceRecordSets.list` and `dns.managedZones.get` (plus `dns.managedZones.list` without `managed_zone`). Without `managed_zone` lcm uses the closest enclosing *public* zone in the project. Cloud DNS holds all TXT values of a name in one record set: lcm adds its value to `_acme-challenge` (keeping other values, e.g. of a wildcard order), waits (up to 2 min) until the zone's name servers serve it, and removes only its value afterwards. Only `oauth2.googleapis.com` and `dns.googleapis.com` are contacted; the key's `token_uri` is ignored. |
 | Tangra DNS (`freya-dns`) | none | Zones hosted by the platform DNS module; lcm acts through its mesh identity. |
 | Manual | none | The TXT record is placed out of band (or a test CA that always validates). |
 
