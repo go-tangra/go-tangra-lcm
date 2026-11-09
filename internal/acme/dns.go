@@ -99,10 +99,10 @@ type ProviderInfo struct {
 }
 
 // supported names the providers NewProviderWith can build.
-var supported = map[string]bool{"cloudflare": true, "manual": true, FreyaDNS: true}
+var supported = map[string]bool{"cloudflare": true, "gcloud": true, "manual": true, FreyaDNS: true}
 
 // registry is the static list of DNS providers the module knows. Only those in
-// `supported` have an adapter (manual, cloudflare, freya-dns); the API offers
+// `supported` have an adapter (manual, cloudflare, gcloud, freya-dns); the API offers
 // only those, and real adapters for the rest can be added later without
 // changing this registry's shape. Field keys are stable identifiers used as the
 // sealed-settings JSON keys; secret fields are marked so the caller seals and
@@ -130,8 +130,9 @@ var registry = []ProviderInfo{
 		Name:        "gcloud",
 		DisplayName: "Google Cloud DNS",
 		Fields: []ProviderField{
-			{Key: "project", Label: "Project ID", Secret: false, Required: true},
 			{Key: "service_account_key", Label: "Service Account Key (JSON)", Secret: true, Required: true},
+			{Key: "project", Label: "Project ID (optional; default: the key's project)", Secret: false, Required: false},
+			{Key: "managed_zone", Label: "Managed Zone Name (optional)", Secret: false, Required: false},
 		},
 	},
 	{
@@ -258,7 +259,7 @@ func NewProvider(name string, creds map[string]string) (DNSProvider, error) {
 
 // NewProviderWith constructs a DNSProvider for a registry name. It returns the
 // no-op/manual recorder for "manual", the Cloudflare API provider for
-// "cloudflare", the Freya DNS provider for "freya-dns"
+// "cloudflare", the Cloud DNS provider for "gcloud", the Freya DNS provider for "freya-dns"
 // when deps carry a DNS client and a tenant, and ErrUnsupportedProvider for
 // every registered-but-not-yet-implemented provider, for freya-dns without its
 // dependencies and for unknown names. It never panics and never includes a
@@ -275,6 +276,8 @@ func NewProviderWith(name string, creds map[string]string, deps ProviderDeps) (D
 		return &NoopProvider{}, nil
 	case "cloudflare":
 		return NewCloudflare(creds, CloudflareOptions{})
+	case "gcloud":
+		return NewGCloud(creds, GCloudOptions{})
 	case FreyaDNS:
 		if deps.FreyaDNS == nil || deps.TenantID == "" {
 			return nil, ErrUnsupportedProvider
