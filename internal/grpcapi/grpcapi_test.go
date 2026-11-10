@@ -355,3 +355,86 @@ func TestCertificatesDownloadWithoutStoredKey(t *testing.T) {
 		}
 	})
 }
+
+// TestCertificatesFind pins what the deployer's "Deploy" dialog relies on:
+// live host certificates found by host name, exact names first, then the
+// wildcard covering it, then partial matches; SVIDs, superseded, revoked and
+// expired certificates and other tenants never appear.
+func TestCertificatesFind(t *testing.T) {
+	f := newGRPC(t)
+	ctx := context.Background()
+	certs := &CertificatesServer{Svc: f.svid.Svc}
+	now := time.Now()
+	old := "01a1c000-0000-7000-8000-000000000099"
+	add := func(id, subject, sans, status string, mod func(*store.IssuedCertificate)) {
+		c := store.IssuedCertificate{ID: id, TenantID: gTenant, IssuerID: "01a1c000-0000-7000-8000-0000000000aa", Kind: "generic", Serial: "1" + id[len(id)-2:],
+			Subject: subject, SANs: []byte(sans), NotBefore: now.Add(-time.Hour), NotAfter: now.Add(90 * 24 * time.Hour), Status: status, KeySealed: []byte{1}}
+		if mod != nil {
+			mod(&c)
+		}
+		f.mem.Certificates[c.ID] = c // other tenants and superseded rows need no issuer
+	}
+	add("01a1c000-0000-7000-8000-000000000001", "pbx.infra.example.org", `["pbx.infra.example.org"]`, "active", nil)
+	add("01a1c000-0000-7000-8000-000000000002", "*.infra.example.org", `["*.infra.example.org","infra.example.org"]`, "active", nil)
+	add("01a1c000-0000-7000-8000-000000000003", "pbx2.infra.example.org", `["pbx2.infra.example.org"]`, "expiring", func(c *store.IssuedCertificate) { c.KeySealed = nil })
+	add(old, "pbx.infra.example.org", `["pbx.infra.example.org"]`, "active", func(c *store.IssuedCertificate) { s := "x"; c.SupersededBy = &s })
+	add("01a1c000-0000-7000-8000-000000000005", "pbx.infra.example.org", `["pbx.infra.example.org"]`, "revoked", nil)
+	add("01a1c000-0000-7000-8000-000000000006", "pbx.infra.example.org", `["pbx.infra.example.org"]`, "active", func(c *store.IssuedCertificate) { c.NotAfter = now.Add(-time.Minute) })
+	add("01a1c000-0000-7000-8000-000000000007", "spiffe://infra.example.org/svc/pbx", `[]`, "active", func(c *store.IssuedCertificate) { c.SpiffeID = "spiffe://infra.example.org/svc/pbx" })
+	add("01a1c000-0000-7000-8000-000000000008", "pbx.infra.example.org", `[]`, "active", func(c *store.IssuedCertificate) { c.TenantID = "22222222-2222-7222-8222-222222222222" })
+
+	ids := func(r *lcmv1.FindCertificatesResponse) string {
+		var out []string
+		for _, c := range r.GetCertificates() {
+			out = append(out, c.GetId()[len(c.GetId())-1:])
+		}
+		return strings.Join(out, ",")
+	}
+	withCaller("spiffe://example.org/svc/deployer", true, func() {
+		for _, tc := range []struct{ name, want string }{
+			{"PBX.infra.example.org.", "1,2"}, // exact, then the covering wildcard
+			{"pbx", "1,3"},
+			{"web.infra.example.org", "2"},
+			{"*.infra.example.org", "2"},
+			{"nothing.example.com", ""},
+		} {
+			r, err := certs.Find(ctx, &lcmv1.FindCertificatesRequest{TenantId: gTenant, Name: tc.name})
+			if err != nil {
+				t.Fatalf("Find %q: %v", tc.name, err)
+			}
+			if got := ids(r); got != tc.want {
+				t.Fatalf("Find %q = %s, want %s", tc.name, got, tc.want)
+			}
+		}
+		r, _ := certs.Find(ctx, &lcmv1.FindCertificatesRequest{TenantId: gTenant, Name: "pbx", Limit: 1})
+		if c := r.GetCertificates(); len(c) != 1 || !c[0].GetHasKey() || c[0].GetSubject() != "pbx.infra.example.org" || c[0].GetSerial() == "" || c[0].GetNotAfter() == nil {
+			t.Fatalf("Find limit 1 = %+v", c)
+		}
+		r, _ = certs.Find(ctx, &lcmv1.FindCertificatesRequest{TenantId: gTenant, Name: "pbx2"})
+		if c := r.GetCertificates(); len(c) != 1 || c[0].GetHasKey() {
+			t.Fatalf("Find pbx2 has_key = %+v", c)
+		}
+		for _, bad := range []string{"", "pbx%", "a b", strings.Repeat("a", 254)} {
+			_, err := certs.Find(ctx, &lcmv1.FindCertificatesRequest{TenantId: gTenant, Name: bad})
+			if st := status.Convert(err); st.Code() != codes.InvalidArgument || !strings.HasPrefix(st.Message(), "name: ") {
+				t.Fatalf("Find %q = %v (%q), want InvalidArgument naming the field", bad, st.Code(), st.Message())
+			}
+		}
+	})
+}
+
+// TestCertificatesDownloadNotAnID: a serial or host name in place of the
+// certificate id is not_found, never temporarily_unavailable (which callers
+// retry).
+func TestCertificatesDownloadNotAnID(t *testing.T) {
+	f := newGRPC(t)
+	certs := &CertificatesServer{Svc: f.svid.Svc}
+	withCaller("spiffe://example.org/svc/deployer", true, func() {
+		for _, id := range []string{"511981003075791050309003028073283152729555", "pbx.infra.example.org", ""} {
+			_, err := certs.Download(context.Background(), &lcmv1.DownloadRequest{TenantId: gTenant, CertificateId: id})
+			if st := status.Convert(err); st.Code() != codes.NotFound {
+				t.Fatalf("Download %q = %v (%q), want NotFound", id, st.Code(), st.Message())
+			}
+		}
+	})
+}

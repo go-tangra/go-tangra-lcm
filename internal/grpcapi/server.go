@@ -57,6 +57,7 @@ func caller(ctx context.Context, tenantID string) (authz.Subjects, error) {
 // grpcError maps a service error to a gRPC status.
 func grpcError(err error) error {
 	var re *enroll.RefusalError
+	var ve *issue.ValidationError
 	switch {
 	case errors.As(err, &re):
 		// An enrollment-token refusal keeps its reason as the message.
@@ -80,6 +81,9 @@ func grpcError(err error) error {
 		// A permanent property of the certificate: callers (inventory,
 		// deployer) match this message and must not retry it as transient.
 		return status.Error(codes.InvalidArgument, "no stored private key")
+	case errors.As(err, &ve):
+		// A rejected input (field and message are client-safe), not a fault.
+		return status.Error(codes.InvalidArgument, ve.Field+": "+ve.Message)
 	}
 	return status.Error(codes.Unavailable, "temporarily_unavailable")
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/go-tangra/go-tangra-lcm/v4/internal/audit"
@@ -373,6 +375,44 @@ func (s *Service) DownloadForService(ctx context.Context, tenantID, callerSPIFFE
 		b.KeyPEM = key
 	}
 	return b, nil
+}
+
+// Find limits.
+const (
+	FindDefaultLimit = 20
+	FindMaxLimit     = 50
+)
+
+// findNameRE is what Find accepts: host name characters, optionally a
+// leading wildcard label. It also keeps LIKE metacharacters out of the query.
+var findNameRE = regexp.MustCompile(`^(\*\.)?[a-z0-9.-]{1,253}$`)
+
+// FindForService lists the tenant's live host certificates for a host name
+// (or part of one) on behalf of a platform module (lcm.v1.Certificates/Find,
+// policed by policy.yaml): exact matches first, then the wildcard covering
+// name, then names containing it. Metadata only, never key material.
+func (s *Service) FindForService(ctx context.Context, tenantID, name string, limit int) ([]CertificateView, error) {
+	name = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(name), "."))
+	if !findNameRE.MatchString(name) {
+		return nil, invalid("name", "must be a host name or part of one")
+	}
+	if limit <= 0 {
+		limit = FindDefaultLimit
+	}
+	limit = min(limit, FindMaxLimit)
+	wildcard := ""
+	if _, parent, ok := strings.Cut(name, "."); ok && parent != "" && !strings.HasPrefix(name, "*.") {
+		wildcard = "*." + parent
+	}
+	rows, err := s.st.FindCertificates(ctx, tenantID, name, wildcard, s.now(), limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]CertificateView, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, s.certView(r, authz.Permissions{}))
+	}
+	return out, nil
 }
 
 func (s *Service) Download(ctx context.Context, subj authz.Subjects, certID string) (Bundle, error) {

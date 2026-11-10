@@ -96,6 +96,7 @@ type Certificate struct {
 	NotAfter          *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=not_after,json=notAfter,proto3" json:"not_after,omitempty"`
 	FingerprintSha256 string                 `protobuf:"bytes,9,opt,name=fingerprint_sha256,json=fingerprintSha256,proto3" json:"fingerprint_sha256,omitempty"`
 	Status            CertificateStatus      `protobuf:"varint,10,opt,name=status,proto3,enum=lcm.v1.CertificateStatus" json:"status,omitempty"`
+	HasKey            bool                   `protobuf:"varint,11,opt,name=has_key,json=hasKey,proto3" json:"has_key,omitempty"` // lcm retains the private key (set by Find)
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -198,6 +199,13 @@ func (x *Certificate) GetStatus() CertificateStatus {
 		return x.Status
 	}
 	return CertificateStatus_CERTIFICATE_STATUS_UNSPECIFIED
+}
+
+func (x *Certificate) GetHasKey() bool {
+	if x != nil {
+		return x.HasKey
+	}
+	return false
 }
 
 type CertificateBundle struct {
@@ -336,6 +344,110 @@ func (x *DownloadRequest) GetIncludeKey() bool {
 	return false
 }
 
+type FindCertificatesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`    // host name or part of one (case-insensitive)
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"` // default 20, at most 50
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindCertificatesRequest) Reset() {
+	*x = FindCertificatesRequest{}
+	mi := &file_lcm_v1_lcm_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindCertificatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindCertificatesRequest) ProtoMessage() {}
+
+func (x *FindCertificatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_v1_lcm_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindCertificatesRequest.ProtoReflect.Descriptor instead.
+func (*FindCertificatesRequest) Descriptor() ([]byte, []int) {
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *FindCertificatesRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *FindCertificatesRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *FindCertificatesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type FindCertificatesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Certificates  []*Certificate         `protobuf:"bytes,1,rep,name=certificates,proto3" json:"certificates,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindCertificatesResponse) Reset() {
+	*x = FindCertificatesResponse{}
+	mi := &file_lcm_v1_lcm_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindCertificatesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindCertificatesResponse) ProtoMessage() {}
+
+func (x *FindCertificatesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_lcm_v1_lcm_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindCertificatesResponse.ProtoReflect.Descriptor instead.
+func (*FindCertificatesResponse) Descriptor() ([]byte, []int) {
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *FindCertificatesResponse) GetCertificates() []*Certificate {
+	if x != nil {
+		return x.Certificates
+	}
+	return nil
+}
+
 type IssueRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	TenantId        string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -351,7 +463,7 @@ type IssueRequest struct {
 
 func (x *IssueRequest) Reset() {
 	*x = IssueRequest{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[3]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -363,7 +475,7 @@ func (x *IssueRequest) String() string {
 func (*IssueRequest) ProtoMessage() {}
 
 func (x *IssueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[3]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -376,7 +488,7 @@ func (x *IssueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IssueRequest.ProtoReflect.Descriptor instead.
 func (*IssueRequest) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{3}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *IssueRequest) GetTenantId() string {
@@ -439,7 +551,7 @@ type RenewRequest struct {
 
 func (x *RenewRequest) Reset() {
 	*x = RenewRequest{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[4]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -451,7 +563,7 @@ func (x *RenewRequest) String() string {
 func (*RenewRequest) ProtoMessage() {}
 
 func (x *RenewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[4]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -464,7 +576,7 @@ func (x *RenewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewRequest.ProtoReflect.Descriptor instead.
 func (*RenewRequest) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{4}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RenewRequest) GetTenantId() string {
@@ -499,7 +611,7 @@ type RevokeRequest struct {
 
 func (x *RevokeRequest) Reset() {
 	*x = RevokeRequest{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[5]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -511,7 +623,7 @@ func (x *RevokeRequest) String() string {
 func (*RevokeRequest) ProtoMessage() {}
 
 func (x *RevokeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[5]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -524,7 +636,7 @@ func (x *RevokeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeRequest.ProtoReflect.Descriptor instead.
 func (*RevokeRequest) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{5}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RevokeRequest) GetTenantId() string {
@@ -557,7 +669,7 @@ type RevokeResponse struct {
 
 func (x *RevokeResponse) Reset() {
 	*x = RevokeResponse{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[6]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -569,7 +681,7 @@ func (x *RevokeResponse) String() string {
 func (*RevokeResponse) ProtoMessage() {}
 
 func (x *RevokeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[6]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -582,7 +694,7 @@ func (x *RevokeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeResponse.ProtoReflect.Descriptor instead.
 func (*RevokeResponse) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{6}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RevokeResponse) GetRevoked() bool {
@@ -603,7 +715,7 @@ type VerifyRequest struct {
 
 func (x *VerifyRequest) Reset() {
 	*x = VerifyRequest{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[7]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -615,7 +727,7 @@ func (x *VerifyRequest) String() string {
 func (*VerifyRequest) ProtoMessage() {}
 
 func (x *VerifyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[7]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -628,7 +740,7 @@ func (x *VerifyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyRequest.ProtoReflect.Descriptor instead.
 func (*VerifyRequest) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{7}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *VerifyRequest) GetTenantId() string {
@@ -663,7 +775,7 @@ type VerifyResponse struct {
 
 func (x *VerifyResponse) Reset() {
 	*x = VerifyResponse{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[8]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -675,7 +787,7 @@ func (x *VerifyResponse) String() string {
 func (*VerifyResponse) ProtoMessage() {}
 
 func (x *VerifyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[8]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -688,7 +800,7 @@ func (x *VerifyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyResponse.ProtoReflect.Descriptor instead.
 func (*VerifyResponse) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{8}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *VerifyResponse) GetValid() bool {
@@ -722,7 +834,7 @@ type TrustBundleRequest struct {
 
 func (x *TrustBundleRequest) Reset() {
 	*x = TrustBundleRequest{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[9]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -734,7 +846,7 @@ func (x *TrustBundleRequest) String() string {
 func (*TrustBundleRequest) ProtoMessage() {}
 
 func (x *TrustBundleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[9]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -747,7 +859,7 @@ func (x *TrustBundleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrustBundleRequest.ProtoReflect.Descriptor instead.
 func (*TrustBundleRequest) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{9}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TrustBundleRequest) GetTenantId() string {
@@ -774,7 +886,7 @@ type TrustBundleResponse struct {
 
 func (x *TrustBundleResponse) Reset() {
 	*x = TrustBundleResponse{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[10]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -786,7 +898,7 @@ func (x *TrustBundleResponse) String() string {
 func (*TrustBundleResponse) ProtoMessage() {}
 
 func (x *TrustBundleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[10]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -799,7 +911,7 @@ func (x *TrustBundleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrustBundleResponse.ProtoReflect.Descriptor instead.
 func (*TrustBundleResponse) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{10}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TrustBundleResponse) GetBundlePem() string {
@@ -828,7 +940,7 @@ type EnrollRequest struct {
 
 func (x *EnrollRequest) Reset() {
 	*x = EnrollRequest{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[11]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -840,7 +952,7 @@ func (x *EnrollRequest) String() string {
 func (*EnrollRequest) ProtoMessage() {}
 
 func (x *EnrollRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[11]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -853,7 +965,7 @@ func (x *EnrollRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnrollRequest.ProtoReflect.Descriptor instead.
 func (*EnrollRequest) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{11}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *EnrollRequest) GetTenantId() string {
@@ -897,7 +1009,7 @@ type PublishRequest struct {
 
 func (x *PublishRequest) Reset() {
 	*x = PublishRequest{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[12]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -909,7 +1021,7 @@ func (x *PublishRequest) String() string {
 func (*PublishRequest) ProtoMessage() {}
 
 func (x *PublishRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[12]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -922,7 +1034,7 @@ func (x *PublishRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishRequest.ProtoReflect.Descriptor instead.
 func (*PublishRequest) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{12}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *PublishRequest) GetTenantId() string {
@@ -969,7 +1081,7 @@ type PublishResponse struct {
 
 func (x *PublishResponse) Reset() {
 	*x = PublishResponse{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[13]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -981,7 +1093,7 @@ func (x *PublishResponse) String() string {
 func (*PublishResponse) ProtoMessage() {}
 
 func (x *PublishResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[13]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -994,7 +1106,7 @@ func (x *PublishResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishResponse.ProtoReflect.Descriptor instead.
 func (*PublishResponse) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{13}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *PublishResponse) GetEventId() string {
@@ -1014,7 +1126,7 @@ type WatchRequest struct {
 
 func (x *WatchRequest) Reset() {
 	*x = WatchRequest{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[14]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1026,7 +1138,7 @@ func (x *WatchRequest) String() string {
 func (*WatchRequest) ProtoMessage() {}
 
 func (x *WatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[14]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1039,7 +1151,7 @@ func (x *WatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchRequest.ProtoReflect.Descriptor instead.
 func (*WatchRequest) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{14}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *WatchRequest) GetTenantId() string {
@@ -1069,7 +1181,7 @@ type CertificateUpdate struct {
 
 func (x *CertificateUpdate) Reset() {
 	*x = CertificateUpdate{}
-	mi := &file_lcm_v1_lcm_proto_msgTypes[15]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1081,7 +1193,7 @@ func (x *CertificateUpdate) String() string {
 func (*CertificateUpdate) ProtoMessage() {}
 
 func (x *CertificateUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_lcm_v1_lcm_proto_msgTypes[15]
+	mi := &file_lcm_v1_lcm_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1094,7 +1206,7 @@ func (x *CertificateUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateUpdate.ProtoReflect.Descriptor instead.
 func (*CertificateUpdate) Descriptor() ([]byte, []int) {
-	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{15}
+	return file_lcm_v1_lcm_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CertificateUpdate) GetId() string {
@@ -1136,7 +1248,7 @@ var File_lcm_v1_lcm_proto protoreflect.FileDescriptor
 
 const file_lcm_v1_lcm_proto_rawDesc = "" +
 	"\n" +
-	"\x10lcm/v1/lcm.proto\x12\x06lcm.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf3\x02\n" +
+	"\x10lcm/v1/lcm.proto\x12\x06lcm.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8c\x03\n" +
 	"\vCertificate\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06serial\x18\x02 \x01(\tR\x06serial\x12\x1b\n" +
@@ -1149,7 +1261,8 @@ const file_lcm_v1_lcm_proto_rawDesc = "" +
 	"\tnot_after\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\bnotAfter\x12-\n" +
 	"\x12fingerprint_sha256\x18\t \x01(\tR\x11fingerprintSha256\x121\n" +
 	"\x06status\x18\n" +
-	" \x01(\x0e2\x19.lcm.v1.CertificateStatusR\x06status\"\xba\x01\n" +
+	" \x01(\x0e2\x19.lcm.v1.CertificateStatusR\x06status\x12\x17\n" +
+	"\ahas_key\x18\v \x01(\bR\x06hasKey\"\xba\x01\n" +
 	"\x11CertificateBundle\x125\n" +
 	"\vcertificate\x18\x01 \x01(\v2\x13.lcm.v1.CertificateR\vcertificate\x12\x19\n" +
 	"\bcert_pem\x18\x02 \x01(\tR\acertPem\x12\x1b\n" +
@@ -1161,7 +1274,13 @@ const file_lcm_v1_lcm_proto_rawDesc = "" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12%\n" +
 	"\x0ecertificate_id\x18\x02 \x01(\tR\rcertificateId\x12\x1f\n" +
 	"\vinclude_key\x18\x03 \x01(\bR\n" +
-	"includeKey\"\xeb\x01\n" +
+	"includeKey\"`\n" +
+	"\x17FindCertificatesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"S\n" +
+	"\x18FindCertificatesResponse\x127\n" +
+	"\fcertificates\x18\x01 \x03(\v2\x13.lcm.v1.CertificateR\fcertificates\"\xeb\x01\n" +
 	"\fIssueRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\tissuer_id\x18\x02 \x01(\tR\bissuerId\x12\x1b\n" +
@@ -1235,9 +1354,10 @@ const file_lcm_v1_lcm_proto_rawDesc = "" +
 	"\x06Events\x12:\n" +
 	"\aPublish\x12\x16.lcm.v1.PublishRequest\x1a\x17.lcm.v1.PublishResponse2C\n" +
 	"\x05Agent\x12:\n" +
-	"\x05Watch\x12\x14.lcm.v1.WatchRequest\x1a\x19.lcm.v1.CertificateUpdate0\x012N\n" +
+	"\x05Watch\x12\x14.lcm.v1.WatchRequest\x1a\x19.lcm.v1.CertificateUpdate0\x012\x99\x01\n" +
 	"\fCertificates\x12>\n" +
-	"\bDownload\x12\x17.lcm.v1.DownloadRequest\x1a\x19.lcm.v1.CertificateBundleBBZ@github.com/go-tangra/go-tangra-lcm/sdk/v4/api/proto/lcm/v1;lcmv1b\x06proto3"
+	"\bDownload\x12\x17.lcm.v1.DownloadRequest\x1a\x19.lcm.v1.CertificateBundle\x12I\n" +
+	"\x04Find\x12\x1f.lcm.v1.FindCertificatesRequest\x1a .lcm.v1.FindCertificatesResponseBBZ@github.com/go-tangra/go-tangra-lcm/sdk/v4/api/proto/lcm/v1;lcmv1b\x06proto3"
 
 var (
 	file_lcm_v1_lcm_proto_rawDescOnce sync.Once
@@ -1252,57 +1372,62 @@ func file_lcm_v1_lcm_proto_rawDescGZIP() []byte {
 }
 
 var file_lcm_v1_lcm_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_lcm_v1_lcm_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_lcm_v1_lcm_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_lcm_v1_lcm_proto_goTypes = []any{
-	(CertificateStatus)(0),        // 0: lcm.v1.CertificateStatus
-	(*Certificate)(nil),           // 1: lcm.v1.Certificate
-	(*CertificateBundle)(nil),     // 2: lcm.v1.CertificateBundle
-	(*DownloadRequest)(nil),       // 3: lcm.v1.DownloadRequest
-	(*IssueRequest)(nil),          // 4: lcm.v1.IssueRequest
-	(*RenewRequest)(nil),          // 5: lcm.v1.RenewRequest
-	(*RevokeRequest)(nil),         // 6: lcm.v1.RevokeRequest
-	(*RevokeResponse)(nil),        // 7: lcm.v1.RevokeResponse
-	(*VerifyRequest)(nil),         // 8: lcm.v1.VerifyRequest
-	(*VerifyResponse)(nil),        // 9: lcm.v1.VerifyResponse
-	(*TrustBundleRequest)(nil),    // 10: lcm.v1.TrustBundleRequest
-	(*TrustBundleResponse)(nil),   // 11: lcm.v1.TrustBundleResponse
-	(*EnrollRequest)(nil),         // 12: lcm.v1.EnrollRequest
-	(*PublishRequest)(nil),        // 13: lcm.v1.PublishRequest
-	(*PublishResponse)(nil),       // 14: lcm.v1.PublishResponse
-	(*WatchRequest)(nil),          // 15: lcm.v1.WatchRequest
-	(*CertificateUpdate)(nil),     // 16: lcm.v1.CertificateUpdate
-	(*timestamppb.Timestamp)(nil), // 17: google.protobuf.Timestamp
+	(CertificateStatus)(0),           // 0: lcm.v1.CertificateStatus
+	(*Certificate)(nil),              // 1: lcm.v1.Certificate
+	(*CertificateBundle)(nil),        // 2: lcm.v1.CertificateBundle
+	(*DownloadRequest)(nil),          // 3: lcm.v1.DownloadRequest
+	(*FindCertificatesRequest)(nil),  // 4: lcm.v1.FindCertificatesRequest
+	(*FindCertificatesResponse)(nil), // 5: lcm.v1.FindCertificatesResponse
+	(*IssueRequest)(nil),             // 6: lcm.v1.IssueRequest
+	(*RenewRequest)(nil),             // 7: lcm.v1.RenewRequest
+	(*RevokeRequest)(nil),            // 8: lcm.v1.RevokeRequest
+	(*RevokeResponse)(nil),           // 9: lcm.v1.RevokeResponse
+	(*VerifyRequest)(nil),            // 10: lcm.v1.VerifyRequest
+	(*VerifyResponse)(nil),           // 11: lcm.v1.VerifyResponse
+	(*TrustBundleRequest)(nil),       // 12: lcm.v1.TrustBundleRequest
+	(*TrustBundleResponse)(nil),      // 13: lcm.v1.TrustBundleResponse
+	(*EnrollRequest)(nil),            // 14: lcm.v1.EnrollRequest
+	(*PublishRequest)(nil),           // 15: lcm.v1.PublishRequest
+	(*PublishResponse)(nil),          // 16: lcm.v1.PublishResponse
+	(*WatchRequest)(nil),             // 17: lcm.v1.WatchRequest
+	(*CertificateUpdate)(nil),        // 18: lcm.v1.CertificateUpdate
+	(*timestamppb.Timestamp)(nil),    // 19: google.protobuf.Timestamp
 }
 var file_lcm_v1_lcm_proto_depIdxs = []int32{
-	17, // 0: lcm.v1.Certificate.not_before:type_name -> google.protobuf.Timestamp
-	17, // 1: lcm.v1.Certificate.not_after:type_name -> google.protobuf.Timestamp
+	19, // 0: lcm.v1.Certificate.not_before:type_name -> google.protobuf.Timestamp
+	19, // 1: lcm.v1.Certificate.not_after:type_name -> google.protobuf.Timestamp
 	0,  // 2: lcm.v1.Certificate.status:type_name -> lcm.v1.CertificateStatus
 	1,  // 3: lcm.v1.CertificateBundle.certificate:type_name -> lcm.v1.Certificate
-	0,  // 4: lcm.v1.VerifyResponse.status:type_name -> lcm.v1.CertificateStatus
-	17, // 5: lcm.v1.CertificateUpdate.not_after:type_name -> google.protobuf.Timestamp
-	4,  // 6: lcm.v1.SVID.Issue:input_type -> lcm.v1.IssueRequest
-	5,  // 7: lcm.v1.SVID.Renew:input_type -> lcm.v1.RenewRequest
-	6,  // 8: lcm.v1.SVID.Revoke:input_type -> lcm.v1.RevokeRequest
-	8,  // 9: lcm.v1.SVID.Verify:input_type -> lcm.v1.VerifyRequest
-	10, // 10: lcm.v1.SVID.GetTrustBundle:input_type -> lcm.v1.TrustBundleRequest
-	12, // 11: lcm.v1.Enrollment.Enroll:input_type -> lcm.v1.EnrollRequest
-	13, // 12: lcm.v1.Events.Publish:input_type -> lcm.v1.PublishRequest
-	15, // 13: lcm.v1.Agent.Watch:input_type -> lcm.v1.WatchRequest
-	3,  // 14: lcm.v1.Certificates.Download:input_type -> lcm.v1.DownloadRequest
-	2,  // 15: lcm.v1.SVID.Issue:output_type -> lcm.v1.CertificateBundle
-	2,  // 16: lcm.v1.SVID.Renew:output_type -> lcm.v1.CertificateBundle
-	7,  // 17: lcm.v1.SVID.Revoke:output_type -> lcm.v1.RevokeResponse
-	9,  // 18: lcm.v1.SVID.Verify:output_type -> lcm.v1.VerifyResponse
-	11, // 19: lcm.v1.SVID.GetTrustBundle:output_type -> lcm.v1.TrustBundleResponse
-	2,  // 20: lcm.v1.Enrollment.Enroll:output_type -> lcm.v1.CertificateBundle
-	14, // 21: lcm.v1.Events.Publish:output_type -> lcm.v1.PublishResponse
-	16, // 22: lcm.v1.Agent.Watch:output_type -> lcm.v1.CertificateUpdate
-	2,  // 23: lcm.v1.Certificates.Download:output_type -> lcm.v1.CertificateBundle
-	15, // [15:24] is the sub-list for method output_type
-	6,  // [6:15] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	1,  // 4: lcm.v1.FindCertificatesResponse.certificates:type_name -> lcm.v1.Certificate
+	0,  // 5: lcm.v1.VerifyResponse.status:type_name -> lcm.v1.CertificateStatus
+	19, // 6: lcm.v1.CertificateUpdate.not_after:type_name -> google.protobuf.Timestamp
+	6,  // 7: lcm.v1.SVID.Issue:input_type -> lcm.v1.IssueRequest
+	7,  // 8: lcm.v1.SVID.Renew:input_type -> lcm.v1.RenewRequest
+	8,  // 9: lcm.v1.SVID.Revoke:input_type -> lcm.v1.RevokeRequest
+	10, // 10: lcm.v1.SVID.Verify:input_type -> lcm.v1.VerifyRequest
+	12, // 11: lcm.v1.SVID.GetTrustBundle:input_type -> lcm.v1.TrustBundleRequest
+	14, // 12: lcm.v1.Enrollment.Enroll:input_type -> lcm.v1.EnrollRequest
+	15, // 13: lcm.v1.Events.Publish:input_type -> lcm.v1.PublishRequest
+	17, // 14: lcm.v1.Agent.Watch:input_type -> lcm.v1.WatchRequest
+	3,  // 15: lcm.v1.Certificates.Download:input_type -> lcm.v1.DownloadRequest
+	4,  // 16: lcm.v1.Certificates.Find:input_type -> lcm.v1.FindCertificatesRequest
+	2,  // 17: lcm.v1.SVID.Issue:output_type -> lcm.v1.CertificateBundle
+	2,  // 18: lcm.v1.SVID.Renew:output_type -> lcm.v1.CertificateBundle
+	9,  // 19: lcm.v1.SVID.Revoke:output_type -> lcm.v1.RevokeResponse
+	11, // 20: lcm.v1.SVID.Verify:output_type -> lcm.v1.VerifyResponse
+	13, // 21: lcm.v1.SVID.GetTrustBundle:output_type -> lcm.v1.TrustBundleResponse
+	2,  // 22: lcm.v1.Enrollment.Enroll:output_type -> lcm.v1.CertificateBundle
+	16, // 23: lcm.v1.Events.Publish:output_type -> lcm.v1.PublishResponse
+	18, // 24: lcm.v1.Agent.Watch:output_type -> lcm.v1.CertificateUpdate
+	2,  // 25: lcm.v1.Certificates.Download:output_type -> lcm.v1.CertificateBundle
+	5,  // 26: lcm.v1.Certificates.Find:output_type -> lcm.v1.FindCertificatesResponse
+	17, // [17:27] is the sub-list for method output_type
+	7,  // [7:17] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_lcm_v1_lcm_proto_init() }
@@ -1316,7 +1441,7 @@ func file_lcm_v1_lcm_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_lcm_v1_lcm_proto_rawDesc), len(file_lcm_v1_lcm_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   16,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

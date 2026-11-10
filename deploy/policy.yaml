@@ -27,9 +27,10 @@ rules:
     operations: ["/lcm.v1.Enrollment/Enroll"]
     effect: allow
   - id: deployer-download
+    # Find: the Deploy dialog looks certificates up by host name.
     from: ["spiffe://example.org/svc/deployer"]
     to: ["lcm"]
-    operations: ["/lcm.v1.Certificates/Download"]
+    operations: ["/lcm.v1.Certificates/Download", "/lcm.v1.Certificates/Find"]
     effect: allow
   - id: inventory-download
     # inventory relays certificates to its agents (feature 033): it fetches

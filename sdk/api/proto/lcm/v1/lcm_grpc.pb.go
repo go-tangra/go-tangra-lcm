@@ -620,6 +620,7 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	Certificates_Download_FullMethodName = "/lcm.v1.Certificates/Download"
+	Certificates_Find_FullMethodName     = "/lcm.v1.Certificates/Find"
 )
 
 // CertificatesClient is the client API for Certificates service.
@@ -632,6 +633,10 @@ const (
 // gateway. Used by the deployer to install certificates onto infrastructure.
 type CertificatesClient interface {
 	Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (*CertificateBundle, error)
+	// Find lists the tenant's live certificates (active or expiring, not
+	// superseded) for a host name: exact subject or SAN first, then wildcard
+	// certificates covering it, then names containing it. Metadata only.
+	Find(ctx context.Context, in *FindCertificatesRequest, opts ...grpc.CallOption) (*FindCertificatesResponse, error)
 }
 
 type certificatesClient struct {
@@ -652,6 +657,16 @@ func (c *certificatesClient) Download(ctx context.Context, in *DownloadRequest, 
 	return out, nil
 }
 
+func (c *certificatesClient) Find(ctx context.Context, in *FindCertificatesRequest, opts ...grpc.CallOption) (*FindCertificatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FindCertificatesResponse)
+	err := c.cc.Invoke(ctx, Certificates_Find_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CertificatesServer is the server API for Certificates service.
 // All implementations must embed UnimplementedCertificatesServer
 // for forward compatibility.
@@ -662,6 +677,10 @@ func (c *certificatesClient) Download(ctx context.Context, in *DownloadRequest, 
 // gateway. Used by the deployer to install certificates onto infrastructure.
 type CertificatesServer interface {
 	Download(context.Context, *DownloadRequest) (*CertificateBundle, error)
+	// Find lists the tenant's live certificates (active or expiring, not
+	// superseded) for a host name: exact subject or SAN first, then wildcard
+	// certificates covering it, then names containing it. Metadata only.
+	Find(context.Context, *FindCertificatesRequest) (*FindCertificatesResponse, error)
 	mustEmbedUnimplementedCertificatesServer()
 }
 
@@ -674,6 +693,9 @@ type UnimplementedCertificatesServer struct{}
 
 func (UnimplementedCertificatesServer) Download(context.Context, *DownloadRequest) (*CertificateBundle, error) {
 	return nil, status.Error(codes.Unimplemented, "method Download not implemented")
+}
+func (UnimplementedCertificatesServer) Find(context.Context, *FindCertificatesRequest) (*FindCertificatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Find not implemented")
 }
 func (UnimplementedCertificatesServer) mustEmbedUnimplementedCertificatesServer() {}
 func (UnimplementedCertificatesServer) testEmbeddedByValue()                      {}
@@ -714,6 +736,24 @@ func _Certificates_Download_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Certificates_Find_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindCertificatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CertificatesServer).Find(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Certificates_Find_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CertificatesServer).Find(ctx, req.(*FindCertificatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Certificates_ServiceDesc is the grpc.ServiceDesc for Certificates service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -724,6 +764,10 @@ var Certificates_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Download",
 			Handler:    _Certificates_Download_Handler,
+		},
+		{
+			MethodName: "Find",
+			Handler:    _Certificates_Find_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

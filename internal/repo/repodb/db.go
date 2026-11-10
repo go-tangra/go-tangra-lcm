@@ -189,6 +189,14 @@ func (d *DB) ExpiringCertificates(ctx context.Context, tid string, now, before t
 	return
 }
 
+func (d *DB) FindCertificates(ctx context.Context, tid, name, wildcard string, now time.Time, limit int) (out []store.IssuedCertificate, err error) {
+	err = d.tenant(ctx, tid, func(tx pgx.Tx) error {
+		out, err = store.FindCertificates(ctx, tx, tid, name, wildcard, now, limit)
+		return err
+	})
+	return
+}
+
 // ---- revocations
 
 func (d *DB) InsertRevocation(ctx context.Context, r store.Revocation) error {

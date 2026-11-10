@@ -6,6 +6,7 @@ package memstore
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"strings"
 	"sync"
@@ -856,6 +857,61 @@ func (m *Mem) ExpiringCertificates(_ context.Context, tid string, now, before ti
 		}
 		return out[a].ID < out[b].ID
 	})
+	return sqlLimit(out, limit), nil
+}
+
+func (m *Mem) FindCertificates(_ context.Context, tid, name, wildcard string, now time.Time, limit int) ([]store.IssuedCertificate, error) {
+	if err := m.fail("FindCertificates"); err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	rank := func(c store.IssuedCertificate) int {
+		var sans []string
+		if len(c.SANs) > 0 {
+			_ = json.Unmarshal(c.SANs, &sans)
+		}
+		names := append([]string{c.Subject}, sans...)
+		best := -1
+		for _, n := range names {
+			n = strings.ToLower(n)
+			switch {
+			case n == name:
+				return 0
+			case wildcard != "" && n == wildcard:
+				best = 1
+			case strings.Contains(n, name) && best < 0:
+				best = 2
+			}
+		}
+		return best
+	}
+	type hit struct {
+		c store.IssuedCertificate
+		r int
+	}
+	var hits []hit
+	for _, c := range m.Certificates {
+		if c.TenantID != tid || (c.Status != "active" && c.Status != "expiring") || c.SupersededBy != nil || c.SpiffeID != "" || !c.NotAfter.After(now) {
+			continue
+		}
+		if r := rank(c); r >= 0 {
+			hits = append(hits, hit{cpCertificate(c), r})
+		}
+	}
+	sort.Slice(hits, func(a, b int) bool {
+		if hits[a].r != hits[b].r {
+			return hits[a].r < hits[b].r
+		}
+		if !hits[a].c.NotAfter.Equal(hits[b].c.NotAfter) {
+			return hits[a].c.NotAfter.After(hits[b].c.NotAfter)
+		}
+		return hits[a].c.ID < hits[b].c.ID
+	})
+	out := make([]store.IssuedCertificate, 0, len(hits))
+	for _, h := range hits {
+		out = append(out, h.c)
+	}
 	return sqlLimit(out, limit), nil
 }
 

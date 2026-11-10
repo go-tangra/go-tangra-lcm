@@ -517,6 +517,28 @@ func ExpiringCertificates(ctx context.Context, tx pgx.Tx, tenantID string, now, 
 	return scanCertificates(rows)
 }
 
+// FindCertificates lists the tenant's live host certificates (active or
+// expiring, not superseded, not expired at now; SVIDs excluded) whose subject
+// or a SAN contains name, best match first: an exact name, then the wildcard
+// (*.rest of name) covering it, then any other match, newest expiry first.
+// name is lowercase and limited to host name characters by the caller (no
+// LIKE wildcards); wildcard is "" when name has no parent domain.
+func FindCertificates(ctx context.Context, tx pgx.Tx, tenantID, name, wildcard string, now time.Time, limit int) ([]IssuedCertificate, error) {
+	rows, err := tx.Query(ctx, "SELECT "+certCols+` FROM issued_certificates
+		WHERE tenant_id = $1 AND status IN ('active','expiring') AND superseded_by IS NULL AND spiffe_id IS NULL AND not_after > $4
+		AND (strpos(lower(subject), $2) > 0 OR ($3 <> '' AND lower(subject) = $3)
+			OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(sans) s WHERE strpos(lower(s), $2) > 0 OR ($3 <> '' AND lower(s) = $3)))
+		ORDER BY CASE
+			WHEN lower(subject) = $2 OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(sans) s WHERE lower(s) = $2) THEN 0
+			WHEN $3 <> '' AND (lower(subject) = $3 OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(sans) s WHERE lower(s) = $3)) THEN 1
+			ELSE 2 END, not_after DESC, id
+		LIMIT $5`, tenantID, name, wildcard, now, limit)
+	if err != nil {
+		return nil, err
+	}
+	return scanCertificates(rows)
+}
+
 // ---------------------------------------------------------------- revocations
 
 const revocationCols = "id, tenant_id, certificate_id, serial, reason, revoked_at, revoked_by"
