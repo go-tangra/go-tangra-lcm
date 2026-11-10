@@ -171,6 +171,9 @@ func (d *DB) UpdateCertificate(ctx context.Context, c store.IssuedCertificate) e
 func (d *DB) SetCertificateStatus(ctx context.Context, tid, id, status string, supersededBy *string) error {
 	return d.tenant(ctx, tid, func(tx pgx.Tx) error { return store.SetCertificateStatus(ctx, tx, tid, id, status, supersededBy) })
 }
+func (d *DB) RecordRenewalFailure(ctx context.Context, tid, id string, retryAt time.Time, reason string) error {
+	return d.tenant(ctx, tid, func(tx pgx.Tx) error { return store.RecordRenewalFailure(ctx, tx, tid, id, retryAt, reason) })
+}
 func (d *DB) MarkKeyDelivered(ctx context.Context, tid, id string) error {
 	return d.tenant(ctx, tid, func(tx pgx.Tx) error { return store.MarkKeyDelivered(ctx, tx, tid, id) })
 }

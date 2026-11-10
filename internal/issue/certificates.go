@@ -34,6 +34,9 @@ type CertificateView struct {
 	KeyDelivered      bool              `json:"key_delivered"`
 	HasKey            bool              `json:"has_key"`
 	AutoRenew         bool              `json:"auto_renew"`
+	RenewalFailures   int               `json:"renewal_failures,omitempty"`
+	RenewalRetryAt    *time.Time        `json:"renewal_retry_at,omitempty"`
+	RenewalError      string            `json:"renewal_error,omitempty"`
 	SupersededBy      string            `json:"superseded_by,omitempty"`
 	Owner             string            `json:"owner"`
 	CreatedAt         time.Time         `json:"created_at"`
@@ -78,6 +81,7 @@ func (s *Service) certView(c store.IssuedCertificate, p authz.Permissions) Certi
 		ID: c.ID, IssuerID: c.IssuerID, Kind: c.Kind, Serial: c.Serial, SpiffeID: c.SpiffeID, Subject: c.Subject,
 		SANs: sans, NotBefore: c.NotBefore, NotAfter: c.NotAfter, FingerprintSHA256: c.FingerprintSHA256,
 		Status: deriveStatus(c, s.now()), KeyDelivered: c.KeyDelivered, HasKey: len(c.KeySealed) > 0, AutoRenew: c.AutoRenew, SupersededBy: strp(c.SupersededBy),
+		RenewalFailures: c.RenewFailures, RenewalRetryAt: c.RenewRetryAt, RenewalError: c.RenewError,
 		Owner: c.Owner, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt, Permissions: p,
 	}
 }
@@ -265,6 +269,37 @@ func (s *Service) DownloadKey(ctx context.Context, subj authz.Subjects, certID s
 		return "", oerr
 	}
 	return string(clear), nil
+}
+
+// renewalBackoff is the wait after the n-th consecutive failed automatic
+// renewal; the last step repeats.
+var renewalBackoff = []time.Duration{15 * time.Minute, 30 * time.Minute, time.Hour, 2 * time.Hour, 4 * time.Hour, 6 * time.Hour}
+
+// RenewalRetryAt is when the scheduler next tries a certificate whose
+// automatic renewal has now failed failures times in a row: the back-off step,
+// but never later than halfway to notAfter, so a certificate close to expiry
+// keeps being tried (an expired one is no longer renewed automatically).
+func RenewalRetryAt(failures int, now, notAfter time.Time) time.Time {
+	if failures < 1 {
+		failures = 1
+	}
+	wait := renewalBackoff[min(failures, len(renewalBackoff))-1]
+	if half := notAfter.Sub(now) / 2; half < wait {
+		wait = max(half, 0)
+	}
+	return now.Add(wait)
+}
+
+// RenewalFailed records a failed automatic renewal of a certificate: the
+// scheduler holds it back until the returned time and the certificate view
+// reports the failure count and reason. A manual renewal is not held back.
+func (s *Service) RenewalFailed(ctx context.Context, tenantID, certID string, cause error) (time.Time, error) {
+	c, err := s.st.GetCertificate(ctx, tenantID, certID)
+	if err != nil {
+		return time.Time{}, err
+	}
+	at := RenewalRetryAt(c.RenewFailures+1, s.now(), c.NotAfter)
+	return at, s.st.RecordRenewalFailure(ctx, tenantID, certID, at, FailReason(cause))
 }
 
 // RenewSystem reissues a certificate as the automated renewal scheduler: a

@@ -171,6 +171,11 @@ func (s *Server) RegisterCertificates(d CertDeps) {
 					defer cancel()
 					b, rerr := d.Issue.Renew(ctx, subj, view.ID)
 					if rerr != nil {
+						// Held back like a failed scheduled renewal, so the
+						// scheduler does not retry it on its next tick.
+						if _, ferr := d.Issue.RenewalFailed(ctx, subj.TenantID, view.ID, rerr); ferr != nil {
+							s.rt.Logger().Warn("recording a failed renewal failed", "tenant", subj.TenantID, "certificate", view.ID, "error", ferr)
+						}
 						s.rt.Logger().Warn("renewal of an imported certificate failed", "tenant", subj.TenantID, "certificate", view.ID, "error", issue.FailReason(rerr))
 						if d.PubFail != nil {
 							d.PubFail(ctx, subj.TenantID, map[string]any{"certificate_id": view.ID, "domains": view.SANs, "error": issueFailMessage(rerr)})

@@ -91,6 +91,12 @@ export interface Certificate {
   kind?: CertificateKind
   has_key?: boolean
   auto_renew?: boolean
+  /** Consecutive failed automatic renewals; absent when the last one succeeded. */
+  renewal_failures?: number
+  /** Next automatic renewal attempt after a failure. */
+  renewal_retry_at?: string
+  /** Reason of the last failed automatic renewal. */
+  renewal_error?: string
   status: CertificateStatus
   owner?: string
   labels?: Record<string, string>

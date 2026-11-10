@@ -81,6 +81,10 @@ func (r sysRenewer) Renew(ctx context.Context, subj authz.Subjects, certID strin
 	return r.svc.RenewSystem(ctx, subj.TenantID, certID)
 }
 
+func (r sysRenewer) RenewalFailed(ctx context.Context, tenantID, certID string, cause error) (time.Time, error) {
+	return r.svc.RenewalFailed(ctx, tenantID, certID, cause)
+}
+
 // stubEnrollTokens rejects every enrollment token until the auth service mints
 // them (contracts/auth-changes.md). Platform-identity enrollment is unaffected.
 type stubEnrollTokens struct{}

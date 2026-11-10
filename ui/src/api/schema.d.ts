@@ -854,6 +854,16 @@ export interface components {
             fingerprint_sha256?: string;
             /** @enum {string} */
             status?: "active" | "expiring" | "expired" | "revoked";
+            auto_renew?: boolean;
+            /** @description consecutive failed automatic renewals (absent when none) */
+            renewal_failures?: number;
+            /**
+             * Format: date-time
+             * @description next automatic renewal attempt after a failure
+             */
+            renewal_retry_at?: string;
+            /** @description reason of the last failed automatic renewal */
+            renewal_error?: string;
             owner?: string;
             /** Format: date-time */
             created_at?: string;
@@ -1847,14 +1857,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description missing or invalid enrollment token */
+            /** @description missing or refused enrollment token: unauthenticated (missing), enrollment_token_expired, enrollment_token_not_yet_valid, enrollment_token_used, enrollment_token_invalid */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description not entitled to the SPIFFE id */
+            /** @description the token does not authorise the SPIFFE id: enrollment_spiffe_id_not_allowed, or enrollment_trust_domain_mismatch with detail {expected_trust_domain} (or {expected_trust_domains}) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -1863,6 +1873,13 @@ export interface operations {
             };
             /** @description validation_failed */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description temporarily_unavailable (the token could not be verified; retry) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

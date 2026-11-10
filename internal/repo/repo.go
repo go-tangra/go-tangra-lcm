@@ -66,6 +66,7 @@ type Certificates interface {
 	MarkKeyDelivered(ctx context.Context, tenantID, id string) error
 	DeleteCertificate(ctx context.Context, tenantID, id string) error
 	DueForRenewal(ctx context.Context, now, notAfterBefore time.Time, limit int) ([]store.IssuedCertificate, error) // system scope
+	RecordRenewalFailure(ctx context.Context, tenantID, id string, retryAt time.Time, reason string) error
 	// ExpiringCertificates lists the tenant's live certificates (active or
 	// expiring, not superseded) with now < not_after <= before, soonest first.
 	ExpiringCertificates(ctx context.Context, tenantID string, now, before time.Time, limit int) ([]store.IssuedCertificate, error)

@@ -38,9 +38,11 @@ type Publisher interface {
 }
 
 // Renewer reissues a certificate by id under the given subjects, returning the
-// fresh bundle. *issue.Service satisfies it.
+// fresh bundle, and records a failed attempt (the certificate is held back
+// until the returned time). *issue.Service satisfies it.
 type Renewer interface {
 	Renew(ctx context.Context, subj authz.Subjects, certID string) (issue.Bundle, error)
+	RenewalFailed(ctx context.Context, tenantID, certID string, cause error) (time.Time, error)
 }
 
 // Config bounds the scheduler.
@@ -185,14 +187,20 @@ func (s *Scheduler) RunOnce(ctx context.Context) (int, error) {
 }
 
 // renewOne reissues a single certificate as the system for its tenant and
-// publishes the "renewed" event on success. It reports whether it renewed.
+// publishes the "renewed" event on success. A failure holds the certificate
+// back (issue.RenewalRetryAt) instead of retrying it on the next tick: an ACME
+// CA rate-limits failed validations. It reports whether it renewed.
 func (s *Scheduler) renewOne(ctx context.Context, cert store.IssuedCertificate) bool {
 	subj := authz.ServiceSubjects(cert.TenantID, systemSpiffe)
 	b, err := s.r.Renew(ctx, subj, cert.ID)
 	if err != nil {
+		retryAt, rerr := s.r.RenewalFailed(ctx, cert.TenantID, cert.ID, err)
+		if rerr != nil {
+			s.log.Warn("recording a failed renewal failed; the next scan retries", "certificate", cert.ID, "tenant", cert.TenantID, "err", rerr)
+		}
 		// Scrubbed: only the identifiers, never key or certificate material.
-		s.log.Warn("scheduled renewal failed; the lease expires and the next scan retries",
-			"certificate", cert.ID, "tenant", cert.TenantID, "err", err)
+		s.log.Warn("scheduled renewal failed", "certificate", cert.ID, "tenant", cert.TenantID,
+			"failures", cert.RenewFailures+1, "retry_at", retryAt, "err", err)
 		return false
 	}
 	if s.pub != nil {

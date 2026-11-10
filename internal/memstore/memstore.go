@@ -769,6 +769,23 @@ func (m *Mem) UpdateCertificate(_ context.Context, c store.IssuedCertificate) er
 	return nil
 }
 
+func (m *Mem) RecordRenewalFailure(_ context.Context, tid, id string, retryAt time.Time, reason string) error {
+	if err := m.fail("RecordRenewalFailure"); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	c, ok := m.Certificates[id]
+	if !ok || c.TenantID != tid {
+		return store.ErrNotFound
+	}
+	c.RenewFailures++
+	c.RenewRetryAt = &retryAt
+	c.RenewError = reason
+	m.Certificates[id] = c
+	return nil
+}
+
 func (m *Mem) SetCertificateStatus(_ context.Context, tid, id, status string, supersededBy *string) error {
 	if err := m.fail("SetCertificateStatus"); err != nil {
 		return err
@@ -825,7 +842,8 @@ func (m *Mem) DueForRenewal(_ context.Context, now, notAfterBefore time.Time, li
 	defer m.mu.Unlock()
 	var out []store.IssuedCertificate
 	for _, c := range m.Certificates {
-		if (c.Status == "active" || c.Status == "expiring") && c.SupersededBy == nil && c.NotAfter.After(now) && !c.NotAfter.After(notAfterBefore) {
+		if (c.Status == "active" || c.Status == "expiring") && c.SupersededBy == nil && c.NotAfter.After(now) && !c.NotAfter.After(notAfterBefore) &&
+			(c.RenewRetryAt == nil || !c.RenewRetryAt.After(now)) {
 			out = append(out, cpCertificate(c))
 		}
 	}

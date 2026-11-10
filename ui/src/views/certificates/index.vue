@@ -282,6 +282,11 @@ const renew = async () => {
         <UiKeyValueTable :items="meta" />
         <CertificateDetails :certificate-id="selected.id" @title="decodedTitle = $event" />
         <UiSwitch id="cert-auto-renew" :model-value="selected.auto_renew ?? false" :disabled="!canManage || busy" label="Auto-renew before expiry" class="mt-3" data-test="cert-auto-renew" @update:model-value="toggleAutoRenew" />
+        <UiAlert v-if="selected.auto_renew && selected.renewal_failures" kind="warning" class="mt-3" data-test="cert-renewal-failed">
+          Automatic renewal failed {{ selected.renewal_failures === 1 ? 'once' : selected.renewal_failures + ' times in a row' }}<template v-if="selected.renewal_retry_at">; the next attempt is at {{ new Date(selected.renewal_retry_at).toLocaleString() }}</template>.
+          <span v-if="selected.renewal_error" class="block break-all text-xs">{{ selected.renewal_error }}</span>
+          <span class="block text-xs">Fix the cause, then use Renew to try again now.</span>
+        </UiAlert>
         <h3 class="mb-2 mt-4 text-sm font-medium">Download</h3>
         <div class="flex flex-wrap gap-2">
           <UiButton size="sm" variant="soft" :loading="busy" icon="mdi-file-certificate-outline" data-test="cert-download-cert" @click="download('cert')">Certificate</UiButton>
