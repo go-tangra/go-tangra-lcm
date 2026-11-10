@@ -83,6 +83,19 @@ func (r *fakeRenewer) Renew(ctx context.Context, subj authz.Subjects, certID str
 	return issue.Bundle{Certificate: issue.CertificateView{ID: newID, SpiffeID: spiffe, NotAfter: notAfter}}, nil
 }
 
+// RenewalFailed holds the certificate back like the issuance service does.
+func (r *fakeRenewer) RenewalFailed(ctx context.Context, tenantID, certID string, _ error) (time.Time, error) {
+	if r.mem == nil {
+		return time.Time{}, nil
+	}
+	c, err := r.mem.GetCertificate(ctx, tenantID, certID)
+	if err != nil {
+		return time.Time{}, err
+	}
+	at := issue.RenewalRetryAt(c.RenewFailures+1, r.mem.Now(), c.NotAfter)
+	return at, r.mem.RecordRenewalFailure(ctx, tenantID, certID, at, "failed")
+}
+
 func (r *fakeRenewer) recorded() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -362,13 +375,67 @@ func TestRunOnceErrorDoesNotAbortBatch(t *testing.T) {
 			t.Fatalf("published event for failed cert: %+v", e)
 		}
 	}
-	// The failed certificate is still a candidate on the next scan; the two
-	// successes were superseded by the fake and are skipped.
+	// The failed certificate is not superseded; it is held back (the two
+	// successes were superseded by the fake and are skipped).
 	f, gerr := mem.GetCertificate(ctx, "t1", "cert-b")
 	if gerr != nil {
 		t.Fatalf("get cert-b: %v", gerr)
 	}
 	if f.SupersededBy != nil {
 		t.Fatal("failed certificate must not be superseded")
+	}
+	if f.RenewFailures != 1 || f.RenewRetryAt == nil {
+		t.Fatalf("failure not recorded: failures=%d retry=%v", f.RenewFailures, f.RenewRetryAt)
+	}
+}
+
+// ---- a failed renewal backs off instead of retrying on every tick
+
+func TestFailedRenewalBacksOff(t *testing.T) {
+	mem := memstore.New()
+	now := base
+	mem.Now = func() time.Time { return now }
+	ctx := context.Background()
+	if err := mem.InsertIssuer(ctx, store.Issuer{ID: "iss1", TenantID: "t1", TrustDomain: "example.org", Type: "acme", Enabled: true}); err != nil {
+		t.Fatalf("InsertIssuer: %v", err)
+	}
+	// A 90-day certificate with 20 days left: due (window 45d).
+	if err := mem.InsertCertificate(ctx, store.IssuedCertificate{
+		ID: "cert-x", TenantID: "t1", IssuerID: "iss1", Serial: "x", Kind: "generic", Subject: "www.example.org",
+		NotBefore: base.Add(-70 * day), NotAfter: base.Add(20 * day), Status: "active", AutoRenew: true,
+	}); err != nil {
+		t.Fatalf("InsertCertificate: %v", err)
+	}
+	r := &fakeRenewer{failOn: map[string]error{"cert-x": errors.New("acme: dns challenge failed")}, mem: mem}
+	s := NewScheduler(mem, r, &fakePub{}, testCfg(), nil, func() time.Time { return now }, nil)
+
+	run := func(at time.Time) {
+		t.Helper()
+		now = at
+		if _, err := s.RunOnce(ctx); err != nil {
+			t.Fatalf("RunOnce at %v: %v", at, err)
+		}
+	}
+	run(base)                       // fails: held back 15m
+	run(base.Add(15 * time.Second)) // next tick: skipped
+	run(base.Add(14 * time.Minute)) // still held back
+	run(base.Add(15 * time.Minute)) // retried, fails: held back 30m
+	run(base.Add(44 * time.Minute)) // held back
+	run(base.Add(45 * time.Minute)) // retried
+	if got := len(r.recorded()); got != 3 {
+		t.Fatalf("attempts = %d (%v); want 3", got, r.recorded())
+	}
+	c, _ := mem.GetCertificate(ctx, "t1", "cert-x")
+	if c.RenewFailures != 3 || !c.RenewRetryAt.Equal(base.Add(45*time.Minute+time.Hour)) {
+		t.Fatalf("failures=%d retry=%v", c.RenewFailures, c.RenewRetryAt)
+	}
+
+	// Once the cause is fixed the next attempt after the back-off renews it.
+	r.mu.Lock()
+	delete(r.failOn, "cert-x")
+	r.mu.Unlock()
+	run(base.Add(45*time.Minute + time.Hour))
+	if c, _ = mem.GetCertificate(ctx, "t1", "cert-x"); c.SupersededBy == nil {
+		t.Fatal("renewal after the back-off did not happen")
 	}
 }

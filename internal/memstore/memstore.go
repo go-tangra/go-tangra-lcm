@@ -6,6 +6,7 @@ package memstore
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"strings"
 	"sync"
@@ -768,6 +769,23 @@ func (m *Mem) UpdateCertificate(_ context.Context, c store.IssuedCertificate) er
 	return nil
 }
 
+func (m *Mem) RecordRenewalFailure(_ context.Context, tid, id string, retryAt time.Time, reason string) error {
+	if err := m.fail("RecordRenewalFailure"); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	c, ok := m.Certificates[id]
+	if !ok || c.TenantID != tid {
+		return store.ErrNotFound
+	}
+	c.RenewFailures++
+	c.RenewRetryAt = &retryAt
+	c.RenewError = reason
+	m.Certificates[id] = c
+	return nil
+}
+
 func (m *Mem) SetCertificateStatus(_ context.Context, tid, id, status string, supersededBy *string) error {
 	if err := m.fail("SetCertificateStatus"); err != nil {
 		return err
@@ -824,7 +842,8 @@ func (m *Mem) DueForRenewal(_ context.Context, now, notAfterBefore time.Time, li
 	defer m.mu.Unlock()
 	var out []store.IssuedCertificate
 	for _, c := range m.Certificates {
-		if (c.Status == "active" || c.Status == "expiring") && c.SupersededBy == nil && c.NotAfter.After(now) && !c.NotAfter.After(notAfterBefore) {
+		if (c.Status == "active" || c.Status == "expiring") && c.SupersededBy == nil && c.NotAfter.After(now) && !c.NotAfter.After(notAfterBefore) &&
+			(c.RenewRetryAt == nil || !c.RenewRetryAt.After(now)) {
 			out = append(out, cpCertificate(c))
 		}
 	}
@@ -856,6 +875,61 @@ func (m *Mem) ExpiringCertificates(_ context.Context, tid string, now, before ti
 		}
 		return out[a].ID < out[b].ID
 	})
+	return sqlLimit(out, limit), nil
+}
+
+func (m *Mem) FindCertificates(_ context.Context, tid, name, wildcard string, now time.Time, limit int) ([]store.IssuedCertificate, error) {
+	if err := m.fail("FindCertificates"); err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	rank := func(c store.IssuedCertificate) int {
+		var sans []string
+		if len(c.SANs) > 0 {
+			_ = json.Unmarshal(c.SANs, &sans)
+		}
+		names := append([]string{c.Subject}, sans...)
+		best := -1
+		for _, n := range names {
+			n = strings.ToLower(n)
+			switch {
+			case n == name:
+				return 0
+			case wildcard != "" && n == wildcard:
+				best = 1
+			case strings.Contains(n, name) && best < 0:
+				best = 2
+			}
+		}
+		return best
+	}
+	type hit struct {
+		c store.IssuedCertificate
+		r int
+	}
+	var hits []hit
+	for _, c := range m.Certificates {
+		if c.TenantID != tid || (c.Status != "active" && c.Status != "expiring") || c.SupersededBy != nil || c.SpiffeID != "" || !c.NotAfter.After(now) {
+			continue
+		}
+		if r := rank(c); r >= 0 {
+			hits = append(hits, hit{cpCertificate(c), r})
+		}
+	}
+	sort.Slice(hits, func(a, b int) bool {
+		if hits[a].r != hits[b].r {
+			return hits[a].r < hits[b].r
+		}
+		if !hits[a].c.NotAfter.Equal(hits[b].c.NotAfter) {
+			return hits[a].c.NotAfter.After(hits[b].c.NotAfter)
+		}
+		return hits[a].c.ID < hits[b].c.ID
+	})
+	out := make([]store.IssuedCertificate, 0, len(hits))
+	for _, h := range hits {
+		out = append(out, h.c)
+	}
 	return sqlLimit(out, limit), nil
 }
 

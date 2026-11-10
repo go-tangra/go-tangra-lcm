@@ -380,11 +380,11 @@ func ClaimDueJobs(ctx context.Context, tx pgx.Tx, now time.Time, lease time.Dura
 
 // ---------------------------------------------------------------- issued certificates
 
-const certCols = "id, tenant_id, issuer_id, request_id, serial, COALESCE(spiffe_id,'') AS spiffe_id, subject, sans, not_before, not_after, fingerprint_sha256, status, cert_pem, chain_pem, key_sealed, key_delivered, superseded_by, owner, created_by, updated_by, created_at, updated_at, kind, auto_renew"
+const certCols = "id, tenant_id, issuer_id, request_id, serial, COALESCE(spiffe_id,'') AS spiffe_id, subject, sans, not_before, not_after, fingerprint_sha256, status, cert_pem, chain_pem, key_sealed, key_delivered, superseded_by, owner, created_by, updated_by, created_at, updated_at, kind, auto_renew, renew_failures, renew_retry_at, COALESCE(renew_error,'') AS renew_error"
 
 func scanCertificate(r pgx.Row) (IssuedCertificate, error) {
 	var c IssuedCertificate
-	err := r.Scan(&c.ID, &c.TenantID, &c.IssuerID, &c.RequestID, &c.Serial, &c.SpiffeID, &c.Subject, &c.SANs, &c.NotBefore, &c.NotAfter, &c.FingerprintSHA256, &c.Status, &c.CertPEM, &c.ChainPEM, &c.KeySealed, &c.KeyDelivered, &c.SupersededBy, &c.Owner, &c.CreatedBy, &c.UpdatedBy, &c.CreatedAt, &c.UpdatedAt, &c.Kind, &c.AutoRenew)
+	err := r.Scan(&c.ID, &c.TenantID, &c.IssuerID, &c.RequestID, &c.Serial, &c.SpiffeID, &c.Subject, &c.SANs, &c.NotBefore, &c.NotAfter, &c.FingerprintSHA256, &c.Status, &c.CertPEM, &c.ChainPEM, &c.KeySealed, &c.KeyDelivered, &c.SupersededBy, &c.Owner, &c.CreatedBy, &c.UpdatedBy, &c.CreatedAt, &c.UpdatedAt, &c.Kind, &c.AutoRenew, &c.RenewFailures, &c.RenewRetryAt, &c.RenewError)
 	return c, notFound(err)
 }
 
@@ -493,15 +493,31 @@ func DeleteCertificate(ctx context.Context, tx pgx.Tx, tenantID, id string) erro
 }
 
 // DueForRenewal selects live certificates expiring before notAfterBefore
-// (system scope); rows are locked so each poll hands them out once.
+// whose renewal back-off has passed (system scope); rows are locked so each
+// poll hands them out once.
 func DueForRenewal(ctx context.Context, tx pgx.Tx, now, notAfterBefore time.Time, limit int) ([]IssuedCertificate, error) {
 	rows, err := tx.Query(ctx, "SELECT "+certCols+` FROM issued_certificates
 		WHERE status IN ('active','expiring') AND superseded_by IS NULL AND auto_renew AND not_after > $1 AND not_after <= $2
+		AND (renew_retry_at IS NULL OR renew_retry_at <= $1)
 		ORDER BY not_after LIMIT $3 FOR UPDATE SKIP LOCKED`, now, notAfterBefore, limit)
 	if err != nil {
 		return nil, err
 	}
 	return scanCertificates(rows)
+}
+
+// RecordRenewalFailure counts a failed automatic renewal of a certificate and
+// holds it back from the scheduler until retryAt; reason is client-safe.
+func RecordRenewalFailure(ctx context.Context, tx pgx.Tx, tenantID, id string, retryAt time.Time, reason string) error {
+	ct, err := tx.Exec(ctx, "UPDATE issued_certificates SET renew_failures = renew_failures + 1, renew_retry_at = $3, renew_error = $4 WHERE tenant_id = $1 AND id = $2",
+		tenantID, id, retryAt, reason)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // ExpiringCertificates lists the tenant's live certificates (active or
@@ -511,6 +527,28 @@ func ExpiringCertificates(ctx context.Context, tx pgx.Tx, tenantID string, now, 
 	rows, err := tx.Query(ctx, "SELECT "+certCols+` FROM issued_certificates
 		WHERE tenant_id = $1 AND status IN ('active','expiring') AND superseded_by IS NULL AND not_after > $2 AND not_after <= $3
 		ORDER BY not_after, id LIMIT $4`, tenantID, now, before, limit)
+	if err != nil {
+		return nil, err
+	}
+	return scanCertificates(rows)
+}
+
+// FindCertificates lists the tenant's live host certificates (active or
+// expiring, not superseded, not expired at now; SVIDs excluded) whose subject
+// or a SAN contains name, best match first: an exact name, then the wildcard
+// (*.rest of name) covering it, then any other match, newest expiry first.
+// name is lowercase and limited to host name characters by the caller (no
+// LIKE wildcards); wildcard is "" when name has no parent domain.
+func FindCertificates(ctx context.Context, tx pgx.Tx, tenantID, name, wildcard string, now time.Time, limit int) ([]IssuedCertificate, error) {
+	rows, err := tx.Query(ctx, "SELECT "+certCols+` FROM issued_certificates
+		WHERE tenant_id = $1 AND status IN ('active','expiring') AND superseded_by IS NULL AND spiffe_id IS NULL AND not_after > $4
+		AND (strpos(lower(subject), $2) > 0 OR ($3 <> '' AND lower(subject) = $3)
+			OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(sans) s WHERE strpos(lower(s), $2) > 0 OR ($3 <> '' AND lower(s) = $3)))
+		ORDER BY CASE
+			WHEN lower(subject) = $2 OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(sans) s WHERE lower(s) = $2) THEN 0
+			WHEN $3 <> '' AND (lower(subject) = $3 OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(sans) s WHERE lower(s) = $3)) THEN 1
+			ELSE 2 END, not_after DESC, id
+		LIMIT $5`, tenantID, name, wildcard, now, limit)
 	if err != nil {
 		return nil, err
 	}

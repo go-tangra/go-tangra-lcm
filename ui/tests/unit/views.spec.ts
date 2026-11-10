@@ -290,6 +290,26 @@ describe('certificates view', () => {
     const w = mount(Certificates as never, { global: { plugins: pl }, attachTo: document.body })
     await flushPromises()
     expect(document.body.querySelector('[data-test="certificate-drawer"]')?.textContent).toContain('www.example.org')
+    expect(document.body.querySelector('[data-test="cert-renewal-failed"]')).toBeNull()
+    w.unmount()
+  })
+  it('says when automatic renewal keeps failing, why, and when it is tried next', async () => {
+    const cert = { id: 'c9', serial: '09', sans: ['www.example.org'], kind: 'generic' as const, status: 'active' as const, auto_renew: true, permissions: { write: true },
+      renewal_failures: 3, renewal_retry_at: '2026-11-10T14:00:00Z', renewal_error: 'acme: dns challenge failed' }
+    stubFetch((url) => {
+      if (url.endsWith('/certificates/c9')) return { status: 200, body: cert }
+      return { status: 200, body: { items: [] } }
+    })
+    const pl = plugins()
+    const router = pl[0] as import('vue-router').Router
+    await router.push('/lcm/certificates?id=c9')
+    await router.isReady()
+    const w = mount(Certificates as never, { global: { plugins: pl }, attachTo: document.body })
+    await flushPromises()
+    const alert = document.body.querySelector('[data-test="cert-renewal-failed"]')
+    expect(alert?.textContent).toContain('failed 3 times in a row')
+    expect(alert?.textContent).toContain('acme: dns challenge failed')
+    expect(alert?.textContent).toContain(new Date('2026-11-10T14:00:00Z').toLocaleString())
     w.unmount()
   })
 })

@@ -249,11 +249,34 @@ func (s *CertificatesServer) Download(ctx context.Context, req *lcmv1.DownloadRe
 	if err != nil {
 		return nil, err
 	}
+	if !uuidRE.MatchString(req.GetCertificateId()) {
+		// A serial or host name is not a certificate id: no such certificate
+		// (not a store error answered as temporarily_unavailable).
+		return nil, status.Error(codes.NotFound, "not_found")
+	}
 	b, err := s.Svc.DownloadForService(ctx, req.GetTenantId(), subj.Service, req.GetCertificateId(), req.GetIncludeKey())
 	if err != nil {
 		return nil, grpcError(err)
 	}
 	return toBundle(b), nil
+}
+
+// Find lists live host certificates for a host name (metadata only).
+func (s *CertificatesServer) Find(ctx context.Context, req *lcmv1.FindCertificatesRequest) (*lcmv1.FindCertificatesResponse, error) {
+	if _, err := caller(ctx, req.GetTenantId()); err != nil {
+		return nil, err
+	}
+	views, err := s.Svc.FindForService(ctx, req.GetTenantId(), req.GetName(), int(req.GetLimit()))
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	out := &lcmv1.FindCertificatesResponse{Certificates: make([]*lcmv1.Certificate, 0, len(views))}
+	for _, v := range views {
+		c := toCertificate(v)
+		c.HasKey = v.HasKey
+		out.Certificates = append(out.Certificates, c)
+	}
+	return out, nil
 }
 
 func toBundle(b issue.Bundle) *lcmv1.CertificateBundle {

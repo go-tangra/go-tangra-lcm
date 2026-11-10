@@ -49,6 +49,10 @@ service Agent {
 // gateway. Used by the deployer to install certificates onto infrastructure.
 service Certificates {
   rpc Download(DownloadRequest) returns (CertificateBundle);
+  // Find lists the tenant's live certificates (active or expiring, not
+  // superseded) for a host name: exact subject or SAN first, then wildcard
+  // certificates covering it, then names containing it. Metadata only.
+  rpc Find(FindCertificatesRequest) returns (FindCertificatesResponse);
 }
 
 enum CertificateStatus {
@@ -70,6 +74,7 @@ message Certificate {
   google.protobuf.Timestamp not_after = 8;
   string fingerprint_sha256 = 9;
   CertificateStatus status = 10;
+  bool has_key = 11;       // lcm retains the private key (set by Find)
 }
 
 message CertificateBundle {
@@ -84,6 +89,16 @@ message DownloadRequest {
   string tenant_id = 1;
   string certificate_id = 2;
   bool include_key = 3;    // include the retained private key (when lcm holds it)
+}
+
+message FindCertificatesRequest {
+  string tenant_id = 1;
+  string name = 2;         // host name or part of one (case-insensitive)
+  int32 limit = 3;         // default 20, at most 50
+}
+
+message FindCertificatesResponse {
+  repeated Certificate certificates = 1;
 }
 
 message IssueRequest {

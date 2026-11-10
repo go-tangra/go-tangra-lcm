@@ -110,7 +110,10 @@ type IssuedCertificate struct {
 	ChainPEM          string
 	KeySealed         []byte // only when the module generated the key
 	KeyDelivered      bool
-	AutoRenew         bool // scheduler auto-renews only when true
+	AutoRenew         bool       // scheduler auto-renews only when true
+	RenewFailures     int        // consecutive failed scheduled renewals
+	RenewRetryAt      *time.Time // the scheduler skips the row until then
+	RenewError        string     // client-safe reason of the last failure
 	SupersededBy      *string
 	Owner             string
 	CreatedBy         *string

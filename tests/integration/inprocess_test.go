@@ -139,3 +139,7 @@ type sysRenew struct{ svc *issue.Service }
 func (r sysRenew) Renew(ctx context.Context, subj authz.Subjects, certID string) (issue.Bundle, error) {
 	return r.svc.RenewSystem(ctx, subj.TenantID, certID)
 }
+
+func (r sysRenew) RenewalFailed(ctx context.Context, tenantID, certID string, cause error) (time.Time, error) {
+	return r.svc.RenewalFailed(ctx, tenantID, certID, cause)
+}
