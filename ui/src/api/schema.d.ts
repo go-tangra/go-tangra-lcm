@@ -1487,7 +1487,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description generate a new private key of the issuer's key type instead of keeping a generic certificate's stored key */
+                    new_key?: boolean;
+                };
+            };
+        };
         responses: {
             /** @description CertificateBundle for the renewed certificate */
             200: {

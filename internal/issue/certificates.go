@@ -247,7 +247,22 @@ func (s *Service) Renew(ctx context.Context, subj authz.Subjects, certID string)
 	if err != nil {
 		return Bundle{}, err
 	}
-	return s.renewCert(ctx, subj, old)
+	return s.renewCert(ctx, subj, old, false)
+}
+
+// RenewWithNewKey renews like Renew but always generates a new private key of
+// the issuer's current key type, so a certificate can move to a new key type
+// (or rotate its key). Ordinary and automatic renewals keep a generic
+// certificate's stored key; SVIDs get a new key on every renewal anyway.
+func (s *Service) RenewWithNewKey(ctx context.Context, subj authz.Subjects, certID string) (Bundle, error) {
+	if err := s.az.Check(ctx, subj, authz.Certificate, certID, authz.Use); err != nil {
+		return Bundle{}, err
+	}
+	old, err := s.st.GetCertificate(ctx, subj.TenantID, certID)
+	if err != nil {
+		return Bundle{}, err
+	}
+	return s.renewCert(ctx, subj, old, true)
 }
 
 // DownloadKey returns the sealed private key of a certificate whose key lcm
@@ -311,15 +326,16 @@ func (s *Service) RenewSystem(ctx context.Context, tenantID, certID string) (Bun
 	if err != nil {
 		return Bundle{}, err
 	}
-	return s.renewCert(ctx, subj, old)
+	return s.renewCert(ctx, subj, old, false)
 }
 
 // renewCert mints a fresh certificate for the same SPIFFE id and supersedes old.
-func (s *Service) renewCert(ctx context.Context, subj authz.Subjects, old store.IssuedCertificate) (Bundle, error) {
+// newKey makes a generic certificate drop its stored key (SVIDs always get one).
+func (s *Service) renewCert(ctx context.Context, subj authz.Subjects, old store.IssuedCertificate, newKey bool) (Bundle, error) {
 	// Generic (ACME) certificates renew by re-running the ACME order for the
 	// same domains, reusing the stored key; SVIDs re-mint from the CA.
 	if old.Kind == "generic" {
-		return s.renewACME(ctx, subj, old)
+		return s.renewACME(ctx, subj, old, newKey)
 	}
 	sid, err := csr.ParseSPIFFEID(old.SpiffeID)
 	if err != nil {

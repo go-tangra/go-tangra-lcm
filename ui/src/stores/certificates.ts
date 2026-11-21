@@ -49,8 +49,9 @@ export const useCertificates = defineStore('lcm-certificates', () => {
     return api<ImportCertResult>('POST', 'certificates/import', input)
   }
 
-  async function renew(id: string): Promise<CertificateBundle> {
-    const bundle = await api<CertificateBundle>('POST', 'certificates/' + id + '/renew')
+  /** newKey replaces a generic certificate's stored key with one of the issuer's key type. */
+  async function renew(id: string, newKey = false): Promise<CertificateBundle> {
+    const bundle = await api<CertificateBundle>('POST', 'certificates/' + id + '/renew', newKey ? { new_key: true } : undefined)
     void reload() // the renewal is a new row: its place depends on the sort
     return bundle
   }

@@ -9,8 +9,6 @@ package issue
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -268,11 +266,11 @@ func (s *Service) mint(ctx context.Context, subj authz.Subjects, issuer store.Is
 		}
 		pub = parsed.CSR.PublicKey
 	} else {
-		priv, gerr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		priv, gerr := generateKey(issuerKeyType(issuer))
 		if gerr != nil {
 			return Bundle{}, gerr
 		}
-		pub = &priv.PublicKey
+		pub = priv.Public()
 		keyDER, merr := x509.MarshalPKCS8PrivateKey(priv)
 		if merr != nil {
 			return Bundle{}, merr

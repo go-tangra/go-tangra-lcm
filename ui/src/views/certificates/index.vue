@@ -200,10 +200,20 @@ const toggleAutoRenew = (v: unknown) => run(async () => {
   await store.update(selected.value!.id, { auto_renew: !!v })
   reload()
 })
-const renew = async () => {
-  if (!(await confirm.ask({ title: 'Renew now?', text: 'A new certificate replaces the current one.', confirmLabel: 'Renew' }))) return
+// The key type a new key of the selected certificate's issuer would have.
+const issuerKeyType = computed(() => {
+  const kt = issuers.options.find((i) => i.id === selected.value?.issuer_id)?.settings?.key_type
+  return typeof kt === 'string' && kt ? kt : 'ecdsa-p256'
+})
+// Renew keeps a generic certificate's stored key; renewing with a new key
+// replaces it with one of the issuer's key type (SVIDs always get a new key).
+const renew = async (newKey = false) => {
+  const ask = newKey
+    ? { title: 'Renew with a new key?', text: 'A new ' + issuerKeyType.value + ' private key is generated and the current key is no longer used. Deployments that pin the current key must be updated.', confirmLabel: 'Renew with new key' }
+    : { title: 'Renew now?', text: 'A new certificate replaces the current one.', confirmLabel: 'Renew' }
+  if (!(await confirm.ask(ask))) return
   await run(async () => {
-    await store.renew(selected.value!.id)
+    await store.renew(selected.value!.id, newKey)
     drawer.value = false
     reload()
   })
@@ -310,7 +320,8 @@ const renew = async () => {
       </template>
       <template #actions>
         <UiButton v-if="canRevoke" variant="text" color="error" data-test="cert-revoke" @click="showRevoke = true">Revoke</UiButton>
-        <UiButton v-if="canManage" variant="text" :loading="busy" data-test="cert-renew" @click="renew">Renew</UiButton>
+        <UiButton v-if="canManage && selected?.kind === 'generic'" variant="text" :loading="busy" data-test="cert-renew-new-key" @click="renew(true)">Renew with new key</UiButton>
+        <UiButton v-if="canManage" variant="text" :loading="busy" data-test="cert-renew" @click="renew()">Renew</UiButton>
         <UiButton @click="drawer = false">Close</UiButton>
       </template>
     </UiDrawer>
