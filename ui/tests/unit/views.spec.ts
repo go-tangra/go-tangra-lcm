@@ -14,6 +14,11 @@ import { issuerSchema, issueSvidSchema, issueAcmeSchema, secretSchema, webhookSc
 
 class FakeSource { onopen = null; onerror = null; addEventListener() {} close() {} }
 const mountView = (c: unknown) => mount(c as never, { global: { plugins: plugins() }, attachTo: document.body })
+const blobText = (b: Blob) => new Promise<string>((resolve) => {
+  const r = new FileReader()
+  r.onload = () => resolve(r.result as string)
+  r.readAsText(b)
+})
 const drawer = () => document.body.querySelector('aside[role=dialog]')!
 
 describe('lcm schemas', () => {
@@ -162,6 +167,26 @@ describe('certificates view', () => {
     setActivePinia(createPinia())
     vi.stubGlobal('EventSource', FakeSource)
   })
+  it('downloads a generic certificate bundle as certificate + chain and offers no trust bundle', async () => {
+    const cert = { id: 'c1', serial: '01', kind: 'generic' as const, status: 'active' as const, permissions: { write: true } }
+    stubFetch((url) => {
+      if (url.endsWith('/certificates/c1/download')) return { status: 200, body: { certificate: cert, cert_pem: 'C\n', chain_pem: 'CH\n', bundle_pem: '' } }
+      if (url.includes('/certificates')) return { status: 200, body: { items: [cert] } }
+      return { status: 200, body: { items: [] } }
+    })
+    const saved: Blob[] = []
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: (b: Blob) => { saved.push(b); return 'blob:x' }, revokeObjectURL: () => {} }))
+    const w = mountView(Certificates)
+    await flushPromises()
+    await w.find('[data-test="cert-row-c1"]').trigger('click')
+    await flushPromises()
+    expect(drawer().querySelector('[data-test="cert-download-trust"]')).toBeNull()
+    ;(drawer().querySelector('[data-test="cert-download-bundle"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(drawer().querySelector('[data-test="cert-error"]')).toBeNull()
+    expect(await blobText(saved.at(-1)!)).toBe('C\nCH\n')
+    w.unmount()
+  })
   it('downloads the bundle and offers revoke for a writable active certificate; request dialog validates SPIFFE ids', async () => {
     const cert = { id: 'c1', serial: '01', spiffe_id: 'spiffe://example.org/svc/api', status: 'active' as const, permissions: { write: true } }
     const posts: string[] = []
@@ -174,16 +199,19 @@ describe('certificates view', () => {
       if (url.includes('/certificates')) return { status: 200, body: { items: [cert] } }
       return { status: 200, body: { items: [] } }
     })
-    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} }))
+    const saved: Blob[] = []
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: (b: Blob) => { saved.push(b); return 'blob:x' }, revokeObjectURL: () => {} }))
     const w = mountView(Certificates)
     await flushPromises()
     await w.find('[data-test="cert-row-c1"]').trigger('click')
     await flushPromises()
     expect(drawer().querySelector('[data-test="cert-status"]')?.textContent).toContain('active')
     expect(drawer().querySelector('[data-test="cert-revoke"]')).toBeTruthy()
+    expect(drawer().querySelector('[data-test="cert-download-trust"]')).toBeTruthy()
     ;(drawer().querySelector('[data-test="cert-download-bundle"]') as HTMLButtonElement).click()
     await flushPromises()
     expect(drawer().querySelector('[data-test="cert-error"]')).toBeNull()
+    expect(await blobText(saved.at(-1)!)).toBe('C\nCH\n')
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await flushPromises()
     await w.find('[data-test="cert-issue-open"]').trigger('click')
