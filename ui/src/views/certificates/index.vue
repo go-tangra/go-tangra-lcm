@@ -175,10 +175,17 @@ async function run(fn: () => Promise<void>): Promise<void> {
     busy.value = false
   }
 }
-const download = (kind: 'cert' | 'chain' | 'bundle') => run(async () => {
+// joinPEM concatenates PEM blocks, each ending in exactly one newline.
+function joinPEM(...blocks: (string | undefined)[]): string {
+  return blocks.map((b) => b?.trim()).filter(Boolean).map((b) => b + '\n').join('')
+}
+// bundle is the full chain servers expect (leaf followed by its chain);
+// trust is the SPIFFE trust-domain roots, present only for SVIDs.
+const download = (kind: 'cert' | 'chain' | 'bundle' | 'trust') => run(async () => {
   const c = selected.value!
   bundle.value ??= await store.download(c.id)
-  const pem = kind === 'cert' ? bundle.value.cert_pem : kind === 'chain' ? bundle.value.chain_pem : bundle.value.bundle_pem
+  const b = bundle.value
+  const pem = kind === 'cert' ? b.cert_pem : kind === 'chain' ? b.chain_pem : kind === 'bundle' ? (b.cert_pem ? joinPEM(b.cert_pem, b.chain_pem) : '') : b.bundle_pem
   if (!pem) {
     error.value = 'That artifact is not available for this certificate.'
     return
@@ -292,6 +299,7 @@ const renew = async () => {
           <UiButton size="sm" variant="soft" :loading="busy" icon="mdi-file-certificate-outline" data-test="cert-download-cert" @click="download('cert')">Certificate</UiButton>
           <UiButton size="sm" variant="soft" :loading="busy" icon="mdi-link-variant" data-test="cert-download-chain" @click="download('chain')">Chain</UiButton>
           <UiButton size="sm" variant="soft" :loading="busy" icon="mdi-package-variant-closed" data-test="cert-download-bundle" @click="download('bundle')">Bundle</UiButton>
+          <UiButton v-if="selected.kind !== 'generic'" size="sm" variant="soft" :loading="busy" icon="mdi-shield-check-outline" data-test="cert-download-trust" @click="download('trust')">Trust bundle</UiButton>
           <UiButton v-if="selected.has_key" size="sm" variant="soft" color="warning" :loading="busy" icon="mdi-key-variant" data-test="cert-download-key" @click="downloadKey">Private key</UiButton>
         </div>
         <UiAlert v-if="error" kind="error" class="mt-3" data-test="cert-error">{{ error }}</UiAlert>
