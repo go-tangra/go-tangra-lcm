@@ -226,6 +226,8 @@ func TestIssuersAndCertificates(t *testing.T) {
 	mustStatus(t, f.req(t, "PUT", Prefix+"/certificates/"+certID, "admin", `{"owner":"`+apiBob+`"}`), http.StatusOK)
 	mustStatus(t, f.req(t, "GET", Prefix+"/certificates/"+certID+"/download", "admin", ""), http.StatusOK)
 	mustStatus(t, f.req(t, "POST", Prefix+"/certificates/"+certID+"/renew", "admin", ""), http.StatusOK)
+	mustStatus(t, f.req(t, "POST", Prefix+"/certificates/"+certID+"/renew", "admin", `{"new_key":true}`), http.StatusOK)
+	mustStatus(t, f.req(t, "POST", Prefix+"/certificates/"+certID+"/renew", "admin", `{"rekey":true}`), http.StatusUnprocessableEntity)
 	mustStatus(t, f.req(t, "POST", Prefix+"/certificates/"+certID+"/revoke", "admin", `{"reason":"keyCompromise"}`), http.StatusNoContent)
 	mustStatus(t, f.req(t, "POST", Prefix+"/certificates/"+certID+"/remove", "admin", ""), http.StatusNoContent)
 

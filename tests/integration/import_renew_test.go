@@ -2,7 +2,9 @@
 
 // An imported ACME certificate (issued elsewhere, e.g. by certbot) is renewed
 // by lcm through the issuer's own ACME account against a real Pebble, keeping
-// the imported key, and the renewal supersedes the imported row.
+// the imported key (even when the issuer's key type differs), and the renewal
+// supersedes the imported row; renewing with a new key switches to the
+// issuer's key type.
 //
 // Run: go test -tags integration -run ImportedCertificate ./tests/integration/
 // (needs Docker; skips cleanly without it).
@@ -10,6 +12,8 @@ package integration
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -65,7 +69,9 @@ func TestImportedCertificateRenewsThroughACME(t *testing.T) {
 		Name: "le", Type: "acme", TrustDomain: "*", Enabled: true,
 		// Loopback directory: lcm accepts Pebble's test TLS certificate.
 		ACMEDirectoryURL: "https://" + pebble.url("14000/tcp") + "/dir", ACMEEmail: "ops@example.org", DNSProvider: "manual",
-		Settings: sealed.Settings{"acme_account_key": string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: accDER}))},
+		// The issuer's key type differs from the imported RSA key: ordinary
+		// renewals must still keep the imported key.
+		Settings: sealed.Settings{"key_type": "ecdsa-p384", "acme_account_key": string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: accDER}))},
 	})
 	if err != nil {
 		t.Fatalf("issuer: %v", err)
@@ -129,5 +135,27 @@ func TestImportedCertificateRenewsThroughACME(t *testing.T) {
 	k, err := x509.ParsePKCS8PrivateKey(kb.Bytes)
 	if err != nil || !certKey.PublicKey.Equal(k.(*rsa.PrivateKey).Public()) {
 		t.Fatalf("renewed key: %v", err)
+	}
+
+	// Renewing with a new key replaces the key with one of the issuer's type.
+	rekeyed, err := svc.RenewWithNewKey(rctx, admin, renewed.Certificate.ID)
+	if err != nil {
+		t.Fatalf("renew with new key: %v", err)
+	}
+	blk, _ = pem.Decode([]byte(rekeyed.CertPEM))
+	leaf, err = x509.ParseCertificate(blk.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pub, ok := leaf.PublicKey.(*ecdsa.PublicKey); !ok || pub.Curve != elliptic.P384() {
+		t.Fatalf("rekeyed certificate key = %T, want ECDSA P-384", leaf.PublicKey)
+	}
+	keyPEM, err = svc.DownloadKey(ctx, admin, rekeyed.Certificate.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kb, _ = pem.Decode([]byte(keyPEM))
+	if k, err = x509.ParsePKCS8PrivateKey(kb.Bytes); err != nil || !leaf.PublicKey.(*ecdsa.PublicKey).Equal(k.(*ecdsa.PrivateKey).Public()) {
+		t.Fatalf("rekeyed stored key does not match the certificate: %v", err)
 	}
 }

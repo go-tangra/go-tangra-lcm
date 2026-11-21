@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"io"
@@ -83,6 +84,23 @@ func Status(err error) (int, string) {
 
 // DecodeJSON reads a bounded JSON body into v, refusing unknown fields and
 // trailing data. limit <= 0 means MaxBodyBytes.
+// decodeOptionalJSON is DecodeJSON for a body that may be absent: an empty body
+// (with or without a Content-Length, as proxies may forward it) leaves v as is.
+func decodeOptionalJSON(r *http.Request, v any) error {
+	if r.Body == nil || r.ContentLength == 0 {
+		return nil
+	}
+	br := bufio.NewReader(r.Body)
+	if _, err := br.Peek(1); err == io.EOF {
+		return nil
+	}
+	r.Body = struct {
+		io.Reader
+		io.Closer
+	}{br, r.Body}
+	return DecodeJSON(r, v, 0)
+}
+
 func DecodeJSON(r *http.Request, v any, limit int64) error {
 	if limit <= 0 {
 		limit = MaxBodyBytes

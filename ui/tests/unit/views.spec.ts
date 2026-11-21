@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { useConfirm } from '@go-tangra/ui'
 import { plugins, stubFetch } from './helpers'
 import Issuers from '@/views/issuers/index.vue'
 import Certificates from '@/views/certificates/index.vue'
@@ -168,8 +169,14 @@ describe('certificates view', () => {
     vi.stubGlobal('EventSource', FakeSource)
   })
   it('downloads a generic certificate bundle as certificate + chain and offers no trust bundle', async () => {
-    const cert = { id: 'c1', serial: '01', kind: 'generic' as const, status: 'active' as const, permissions: { write: true } }
-    stubFetch((url) => {
+    const cert = { id: 'c1', serial: '01', kind: 'generic' as const, issuer_id: 'i1', status: 'active' as const, permissions: { write: true } }
+    const renews: Array<string | null> = []
+    stubFetch((url, init) => {
+      if (url.endsWith('/certificates/c1/renew')) {
+        renews.push(init?.body ? String(init.body) : null)
+        return { status: 200, body: { certificate: { ...cert, id: 'c2' }, cert_pem: 'C2' } }
+      }
+      if (url.includes('/issuers')) return { status: 200, body: { items: [{ id: 'i1', name: 'le', type: 'acme', trust_domain: '*', settings: { key_type: 'rsa-2048' } }] } }
       if (url.endsWith('/certificates/c1/download')) return { status: 200, body: { certificate: cert, cert_pem: 'C\n', chain_pem: 'CH\n', bundle_pem: '' } }
       if (url.includes('/certificates')) return { status: 200, body: { items: [cert] } }
       return { status: 200, body: { items: [] } }
@@ -185,6 +192,14 @@ describe('certificates view', () => {
     await flushPromises()
     expect(drawer().querySelector('[data-test="cert-error"]')).toBeNull()
     expect(await blobText(saved.at(-1)!)).toBe('C\nCH\n')
+    // Renewing with a new key names the issuer's key type and asks the server for one.
+    const confirm = useConfirm()
+    ;(drawer().querySelector('[data-test="cert-renew-new-key"]') as HTMLButtonElement).click()
+    await flushPromises()
+    expect(confirm.state.pending?.text).toContain('rsa-2048')
+    confirm.answer(true)
+    await flushPromises()
+    expect(renews).toEqual([JSON.stringify({ new_key: true })])
     w.unmount()
   })
   it('downloads the bundle and offers revoke for a writable active certificate; request dialog validates SPIFFE ids', async () => {
@@ -208,6 +223,7 @@ describe('certificates view', () => {
     expect(drawer().querySelector('[data-test="cert-status"]')?.textContent).toContain('active')
     expect(drawer().querySelector('[data-test="cert-revoke"]')).toBeTruthy()
     expect(drawer().querySelector('[data-test="cert-download-trust"]')).toBeTruthy()
+    expect(drawer().querySelector('[data-test="cert-renew-new-key"]')).toBeNull() // SVIDs get a new key on every renewal
     ;(drawer().querySelector('[data-test="cert-download-bundle"]') as HTMLButtonElement).click()
     await flushPromises()
     expect(drawer().querySelector('[data-test="cert-error"]')).toBeNull()

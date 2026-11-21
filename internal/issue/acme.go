@@ -3,8 +3,6 @@ package issue
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -122,7 +120,7 @@ func (s *Service) obtainACME(ctx context.Context, subj authz.Subjects, requestID
 		}
 		csrDER = parsed.CSR.Raw
 	} else {
-		key, gerr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		key, gerr := generateKey(issuerKeyType(issuer))
 		if gerr != nil {
 			return Bundle{}, gerr
 		}
@@ -342,8 +340,9 @@ func isLoopbackURL(u string) bool {
 // reusing old's stored private key when available (so pinned deployments keep a
 // stable key) and superseding the old row. It preserves the original owner so
 // an auto-renew by the system scheduler does not reassign ownership. It runs the
-// same ACME order flow as ObtainACME.
-func (s *Service) renewACME(ctx context.Context, subj authz.Subjects, old store.IssuedCertificate) (Bundle, error) {
+// same ACME order flow as ObtainACME. newKey discards the stored key and mints
+// one of the issuer's current key type instead.
+func (s *Service) renewACME(ctx context.Context, subj authz.Subjects, old store.IssuedCertificate, newKey bool) (Bundle, error) {
 	var domains []string
 	if len(old.SANs) > 0 {
 		_ = json.Unmarshal(old.SANs, &domains)
@@ -368,9 +367,10 @@ func (s *Service) renewACME(ctx context.Context, subj authz.Subjects, old store.
 	}
 
 	certID := store.NewID()
-	// Reuse the stored key when we have it; otherwise mint a fresh one.
+	// Reuse the stored key when we have it, unless the caller asked for a new
+	// one; otherwise mint a fresh key of the issuer's key type.
 	var key crypto.Signer
-	if len(old.KeySealed) > 0 {
+	if len(old.KeySealed) > 0 && !newKey {
 		if clear, oerr := s.env.Open(old.KeySealed, sealed.ADCertKey(old.ID)); oerr == nil {
 			if k, perr := parseAccountKey(string(clear)); perr == nil {
 				key = k
@@ -378,7 +378,7 @@ func (s *Service) renewACME(ctx context.Context, subj authz.Subjects, old store.
 		}
 	}
 	if key == nil {
-		gk, gerr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		gk, gerr := generateKey(issuerKeyType(issuer))
 		if gerr != nil {
 			return Bundle{}, gerr
 		}

@@ -267,7 +267,20 @@ func (s *Server) RegisterCertificates(d CertDeps) {
 			Fail(w, r, nil, err)
 			return
 		}
-		b, err := d.Issue.Renew(r.Context(), subj, r.PathValue("id"))
+		// An optional {"new_key": true} body renews with a newly generated key
+		// of the issuer's key type instead of keeping the stored one.
+		var in struct {
+			NewKey bool `json:"new_key"`
+		}
+		if derr := decodeOptionalJSON(r, &in); derr != nil {
+			Fail(w, r, nil, derr)
+			return
+		}
+		renew := d.Issue.Renew
+		if in.NewKey {
+			renew = d.Issue.RenewWithNewKey
+		}
+		b, err := renew(r.Context(), subj, r.PathValue("id"))
 		if err != nil {
 			s.fail(w, r, issueError(err))
 			return

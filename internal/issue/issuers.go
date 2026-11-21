@@ -65,6 +65,9 @@ func (s *Service) validate(in IssuerInput) error {
 	if !store.ValidIssuerTrustDomain(in.Type, in.TrustDomain) {
 		return invalid("trust_domain", "trust domain is not a valid host")
 	}
+	if kt := settingsKeyType(in.Settings); kt != "" && !validKeyType(kt) {
+		return invalid("key_type", "key type must be ecdsa-p256, ecdsa-p384, rsa-2048 or rsa-4096")
+	}
 	if in.Type == "acme" && in.DNSProvider != "" && !acme.IsSupported(in.DNSProvider) {
 		return invalid("dns_provider", "DNS provider "+in.DNSProvider+" is not supported")
 	}
